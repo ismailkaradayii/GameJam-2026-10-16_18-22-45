@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: b3a2e4940a67499e9740976481773b4d
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 8574412962073106934
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 324964
+  packageName: 'Pure Nature 2 : Volcano'
+  packageVersion: 1.1
+  assetPath: Assets/BK/PureNature_Volcano/Textures/Surfaces/Layers/Mud.terrainlayer
+  uploadId: 962316

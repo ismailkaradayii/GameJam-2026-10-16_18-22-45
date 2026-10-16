@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: c7d7a57107b547678cdcee361d21d23c
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 8574412962073106934
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 324964
+  packageName: 'Pure Nature 2 : Volcano'
+  packageVersion: 1.1
+  assetPath: Assets/BK/PureNature_Volcano/Textures/Surfaces/Layers/LavaDry.terrainlayer
+  uploadId: 962316

@@ -1,0 +1,18 @@
+fileFormatVersion: 2
+guid: b35d62b77964bf1438253f33bcce57f0
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 324964
+  packageName: 'Pure Nature 2 : Volcano'
+  packageVersion: 1.1
+  assetPath: Assets/BK/Pure_Common/Scripts/BK_Lava.cs
+  uploadId: 962316

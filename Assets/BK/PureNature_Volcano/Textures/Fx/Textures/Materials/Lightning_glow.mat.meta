@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: a03bdf8731d94489bf30ab465b821735
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 324964
+  packageName: 'Pure Nature 2 : Volcano'
+  packageVersion: 1.1
+  assetPath: Assets/BK/PureNature_Volcano/Textures/Fx/Textures/Materials/Lightning_glow.mat
+  uploadId: 962316

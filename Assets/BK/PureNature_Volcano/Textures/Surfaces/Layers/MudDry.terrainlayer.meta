@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: b8f167e698144e64a9c6136902b2b40c
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 8574412962073106934
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 324964
+  packageName: 'Pure Nature 2 : Volcano'
+  packageVersion: 1.1
+  assetPath: Assets/BK/PureNature_Volcano/Textures/Surfaces/Layers/MudDry.terrainlayer
+  uploadId: 962316

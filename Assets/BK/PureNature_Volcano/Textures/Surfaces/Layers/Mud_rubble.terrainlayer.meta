@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 518dc95633c04075b3aa11d0a4cf69b9
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 8574412962073106934
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 324964
+  packageName: 'Pure Nature 2 : Volcano'
+  packageVersion: 1.1
+  assetPath: Assets/BK/PureNature_Volcano/Textures/Surfaces/Layers/Mud_rubble.terrainlayer
+  uploadId: 962316
