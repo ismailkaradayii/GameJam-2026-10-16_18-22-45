@@ -10,10 +10,11 @@ namespace GameJam.FireRescue
     [DisallowMultipleComponent, DefaultExecutionOrder(-200)]
     public sealed class RescueGameFlow : MonoBehaviour
     {
-        public enum GameState { Playing, Paused, Won, Lost }
+        public enum GameState { Playing, Paused, Won, Lost, ReturningToShelter }
         public enum LossReason { None, PlayerDefeated, AllVillagersLost, VillageBurned }
         public BurnableBuilding[] targetBuildings = Array.Empty<BurnableBuilding>();
         public FireRescuePlayer player;
+        public ShelterReturnCinematic victoryCinematic;
         public string mainMenuSceneName = "MainMenu";
         [Header("Result presentation")]
         [Min(0f)] public float resultDelaySeconds = 2.4f;
@@ -26,6 +27,7 @@ namespace GameJam.FireRescue
         public bool IsConfigured => targets.Count > 0;
         public bool ReturningToMenu => returningToMenu;
         public bool HasResult => State == GameState.Won || State == GameState.Lost;
+        public bool IsVictoryCinematic => State == GameState.ReturningToShelter;
         public float EndingProgress => HasResult ? Mathf.Clamp01((Time.unscaledTime - finishedAt) / Mathf.Max(.01f, resultDelaySeconds)) : 0f;
         public bool ResultReady => HasResult && (resultDelaySeconds <= 0 || EndingProgress >= 1f);
         public float ResultRevealElapsed => HasResult ? Mathf.Max(0, Time.unscaledTime - finishedAt - Mathf.Max(0, resultDelaySeconds)) : 0f;
@@ -62,6 +64,7 @@ namespace GameJam.FireRescue
         }
         void OnDisable()
         {
+            if (victoryCinematic) victoryCinematic.Cancel();
             foreach (var house in targets) if (house) house.Rescued -= OnHouseRescued;
             ReleasePause();
         }
@@ -137,22 +140,36 @@ namespace GameJam.FireRescue
         }
         public void FinishMission(bool success, LossReason reason = LossReason.None)
         {
-            if (State == GameState.Won || State == GameState.Lost || returningToMenu) return;
+            if (HasResult || returningToMenu || IsVictoryCinematic && success) return;
             // Thermal damage may kill the last villager later in the same frame as a victory check.
             var villageLoss = VillageLossReason();
             if (villageLoss != LossReason.None) { success = false; reason = villageLoss; }
             DefeatReason = success ? LossReason.None : reason == LossReason.None ? LossReason.PlayerDefeated : reason;
+            if (!success && victoryCinematic) victoryCinematic.Cancel();
             var cinematic = FindFirstObjectByType<VolcanoCinematic>();
             if (cinematic) cinematic.EndShot();
             var encounter = FindFirstObjectByType<LavaCreatureEncounter>();
             if (encounter) encounter.StopEncounter();
             completionPending = false;
+            if (success && victoryCinematic && victoryCinematic.isActiveAndEnabled)
+            {
+                ReleasePause();
+                if (player) player.SetGameplaySuspended(false);
+                State = GameState.ReturningToShelter;
+                if (victoryCinematic.Begin(this)) { StateChanged?.Invoke(State); return; }
+            }
             Suspend(success ? GameState.Won : GameState.Lost);
+        }
+        internal void CompleteVictoryCinematic(ShelterReturnCinematic sequence)
+        {
+            if (!IsVictoryCinematic || returningToMenu || sequence != victoryCinematic || !sequence.HasCompleted) return;
+            Suspend(GameState.Won);
         }
         public void RestartMission()
         {
             if (returningToMenu) return;
             returningToMenu = true; ownsPause = false; Time.timeScale = 1f;
+            if (victoryCinematic) victoryCinematic.Cancel();
             var cinematic = FindFirstObjectByType<VolcanoCinematic>();
             if (cinematic) cinematic.EndShot();
             if (player) player.SetGameplaySuspended(true);
@@ -168,6 +185,7 @@ namespace GameJam.FireRescue
                 return;
             }
             returningToMenu = true;
+            if (victoryCinematic) victoryCinematic.Cancel();
             if (player) player.SetGameplaySuspended(true);
             ownsPause = false; Time.timeScale = 1f;
             Cursor.lockState = CursorLockMode.None; Cursor.visible = true;

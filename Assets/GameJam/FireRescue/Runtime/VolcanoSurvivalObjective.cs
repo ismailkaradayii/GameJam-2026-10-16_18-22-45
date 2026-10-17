@@ -78,7 +78,7 @@ namespace GameJam.FireRescue
             if (rescueFlow)
             {
                 rescueFlow.FinishMission(result == MissionState.Won, reason);
-                State = rescueFlow.State == RescueGameFlow.GameState.Won ? MissionState.Won : MissionState.Lost;
+                if (rescueFlow.HasResult) State = rescueFlow.State == RescueGameFlow.GameState.Won ? MissionState.Won : MissionState.Lost;
                 return;
             }
             State = result; if (encounter) encounter.StopEncounter();

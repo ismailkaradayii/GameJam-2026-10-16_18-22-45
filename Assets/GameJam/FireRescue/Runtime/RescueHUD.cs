@@ -317,7 +317,7 @@ namespace GameJam.FireRescue
                 if (objectiveText) objectiveText.transform.parent.gameObject.SetActive(playing && (!missionDirector || !missionDirector.EruptionTriggered));
             }
             bool survivalFinished = survivalObjective && survivalObjective.IsFinished;
-            bool showOutcome = (flow.HasResult || survivalFinished) && (!flow.HasResult || flow.ResultReady);
+            bool showOutcome = !flow.IsVictoryCinematic && (flow.HasResult || survivalFinished) && (!flow.HasResult || flow.ResultReady);
             PresentOutcome(showOutcome);
             if (showOutcome) UpdateOutcome(survivalFinished);
 

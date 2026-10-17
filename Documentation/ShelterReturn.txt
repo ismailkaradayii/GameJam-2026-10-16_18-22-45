@@ -1,0 +1,50 @@
+Basarili gorev kapanisi
+======================
+
+Sahne: Assets/BK/PureNature_Volcano/Scenes/Volcano_Demo.unity
+
+Mevcut hayatta kalma/gorev degerlendiricisi basariyi belirlemeye devam eder.
+Basari tetiklendiginde RescueGameFlow once ReturningToShelter durumuna gecer.
+Bu durumda sonuc ekrani veya bitis karartmasi acilmaz. Mevcut VolcanoCinematic
+kamera/kontrol sahipligi kullanilarak oyuncunun son bakisindan kesintisiz devam edilir.
+
+Kamera, mevcut NavMesh uzerinden 2.6 m/s hizla siginaga doner. Ilk kadraj mevcut
+oyun kamerasiyla aynidir; gorus yuksekligi ve bakis yumusakca sinematik goruse
+gecer. Oyuncu modeli bu birinci sahis cekimi icin gizlenir; donus, oynanis motorunu
+degistiren yeni bir yurume mekanigi degildir. Kazanilmis sonuc korunurken yeni
+yangin/hasar ve dusman dalgalari durur; siginaktaki insanlar animasyonlarini surdurur.
+
+Yol boyunca Turkce ic konusma altyazilari sunlari anlatir:
+- Kucuk uyari isaretlerini ciddiye almak.
+- Tahliye plani ve acil durum cantasini onceden hazirlamak.
+- Resmi uyarilari, toplanma yerini ve guvenli yollari bilmek.
+- Birbirini haberdar etmek ve yardima ihtiyaci olanlari unutmamak.
+- Yetkililer guvenli demeden siginaktan cikmamak.
+
+Siginaga varinca kamera gercek kurtarilan NPC'lere doner. Son ic konusma ve en az
+8 saniyelik bakis bittikten sonra mevcut basari gecisi ve sonuc Canvas'i acilir.
+Son kadraj oyun kamerasina aynen aktarilir; kamera savasin bittigi konuma geri sicramaz.
+Basarisizlik mevcut sonuc akisiyla devam eder. Yeniden baslatma kamera/kontrol,
+zaman ve gecici sahne durumunu temizler; giris sinematigi yeniden oynar.
+
+Duzenleme: RescueGameFlow.victoryCinematic uzerindeki ShelterReturnCinematic.
+Hiz, ilk gecis, gorus acisi, son bakis suresi, cumleler ve sureleri duzenlenebilir.
+Her cumlede istege bagli AudioClip alani vardir. Hazir durumda Turkce altyazi
+kullanilir; yeni kayitli/sentetik seslendirme dosyasi eklenmemistir.
+
+Editor: GameJam > Ending > Bind shelter return / Refine survivor view /
+Run closing sequence checks. Mevcut arazi, evler, NavMesh, NPC yerleri ve acilis
+baglantilari bu kurulumda degistirilmez. Gorus aramasi, siginak yaklasimindan tam
+yolu olan ve insanlarin onundeki kayalarla gorusu kesilmeyen noktalar arasindan secer.
+
+Kontrol raporlari ve oyun ici goruntuler: Library/ShelterReturnReview.
+Kontrol, hazir basari degerlendiricisini, sonlu dalga/mermi/su API'lerini ve asil
+NPC'leri kullanir; NPC'ler kontrol duzeneginde kendi siginak yerlerine yerlestirilir.
+Butun savas ve tahliyenin elle oynandigi iddia edilmez.
+
+18 Ekim 2026, Unity 6000.0.58f2: derleme ve kapanis entegrasyonu COMPLETED.
+Mevcut basari hesabi kapanisi baslatti; kamera ilk karede ayni bakisi korudu,
+kesintisiz rotadan siginaga ulasti ve son kadrajda 7/7 gercek kurtarilan NPC gorundu.
+Onlem/farkindalik cumleleri, son bakis, gecikmeli sonuc Canvas'i, yaya/aracta
+basari, yeniden baslatma, kapanisi yeniden baslatmayla kesme ve mevcut yenilgi
+akisi gecti. Son kamera savas alanina geri donmedi.

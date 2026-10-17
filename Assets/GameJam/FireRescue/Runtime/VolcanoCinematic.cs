@@ -7,7 +7,7 @@ namespace GameJam.FireRescue
     [DisallowMultipleComponent, DefaultExecutionOrder(300)]
     public sealed class VolcanoCinematic : MonoBehaviour
     {
-        public enum ShotKind { Intro, Eruption, Spirits }
+        public enum ShotKind { Intro, Eruption, Spirits, ShelterReturn }
         public const float Duration = 10f; // Compatibility for older editor tools.
         public FireRescuePlayer player;
         public Transform crater;
@@ -34,8 +34,11 @@ namespace GameJam.FireRescue
         public bool HasSpiritsPlayed { get; private set; }
         public ShotKind Kind { get; private set; }
         public float Elapsed { get; private set; }
-        public Vector3 FocusPosition => subject ? subject.position + (Kind == ShotKind.Eruption ? eruptionFocusOffset : Vector3.up * 1.5f) : returnPosition;
+        public Vector3 FocusPosition => Kind == ShotKind.ShelterReturn ? ReturnFocus :
+            subject ? subject.position + (Kind == ShotKind.Eruption ? eruptionFocusOffset : Vector3.up * 1.5f) : returnPosition;
         public Camera ShotCamera => shot;
+        public string ReturnNarration { get; set; }
+        public Vector3 ReturnFocus { get; set; }
         public static bool IsPlayingAny { get; private set; }
         Camera shot;
         Transform subject;
@@ -77,6 +80,8 @@ namespace GameJam.FireRescue
             Time.fixedDeltaTime = previousFixedStep * spiritTimeScale;
             UpdatePose();
         }
+        /// <summary>The closing sequence drives this camera; the existing input/camera lease stays shared.</summary>
+        public bool BeginShelterReturn() => Begin(ShotKind.ShelterReturn, float.MaxValue);
         bool Begin(ShotKind kind, float seconds)
         {
             if (IsPlaying || !player || !player.viewCamera) return false;
@@ -123,6 +128,7 @@ namespace GameJam.FireRescue
         void UpdatePose()
         {
             if (!shot) return;
+            if (Kind == ShotKind.ShelterReturn) return;
             if (Kind == ShotKind.Intro)
             {
                 float t = Mathf.SmoothStep(0, 1, Elapsed / shotDuration);
@@ -169,10 +175,14 @@ namespace GameJam.FireRescue
             }
             shot.transform.SetPositionAndRotation(position, rotation); shot.fieldOfView = fov;
         }
-        public void EndShot()
+        public void EndShot() => EndShot(false);
+        public void EndShot(bool keepFinalPose)
         {
             if (!IsPlaying) return;
+            if (keepFinalPose && shot)
+            { returnPosition = shot.transform.position; returnRotation = shot.transform.rotation; returnFov = shot.fieldOfView; }
             IsPlaying = IsPlayingAny = false;
+            ReturnNarration = "";
             if (ownsSlowMotion) { Time.timeScale = previousTimeScale; Time.fixedDeltaTime = previousFixedStep; ownsSlowMotion = false; }
             if (player)
             {
@@ -211,13 +221,15 @@ namespace GameJam.FireRescue
             GUI.DrawTexture(new Rect(0, 0, Screen.width, bar), Texture2D.whiteTexture);
             GUI.DrawTexture(new Rect(0, Screen.height - bar, Screen.width, bar), Texture2D.whiteTexture);
             if (caption == null) caption = new GUIStyle(GUI.skin.label) { alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Bold };
-            if (Ashfall.UI.AshfallTypography.Modular) caption.font = Ashfall.UI.AshfallTypography.Modular;
+            var storyFont = Kind == ShotKind.ShelterReturn && player && player.mission && player.mission.story ? player.mission.story.subtitleFont : null;
+            caption.font = storyFont ? storyFont : Ashfall.UI.AshfallTypography.Modular;
+            caption.wordWrap = Kind == ShotKind.ShelterReturn;
             caption.fontSize = Mathf.RoundToInt(Mathf.Clamp(Screen.height / 40f, 14, 30));
             caption.normal.textColor = new Color(1, .83f, .6f);
             GUI.color = Color.white;
-            string message = Kind == ShotKind.Intro ? "ASHFALL  |  EVERY SECOND COUNTS" : Kind == ShotKind.Spirits ?
+            string message = Kind == ShotKind.ShelterReturn ? ReturnNarration : Kind == ShotKind.Intro ? "ASHFALL  |  EVERY SECOND COUNTS" : Kind == ShotKind.Spirits ?
                 "DEFEND THE VILLAGE! SHOOT THE FIRE SPIRITS!" : "The Volcano has awakened";
-            GUI.Label(new Rect(0, Screen.height - bar, Screen.width, bar), message, caption);
+            GUI.Label(new Rect(Screen.width * .08f, Screen.height - bar, Screen.width * .84f, bar), message, caption);
             GUI.color = color; GUI.depth = depth;
         }
     }
