@@ -1,0 +1,56 @@
+18 Ekim 2026 — Ismail, Eylul ve Osman dallarinin main birlesimi
+
+Kaynak commit'ler:
+ismail1810: b711b0e64e76bfe46b08c756c89f163512e2013d
+eylul1810: 852b80da5c6313cbb3db2b2aa715a70ac62feae2
+osman1710-6: e83f0aa8673e949cd65a015433157c367668a812
+Onceki main: f62d64e
+
+Dal gecmisleri iki merge commit'i ile korundu:
+90fdffe: Eylul UI ve ses zamanlamasi, Ismail'in kapanisiyla birlestirildi.
+e931f62: Osman giris/kamera, ruh tanitimi, gorev oku ve arac etkilesimi eklendi.
+
+Ortak alanlardaki kararlar:
+- Volcano_Demo sahnesi fileID bazinda uc yonlu birlestirildi. Osman'in
+  yeni yatak odasi rotasi ve yon oku, Ismail'in kapanis hedefleriyle birlikte
+  korundu. Son sahnede 8185 belge var; mevcut nesne silinmedi.
+- Eylul'un gorev karti yerlesimi ve Ingilizce UI metinleri korundu. Degisen
+  arac/pompa aciklamalari gercek tuslara uyarlandi: E binis/inis, P gol dolumu.
+  Aractan inme siniri 20 km/sa altinda. Osman'in ruh tanitim karti ve Ismail'in
+  Turkce kapanis ic konusmalari kendi sunumlarini koruyor.
+- Ortak VolcanoCinematic kamera/girdi yonetimi hem donmus ruh tanitimini
+  hem siginaga donusu destekler. Zaman, fizik, kamera ve kontrol temizligi
+  her iki sinematikte de korunur.
+- Siren, Q ile cagirma, mevcut NPC takip/yuruyus, su dolumu, savunma,
+  kaybetme ve yeniden baslatma akislari korunur.
+- Sahne yeniden siralandigi icin olusan buyuk metin farki, nesne bazinda
+  birlestirildi. Terrain/NavMesh ikili dosya kurallari korundu.
+- Senaryo testlerinin metin beklentileri Eylul'un cevirilerine, gol tusu
+  Osman'in P baglamasina uyarlandi; oynanis dogrulamalari korundu.
+
+Unity 6000.0.58f2 ile birlesmis main uzerinde dogrulama:
+- Derleme ve sahne yukleme: basarili.
+- Kayitli sahne/baglantilar: 11/11.
+- Giris, pencere kamerasi, ruh tanitimi ve yonlendirme: 27/27.
+- E ile arac etkilesimi ve P ile gercek su transferi: 13/13.
+- Senaryo: 35 farkli kontrol; siren, tek Q ile 7 kisi, gercek NavMesh
+  yuruyusu ile 7/7 siginak, gol dolumu, donus, patlama ve yeniden baslatma.
+- Kapanis: 18/18; gercek basari kosullari, kesintisiz donus, 7/7 kisiye
+  son bakis, geciktirilen basari ekrani, aractan kapanis, iptal ve yenilgi.
+- Statik sahne incelemesi: 0 tekrar eden fileID, 0 yeni kopuk yerel referans,
+  0 tekrar eden asset GUID'i, 0 yeni eksik script referansi.
+
+Yerel ayrintili raporlar (Library/Logs Git'e eklenmez):
+Logs/BranchMerge/validation.txt
+Logs/SpiritIntroduction/report.json
+Logs/VehicleInteractionChecks.txt
+Library/VolcanoStoryReview/checks.txt
+Library/ShelterReturnReview/full-checks.txt
+Library/TeamMerge1810/structural-audit.json
+
+Kontroller Editor Play Mode'da gercek frameler ve sentetik Input System
+girdileri kullanir. Senaryo testi NPC'leri fiziksel olarak siginaga yurutur;
+uzun surus bolumlerinde araci kontrol noktalarina yerlestirir. Kapanis testi
+mevcut su/mermi API'lari ve basari degerlendiricisini kullanir, kurtarilan
+NPC'leri gercek siginak yerlerine dizer. Tam manuel oyun turu, kaydedilmis
+konusma sesi veya dagitilabilir oyuncu build'i bu kontrolun parcasi degildir.
