@@ -130,9 +130,16 @@ namespace GameJam.FireRescue
         {
             // Keep the compact volcanic frames, but use their available area more effectively.
             // Best-fit provides a safe fallback for translations and narrower aspect ratios.
-            FitText(questTitleText, 18, 25, false);
+            FitText(questTitleText, 18, 25, true);
             FitText(questBodyText, 16, 20, true);
-            FitText(questHintText, 15, 19, false);
+            FitText(questHintText, 15, 19, true);
+            if (cleanPresentation)
+            {
+                // The clean layout measures wrapped text and grows the card to fit it.
+                if (questTitleText) questTitleText.resizeTextForBestFit = false;
+                if (questBodyText) questBodyText.resizeTextForBestFit = false;
+                if (questHintText) questHintText.resizeTextForBestFit = false;
+            }
             if (questTitleText)
                 FitText(questTitleText.transform.parent.Find("QuestKicker")?.GetComponent<Text>(), 14, 17, false);
             FitText(objectiveText, 15, 19, false);
@@ -274,13 +281,13 @@ namespace GameJam.FireRescue
             if (waterFill) waterFill.fillAmount = hose.Tank01;
             if (pumpText) pumpText.text = Ashfall.UI.AshfallTypography.NaturalCase(player.WaterStatus);
             if (pumpText && drive && drive.Thermal && drive.Thermal.Integrity01 < .999f)
-                pumpText.text = (drive.IsWrecked ? "ARAÇ KULLANILAMAZ" : drive.Thermal.IsBurning ? "ARAÇ YANIYOR!" : "Araç hasarlı") +
-                    "  ·  Durum %" + Mathf.CeilToInt(drive.Thermal.Integrity01 * 100f) +
-                    "  ·  Pompa %" + Mathf.RoundToInt(drive.Thermal.PumpEfficiency * 100f);
+                pumpText.text = (drive.IsWrecked ? "TRUCK INOPERABLE" : drive.Thermal.IsBurning ? "TRUCK ON FIRE!" : "Truck damaged") +
+                    "  ·  Integrity " + Mathf.CeilToInt(drive.Thermal.Integrity01 * 100f) +
+                    "%  ·  Pump " + Mathf.RoundToInt(drive.Thermal.PumpEfficiency * 100f) + "%";
             if (pumpText && player.IsDriving && drive && drive.Thermal && drive.Thermal.IsBurning && !drive.IsWrecked)
-                pumpText.text += drive.Thermal.InHotLava ? "  ·  LAVDAN ÇIK!" :
-                    drive.Thermal.AutomaticSuppressionActive ? "  ·  Otomatik söndürme devrede" :
-                    hose && hose.TankLitres > 0f ? "  ·  X basılı tut: söndür" : "  ·  Söndürme için su gerekli";
+                pumpText.text += drive.Thermal.InHotLava ? "  ·  LEAVE THE LAVA!" :
+                    drive.Thermal.AutomaticSuppressionActive ? "  ·  Automatic suppression active" :
+                    hose && hose.TankLitres > 0f ? "  ·  Hold X to extinguish" : "  ·  Water required to extinguish";
             if (speedText) speedText.text = player.IsDriving && drive ? Mathf.RoundToInt(drive.SpeedKph) + " km/h" : "On foot";
             bool showHealth = playing && vitals && vitals.Health < vitals.maximumHealth - .1f;
             if (healthPanel && healthPanel.activeSelf != showHealth) healthPanel.SetActive(showHealth);
@@ -364,6 +371,8 @@ namespace GameJam.FireRescue
                 laidOutTitle = questTitleText.text; laidOutBody = questBodyText.text; laidOutHint = questHintText.text; laidOutWidth = width;
                 cleanQuest.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, width);
                 float textWidth = width - 40f;
+                var kicker = cleanQuest.Find("QuestKicker") as RectTransform;
+                if (kicker) kicker.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, textWidth);
                 float y = 38f;
                 y += PlaceText(questTitleText, 20, y, textWidth, 30) + 8f;
                 y += PlaceText(questBodyText, 20, y, textWidth, 24);
@@ -405,12 +414,12 @@ namespace GameJam.FireRescue
                 (flow.DefeatReason == RescueGameFlow.LossReason.AllVillagersLost || flow.DefeatReason == RescueGameFlow.LossReason.VillageBurned))
             {
                 bool villageBurned = flow.DefeatReason == RescueGameFlow.LossReason.VillageBurned;
-                if (victoryTitleText) victoryTitleText.text = villageBurned ? "KÖY YANDI" : "BÜTÜN KÖYLÜLER ÖLDÜ";
-                if (victoryDetailText) victoryDetailText.text = villageBurned ? "Bütün evler tamamen yandı. Köyü kurtaramadın." : "Köylülerin tamamı yangında hayatını kaybetti.";
+                if (victoryTitleText) victoryTitleText.text = villageBurned ? "VILLAGE DESTROYED" : "ALL VILLAGERS LOST";
+                if (victoryDetailText) victoryDetailText.text = villageBurned ? "All houses burned down. The village was lost." : "All villagers were lost in the fire.";
                 int standing = 0;
                 foreach (var house in flow.targetBuildings) if (house && !house.IsBurnedOut) standing++;
-                if (victoryStatsText) victoryStatsText.text = "Kurtarılan köylüler   " + (evacuation ? evacuation.RescuedCount + " / " + evacuation.TotalCount : "0") +
-                    "\nHayatını kaybedenler   " + (evacuation ? evacuation.DeadCount : 0) + "\nAyakta kalan evler   " + standing + " / " + flow.TargetCount;
+                if (victoryStatsText) victoryStatsText.text = "Villagers saved   " + (evacuation ? evacuation.RescuedCount + " / " + evacuation.TotalCount : "0") +
+                    "\nVillagers lost   " + (evacuation ? evacuation.DeadCount : 0) + "\nHouses standing   " + standing + " / " + flow.TargetCount;
                 if (outcomeRestartButton) outcomeRestartButton.gameObject.SetActive(true);
                 if (victoryMenuButton) victoryMenuButton.GetComponent<RectTransform>().anchoredPosition = new Vector2(400, -340);
                 return;
@@ -458,7 +467,7 @@ namespace GameJam.FireRescue
                 questTitleText.text = mission.ObjectiveTitle;
                 questBodyText.text = mission.ObjectiveDetail;
                 if (evacuation && (mission.EruptionTriggered || evacuation.DeadCount > 0))
-                    questBodyText.text += "\nSığınakta: " + evacuation.RescuedCount + "/" + evacuation.TotalCount + "  ·  Kayıp: " + evacuation.DeadCount + "  ·  Dışarıda: " + evacuation.RemainingCount;
+                    questBodyText.text += "\nSheltered: " + evacuation.RescuedCount + "/" + evacuation.TotalCount + "  ·  Lost: " + evacuation.DeadCount + "  ·  Outside: " + evacuation.RemainingCount;
                 questHintText.text = mission.EruptionTriggered ? "Wave " + Mathf.Max(1, encounter ? encounter.WaveNumber : 0) + "/" + (encounter ? encounter.WaveCount : 0) +
                     "  |  Spirits remaining: " + (encounter ? encounter.PlannedCount - encounter.SpawnedCount + encounter.AliveCount : 0) :
                     mission.Phase == VolcanoMissionDirector.MissionPhase.Evacuate && evacuation ? "Villagers Evacuated: " + evacuation.RescuedCount + "/" + evacuation.TotalCount + "  |  Called: " + evacuation.CalledCount :
@@ -474,7 +483,7 @@ namespace GameJam.FireRescue
                 questTitleText.text = "Evacuate the villagers";
                 questBodyText.text = "Sheltered  " + evacuation.RescuedCount + " / " + evacuation.TotalCount +
                     "     Called  " + evacuation.CalledCount + " / " + evacuation.TotalCount + "\n" +
-                    (evacuation.CalledCount < evacuation.TotalCount ? "Alarm çaldı. Q ile 'Buraya gelin!' diye seslen." : "Köylüleri sığınağa götür.");
+                    (evacuation.CalledCount < evacuation.TotalCount ? "The alarm is sounding. Press Q to call the villagers." : "Lead the villagers to the shelter.");
                 questHintText.text = player.IsDriving ? "F  Exit vehicle" : evacuation.CooldownRemaining > 0f ? "Q  Call again  ·  " + Mathf.CeilToInt(evacuation.CooldownRemaining) + " sec" : "Q  Buraya gelin!  ·  " + evacuation.DestinationHintForHud;
                 questFill.fillAmount = evacuation.TotalCount > 0 ? (float)evacuation.RescuedCount / evacuation.TotalCount : 0f;
                 return;

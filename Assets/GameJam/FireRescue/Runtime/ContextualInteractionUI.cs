@@ -210,7 +210,7 @@ namespace GameJam.FireRescue
                     offer.title = words.activateAlarm; offer.input = InteractionInput.Interact;
                     offer.blocked = !target.alarm.CanPress;
                     offer.detail = !player.HasPistol ? words.alarmNeedsPistol : player.pistol && player.pistol.IsReloading ? words.alarmReloading :
-                        !target.alarm.InReach ? words.alarmGetCloser : "Köy sirenlerini çalıştır";
+                        !target.alarm.InReach ? words.alarmGetCloser : "Activate the village siren";
                     return true;
                 case ContextualInteractionKind.Pistol:
                     if (!mission.weaponPickup || !mission.weaponPickup.CanPickUp) return false;
@@ -256,7 +256,7 @@ namespace GameJam.FireRescue
                     if (cachedSafeCount != evacuation.RescuedCount || cachedTotalCount != evacuation.TotalCount)
                     {
                         cachedSafeCount = evacuation.RescuedCount; cachedTotalCount = evacuation.TotalCount;
-                        shelterDetail = words.shelterAutomatic + "\n" + cachedSafeCount + " / " + cachedTotalCount + " güvende";
+                        shelterDetail = words.shelterAutomatic + "\n" + cachedSafeCount + " / " + cachedTotalCount + " safe";
                     }
                     offer.detail = shelterDetail; return true;
                 case ContextualInteractionKind.LakeFill:
@@ -315,7 +315,7 @@ namespace GameJam.FireRescue
             inputLabels[1] = KeyLabel(lastInteract); inputLabels[2] = KeyLabel(lastExit); inputLabels[3] = KeyLabel(lastCall);
             inputLabels[4] = KeyLabel(lastRetract); inputLabels[5] = KeyLabel(lastPump);
             inputLabels[6] = labelMouse != null ? "[" + labelMouse.rightButton.displayName + "]" : "";
-            retractBeforeEntryDetail = inputLabels[4] + " ile hortumu aracın arkasından topla";
+            retractBeforeEntryDetail = inputLabels[4] + " to retract the hose at the rear of the truck";
             enablePumpDetail = inputLabels[5] + " · " + (words ? words.enablePump : "");
             disablePumpDetail = inputLabels[5] + " · " + (words ? words.disablePump : "");
             drivingDetail = words ? string.Format(words.drivingHint, inputLabels[6]) : "";

@@ -52,20 +52,20 @@ namespace GameJam.FireRescue
                 if (i < houseLabels.Length && houseLabels[i])
                 {
                     houseLabels[i].text = compactLabels ? (i + 1) + (ruined ? "  LOST" : "  " + Mathf.RoundToInt(health * 100) + "%") :
-                        "EV " + (i + 1) + (ruined ? "  KÜL" : "  %" + Mathf.RoundToInt(health * 100));
+                        "HOUSE " + (i + 1) + (ruined ? "  LOST" : "  " + Mathf.RoundToInt(health * 100) + "%");
                     houseLabels[i].color = ruined ? Ruined : tint;
                 }
             }
             Integrity01 = houses.Length > 0 ? sum / houses.Length : 1;
             if (villageFill) { villageFill.fillAmount = Integrity01; villageFill.color = HealthColor(Integrity01); }
             if (percentageText)
-            { percentageText.text = "%" + Mathf.RoundToInt(Integrity01 * 100); percentageText.color = HealthColor(Integrity01); }
+            { percentageText.text = Mathf.RoundToInt(Integrity01 * 100) + "%"; percentageText.color = HealthColor(Integrity01); }
             if (statusText)
             {
                 statusText.text = compactLabels ? "Fires " + BurningCount + "   /   Houses lost " + LostCount + " of " + houses.Length + (Integrity01 <= .3f ? "  — CRITICAL" : "") :
-                    houses.Length > 0 && LostCount == houses.Length ? "TÜM EVLER KÜL OLDU · KÖY KAYBEDİLDİ" :
-                    "Yanan: " + BurningCount + "   ·   Kül olan: " + LostCount + " / " + houses.Length +
-                    (Integrity01 <= .3f ? "   ·   KRİTİK! Evleri söndür." : "   ·   Evler kül oldukça kaybetmeye yaklaşırsın.");
+                    houses.Length > 0 && LostCount == houses.Length ? "ALL HOUSES LOST · VILLAGE DESTROYED" :
+                    "Burning: " + BurningCount + "   ·   Lost: " + LostCount + " / " + houses.Length +
+                    (Integrity01 <= .3f ? "   ·   CRITICAL! Extinguish the houses." : "   ·   Protect the remaining houses.");
                 statusText.color = Integrity01 <= .3f ? Critical : new Color(.86f, .84f, .79f);
             }
         }
