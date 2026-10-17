@@ -1,0 +1,53 @@
+Yanardag pencere senaryosu
+=========================
+
+Sahne: Assets/BK/PureNature_Volcano/Scenes/Volcano_Demo.unity
+
+Akis:
+- Mevcut yataktan kalkis sinematigi oynar.
+- Karakter, mevcut CharacterController ve yurume animasyonuyla masanin sagindan
+  dolasarak yatak odasinin yanardaga bakan penceresine yaklasir. Kamera cercevenin
+  alt bolumunden bakmak icin hafifce egilir; kontrol geri verilmeden once normale doner.
+- Ic ses once yanardagdaki tersligi fark eder. Kucuk bir duman ve birkac kivilcim
+  gorundukten sonra "Bu zamanin gelecegini biliyordum" der.
+- Mevcut silah alma ve alarm butonuna el ile basma adimlari devam eder.
+- Siren calistiktan sonra "Kasabadakileri siginaga goturmeliyim" ic sesi gorunur.
+  Osman'in alarm davranisi ile koyluler kendileri disari cikip panikler.
+  Disarida tek Q cagrisi hepsini takibe alir. NPC kapi acma, takip, yuruyus izi,
+  sira ile siginaga girme ve dinlenme davranislari mevcut sistemle devam eder.
+- Herkes gercekten siginaga girdiginde karakter itfaiyeyi alip suyunu kontrol etmek
+  istedigini soyler; mevcut surucu kapisi isareti gosterilir.
+- Mevcut araca binme, gol yolu, suya ulasan emis hortumu, pompa ve depo dolumu kullanilir.
+- Depo dolunca karakter kasabaya donup lavin gelecegi tarafta beklemek istedigini soyler.
+  Osman'in anlik yol yonlendirmesi kullanilir; zorunlu kontrol noktalari yoktur.
+  Kasabaya donunce Ismail'in savunma noktasi gosterilir.
+- Patlama, lav ve dusman sinematikleri mevcut bagimsiz gorev sayaci ile devam eder.
+
+Korunan davranislar:
+- 120 saniyelik hazirlik suresi aynidir; eklenen pencere acilisi bittiginde baslar.
+- Kucuk on belirtiler, asil VolcanoEruptionEffects sisteminden ayri iki parcacik
+  sistemidir. Var olan duman ve kor materyallerini kullanir; patlamayi baslatmaz,
+  lav akisini acmaz ve mevcut materyalleri degistirmez.
+- Q tusu, bekleme suresi ve takip mesafesi ayarlari korunur. Bu sahnede eklenen
+  villageWideCall secenegi etkinlestirilerek cagrinin tum evlere ulasmasi saglanir.
+- Arac, pompa, hortum, hasar, siginak ve dusman kodlari degistirilmez.
+- Yeni ic sesler Turkce altyazidir. Kayitli karakter seslendirmesi eklenmemistir.
+
+Duzenleme:
+- VolcanoStorySequence bileseni mevcut gorev yoneticisine eklenmistir.
+- Hedefler ve iki kucuk efekt "Volcano Story Bindings" altindadir.
+- GameJam > Story > Apply window and inner thoughts: bu sahne eklerini tekrar baglar.
+- GameJam > Story > Run scenario integration checks: mevcut sahnede oyun ici kontrolu calistirir.
+- Rapor ve ekran goruntuleri: Library/VolcanoStoryReview.
+
+Kontrol kapsaminda pencereye fiziksel yuruyus, mevcut E/Q girdileri, gercek NPC
+takibi ve siginaga girisi, arac fizigi, gercek pompa dolumu, yonlendirme hedefleri,
+duraklatma, patlama sinematigi ve yeniden baslatma vardir. Kontrol duzenegi oyuncuyu
+etkilesim noktalari arasinda, araci ise gol ve yol kontrol noktalarina tasir;
+bastan sona elle surulmus bir gol yolculugu iddia edilmez.
+
+Sonuc: 17 Ekim 2026, Unity 6000.0.58f2 senaryo entegrasyon kontrolu COMPLETED.
+Tek Q ile 7/7 cagrildi; 7/7 gercek ajan siginaga ulasti; depo mevcut pompayla
+2000/2000 L doldu; donus rotasi savunma hedefine gecti; duraklatma, patlama ve
+yeniden baslatma kontrolleri gecti. Pencere kadraji ve Turkce altyazilarin oyun ici
+ekran goruntuleri incelendi. Butun gol yolunu elle surme kontrolu yapilmadi.

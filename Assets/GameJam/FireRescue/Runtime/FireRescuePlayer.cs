@@ -259,6 +259,19 @@ namespace GameJam.FireRescue
             playerBody.enabled = !IsDriving;
             UpdateFootCamera();
         }
+        /// <summary>A story camera can use the same collision, gravity and walking animation while input is locked.</summary>
+        public void SimulateCinematicWalk(Vector3 destination, Quaternion viewRotation, float maximumSpeed)
+        {
+            if (!CinematicLocked || IsDriving || !playerBody || !playerBody.enabled) return;
+            lookYaw = viewRotation.eulerAngles.y;
+            lookPitch = Mathf.Clamp(Mathf.DeltaAngle(0, viewRotation.eulerAngles.x), -75f, 78f);
+            Vector3 delta = Vector3.ProjectOnPlane(destination - playerBody.transform.position, Vector3.up);
+            float speed = firstPerson ? firstPerson.walkSpeed : walkSpeed;
+            Vector3 local = Quaternion.Inverse(Quaternion.Euler(0, lookYaw, 0)) * delta.normalized;
+            float input = Mathf.Min(Mathf.Max(0, maximumSpeed), delta.magnitude * 2f) / Mathf.Max(.1f, speed);
+            MoveOnFoot(Vector2.ClampMagnitude(new Vector2(local.x, local.z) * input, 1f), false);
+            UpdateFootCamera();
+        }
         public bool AcquirePistol()
         {
             if (HasPistol || !pistol) return false;

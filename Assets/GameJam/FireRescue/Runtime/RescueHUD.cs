@@ -300,9 +300,15 @@ namespace GameJam.FireRescue
                     ? Ashfall.UI.AshfallTypography.NaturalCase(player.InteractionPrompt) : "";
                 promptText.transform.parent.gameObject.SetActive(!string.IsNullOrWhiteSpace(promptText.text));
             }
-            // Mission progress already lives in the fixed quest HUD. Avoid intermittent
-            // toast/subtitle frames appearing over the player's view.
-            HideTransientCenterNotifications();
+            // Keep generic progress toasts suppressed; only authored inner thoughts use subtitles.
+            SetTextContainerActive(toastText, false);
+            var story = missionDirector ? missionDirector.story : null;
+            bool showThought = playing && !VolcanoCinematic.IsPlayingAny && story && !string.IsNullOrEmpty(story.CurrentLine);
+            SetTextContainerActive(subtitleText, showThought);
+            if (showThought && subtitleText)
+            {
+                subtitleText.text = story.CurrentLine;
+            }
             UpdateEruption(); UpdateTarget(playing);
             if (cleanPresentation)
             {

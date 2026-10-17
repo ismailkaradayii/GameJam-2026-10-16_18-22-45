@@ -36,7 +36,7 @@ namespace GameJam.FireRescue
             if (!mission || !mission.player || !mission.player.viewCamera) return;
             Color color = objectiveColor; float radius = objectiveRadius;
             CurrentTarget = SelectTarget(ref color, ref radius);
-            bool visible = CurrentTarget && !mission.player.InteractionBusy && !VolcanoCinematic.IsPlayingAny && (!mission.gameFlow || !mission.gameFlow.BlocksGameplay);
+            bool visible = CurrentTarget && !mission.player.CinematicLocked && !mission.player.InteractionBusy && !VolcanoCinematic.IsPlayingAny && (!mission.gameFlow || !mission.gameFlow.BlocksGameplay);
             if (ring) ring.enabled = visible;
             if (marker) marker.gameObject.SetActive(visible);
             if (!visible) return;
@@ -49,6 +49,7 @@ namespace GameJam.FireRescue
                     float angle = i * Mathf.PI * 2 / (points.Length - 1);
                     Vector3 p = world + new Vector3(Mathf.Cos(angle), 0, Mathf.Sin(angle)) * radius;
                     if (CurrentTarget != (mission.weaponPickup ? mission.weaponPickup.transform : null) &&
+                        CurrentTarget != (mission.story ? mission.story.windowStop : null) &&
                         CurrentTarget != (mission.villageAlarm ? mission.villageAlarm.contactPoint : null))
                         foreach (var terrain in Terrain.activeTerrains)
                             if (terrain && p.x >= terrain.transform.position.x && p.z >= terrain.transform.position.z &&
@@ -107,6 +108,8 @@ namespace GameJam.FireRescue
         Transform SelectTarget(ref Color color, ref float radius)
         {
             var player = mission.player;
+            if (!mission.EruptionTriggered && mission.Phase == VolcanoMissionDirector.MissionPhase.Window && mission.story)
+            { CurrentLabel = "PENCERE | YANARDAĞA BAK"; radius = .7f; return mission.story.windowStop; }
             if (mission.State == VolcanoMissionDirector.FlowState.Intro) return null;
             if (!player.HasPistol && mission.weaponPickup && !mission.weaponPickup.IsCollected)
             { CurrentLabel = "PISTOL | SLOT 1"; radius = .75f; return mission.weaponPickup.transform; }
@@ -151,6 +154,8 @@ namespace GameJam.FireRescue
                 if (TryGetRoadGuidance(player.drive.transform.position, 1, out var villageGuide)) return PlaceDrivingGuide(villageGuide);
                 return mission.houseExit;
             }
+            if (!mission.EruptionTriggered && mission.PreparationComplete && mission.story && mission.story.defensePosition)
+            { CurrentLabel = "SAVUNMA NOKTASI | LAVIN GELİŞ YÖNÜ"; radius = mission.story.defenseRadius; color = dangerColor; return mission.story.defensePosition; }
             BurnableBuilding urgent = null; float priority = float.PositiveInfinity;
             foreach (var house in BurnableBuilding.ActiveBuildings)
             {
