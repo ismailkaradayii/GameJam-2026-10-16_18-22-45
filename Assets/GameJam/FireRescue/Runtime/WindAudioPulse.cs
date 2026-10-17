@@ -7,6 +7,7 @@ namespace GameJam.FireRescue
     public sealed class WindAudioPulse : MonoBehaviour
     {
         private const string SfxVolumeKey = "Ashfall.SfxVolume";
+        public const float ExplosionLeadSeconds = 1f;
 
         [SerializeField] private AudioSource source;
         [SerializeField] private AudioClip explosionSound;
@@ -29,6 +30,7 @@ namespace GameJam.FireRescue
         private bool explosionEventReceived;
         private bool warnedAboutExplosionClip;
         private float postExplosionElapsed;
+        private float effectivePostExplosionSeconds;
         private float fadeElapsed;
         private float phase;
         private float nextSwellAt;
@@ -88,11 +90,12 @@ namespace GameJam.FireRescue
             explosionEventReceived = false;
             pausedForTimeScale = false;
             postExplosionElapsed = 0f;
+            effectivePostExplosionSeconds = Mathf.Max(0f, postExplosionSeconds);
             fadeElapsed = 0f;
             nextSwellAt = 0f;
         }
 
-        /// <summary>Starts the assigned explosion clip once in the final two seconds before impact.</summary>
+        /// <summary>Starts the assigned explosion clip once before the eruption cinematic.</summary>
         public void BeginExplosionSound()
         {
             if (explosionStarted || state != PlaybackState.Waiting) return;
@@ -112,19 +115,20 @@ namespace GameJam.FireRescue
             source.Stop();
             source.clip = explosionSound;
             explosionSound.LoadAudioData();
-            // Short clips loop until the impact window completes so the sound remains audible.
-            source.loop = explosionSound.length < (2f + postExplosionSeconds + explosionFadeDuration);
+            // Keep the explosion audible through the cinematic and its transition.
+            source.loop = true;
             source.volume = Mathf.Clamp01(explosionVolume * GetSfxVolume());
             source.Play();
             state = PlaybackState.Explosion;
         }
 
         /// <summary>Called at the authoritative gameplay impact event, not when its warning sound starts.</summary>
-        public void NotifyExplosionEvent()
+        public void NotifyExplosionEvent(float minimumPostSeconds = 0f)
         {
             if (explosionEventReceived) return;
             explosionEventReceived = true;
             postExplosionElapsed = 0f;
+            effectivePostExplosionSeconds = Mathf.Max(postExplosionSeconds, minimumPostSeconds);
             if (state == PlaybackState.Explosion || state == PlaybackState.Waiting)
                 state = PlaybackState.PostExplosion;
         }
@@ -139,7 +143,7 @@ namespace GameJam.FireRescue
             if (state == PlaybackState.PostExplosion)
             {
                 postExplosionElapsed += deltaTime;
-                if (postExplosionElapsed >= postExplosionSeconds)
+                if (postExplosionElapsed >= effectivePostExplosionSeconds)
                 {
                     fadeElapsed = 0f;
                     state = source.isPlaying ? PlaybackState.FadingExplosion : PlaybackState.FadingWind;

@@ -113,10 +113,10 @@ namespace GameJam.FireRescue
             if (audioTimeline) audioTimeline.BeginExplosionSound();
         }
 
-        public void NotifyExplosionAudioEvent()
+        public void NotifyExplosionAudioEvent(float minimumPostSeconds = 0f)
         {
             InitializeSequence();
-            if (audioTimeline) audioTimeline.NotifyExplosionEvent();
+            if (audioTimeline) audioTimeline.NotifyExplosionEvent(minimumPostSeconds);
         }
 
         public bool BeginEruption(bool ignorePreparation = false)
@@ -149,10 +149,10 @@ namespace GameJam.FireRescue
             if (audioTimeline) audioTimeline.TickSequence(step);
 
             // Warning is the final authored countdown before the actual eruption event.
-            // Start on the exact simulation step that crosses its two-second boundary.
+            // Start on the simulation step that crosses the one-second lead boundary.
             if (Stage == EruptionStage.Warning && audioTimeline &&
-                StageElapsed <= Mathf.Max(0f, warningSeconds - 2f) &&
-                StageElapsed + step >= Mathf.Max(0f, warningSeconds - 2f))
+                StageElapsed <= Mathf.Max(0f, warningSeconds - WindAudioPulse.ExplosionLeadSeconds) &&
+                StageElapsed + step >= Mathf.Max(0f, warningSeconds - WindAudioPulse.ExplosionLeadSeconds))
                 audioTimeline.BeginExplosionSound();
 
             StageElapsed += step;
@@ -167,7 +167,7 @@ namespace GameJam.FireRescue
                 {
                     Stage = EruptionStage.Erupting;
                     StageElapsed = 0f;
-                    if (audioTimeline) audioTimeline.NotifyExplosionEvent();
+                    if (audioTimeline) audioTimeline.NotifyExplosionEvent(cinematic ? cinematic.eruptionSeconds : 0f);
                     if (effects) effects.BeginEruption();
                     if (cinematic) cinematic.BeginShot();
                     if (enableCameraShake && cameraShake) cameraShake.Shake(8f, .35f);

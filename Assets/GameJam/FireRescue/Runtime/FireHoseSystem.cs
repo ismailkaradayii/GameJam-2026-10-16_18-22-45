@@ -247,7 +247,7 @@ namespace GameJam.FireRescue
             }
             if (fillAudioPaused) { tankFillSource.UnPause(); fillAudioPaused = false; }
 
-            bool filling = IsPumping && fillRateLitresPerSecond > 0f;
+            bool filling = IsPumping && fillRateLitresPerSecond > 0f && PumpEfficiency > 0f;
             float fullness = Tank01;
             float sfx = Mathf.Clamp01(PlayerPrefs.GetFloat("Ashfall.SfxVolume", 1f));
             float target = filling ? Mathf.Lerp(emptyTankFillVolume, fullTankFillVolume, fullness) * sfx : 0f;

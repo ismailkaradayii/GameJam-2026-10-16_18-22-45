@@ -140,7 +140,7 @@ public static class AlarmEvacuationChecks
                 if (age < .3f) return;
                 InputSystem.QueueStateEvent(testKeyboard, new KeyboardState());
                 Check("one real Q input gathers all seven alarmed villagers", mission.CalledCount == 7 && residents.All(r => r.State == EvacuationResident.ResidentState.Following));
-                Check("rally subtitle uses Buraya gelin", mission.CurrentMessage.Contains("BURAYA GELİN"));
+                Check("rally subtitle calls villagers to follow", mission.CurrentMessage.Contains("COME HERE"));
                 Check("rally cooldown prevents repeated calls", !mission.Shout());
                 leader.speed = 12;
                 var escortPath = new NavMeshPath();

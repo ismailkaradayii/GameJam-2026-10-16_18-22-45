@@ -62,7 +62,7 @@ namespace GameJam.FireRescue
             if (OpeningStarted || !Player || Player.IsDriving || !windowStop || !volcanoLookTarget) return false;
             OpeningStarted = IsOpening = true;
             Player.SetCinematicLocked(true); Player.RefreshEquipmentState(); ownsMovement = true;
-            Speak(Thought.Approach, "Bir türlü içim rahat etmiyor... Pencereden bir bakayım.", 6f, true);
+            Speak(Thought.Approach, "I can't shake this feeling... I'll look out the window.", 6f, true);
             return true;
         }
 
@@ -110,7 +110,7 @@ namespace GameJam.FireRescue
                 {
                     AtWindow = true;
                     if (!ownsMovement) { Player.SetCinematicLocked(true); Player.RefreshEquipmentState(); ownsMovement = true; }
-                    Speak(Thought.Unease, "Yanardağda bir terslik var... Her zamankinden farklı görünüyor.", omenDelay, true);
+                    Speak(Thought.Unease, "Something is wrong with the volcano... It looks different today.", omenDelay, true);
                 }
                 else
                 {
@@ -136,31 +136,31 @@ namespace GameJam.FireRescue
             {
                 OmenPlayed = true;
                 PlayOmen(omenSmoke); PlayOmen(omenSparks);
-                Speak(Thought.Omen, "Duman... Bir de kıvılcım. Bu iyiye işaret değil.", recognitionDelay - omenDelay, true);
+                Speak(Thought.Omen, "Smoke... and sparks. That's not a good sign.", recognitionDelay - omenDelay, true);
             }
             if (ObservationElapsed >= recognitionDelay)
-                Speak(Thought.Foreseen, "Bu zamanın geleceğini biliyordum.", observationSeconds - recognitionDelay, true);
+                Speak(Thought.Foreseen, "I knew this day would come.", observationSeconds - recognitionDelay, true);
             if (ObservationElapsed >= observationSeconds)
             {
                 IsOpening = false; OpeningComplete = true; ReleaseMovement();
-                Speak(Thought.Weapon, "Önce silahımı almalıyım. Sonra sireni çalıştırmalıyım.", 5f, true);
+                Speak(Thought.Weapon, "I need my weapon first. Then I must sound the siren.", 5f, true);
             }
         }
 
         void TickThoughts()
         {
             if (mission.WarningCompleted && !Player.InteractionBusy)
-                Speak(Thought.Shelter, "Kasabadakileri sığınağa götürmeliyim.", 4.8f);
+                Speak(Thought.Shelter, "I must lead the townspeople to the shelter.", 4.8f);
             if (mission.evacuation && mission.evacuation.IsComplete)
-                Speak(Thought.Truck, "Herkes güvende. Şimdi itfaiyeyi alıp suyunu kontrol etmeliyim.", 5.5f);
+                Speak(Thought.Truck, "Everyone is safe. I should take the fire truck and check its water.", 5.5f);
             if (mission.Phase == VolcanoMissionDirector.MissionPhase.Refill)
-                Speak(Thought.Lake, "Suyu tamamlamam gerekiyor. İtfaiyeyi göle sürmeliyim.", 5f);
+                Speak(Thought.Lake, "I need to refill the tank. I should drive the truck to the lake.", 5f);
             if (mission.PreparationComplete)
             {
-                Speak(Thought.Return, "Artık geri dönmeliyim. Lavın geleceği tarafta hazır beklemeliyim.", 6.5f, true);
+                Speak(Thought.Return, "I should head back and prepare where the lava will reach the town.", 6.5f, true);
                 if (defensePosition && EvacuationResident.FlatDistance(Player.IsDriving && Player.drive ?
                     Player.drive.transform.position : Player.transform.position, defensePosition.position) <= defenseRadius)
-                    Speak(Thought.Hold, "Burada beklemeliyim. Kasabayı korumaya hazırım.", 4.5f);
+                    Speak(Thought.Hold, "I'll wait here. I'm ready to protect the town.", 4.5f);
             }
         }
 

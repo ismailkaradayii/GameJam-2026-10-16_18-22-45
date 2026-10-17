@@ -281,15 +281,15 @@ namespace GameJam.FireRescue
         {
             if (GameplaySuspended) return false;
             if (!drive || IsDriving) return false;
-            if (drive.IsWrecked) { ShowNotice("İtfaiye aracı kullanılamaz durumda."); return false; }
+            if (drive.IsWrecked) { ShowNotice("The fire truck is inoperable."); return false; }
             if (!NearVehicleEntry())
             {
-                ShowNotice("Binmek için sürücü kapısına yaklaş.");
+                ShowNotice("Approach the driver door to enter.");
                 return false;
             }
             if (hose && hose.IsDeployed)
             {
-                ShowNotice("Önce aracın arkasındaki emiş hortumunu topla.");
+                ShowNotice("Retract the intake hose at the back of the truck first.");
                 return false;
             }
             SetDriving(true);
@@ -302,7 +302,7 @@ namespace GameJam.FireRescue
             if (!IsDriving || !drive || !playerBody) return false;
             if (Mathf.Abs(drive.SpeedKph) > 4f)
             {
-                ShowNotice("İnmek için önce aracı durdur.");
+                ShowNotice("Stop the truck before exiting.");
                 return false;
             }
             Vector3 destination = exitPoint ? exitPoint.position : drive.transform.position - drive.transform.right * 3f;
@@ -314,7 +314,7 @@ namespace GameJam.FireRescue
                 destination = FindGround(drive.transform.TransformPoint(opposite));
                 if (!IsClearExit(destination))
                 {
-                    ShowNotice("Çıkış engellendi. Açık bir yere park et.");
+                    ShowNotice("Exit blocked. Park in an open area.");
                     return false;
                 }
             }
@@ -477,7 +477,7 @@ namespace GameJam.FireRescue
         bool ToggleDoor(InteractiveDoor door)
         {
             bool changed = door && door.TryToggle();
-            if (!changed && door && door.LastBlocked) ShowNotice("Kapı engellendi. Biraz geri çekil.");
+            if (!changed && door && door.LastBlocked) ShowNotice("Door blocked. Step back.");
             return changed;
         }
 

@@ -28,6 +28,8 @@ namespace GameJam.FireRescue
 
         public VolcanoEruptionSequence sequence;
         public Spawn[] spawns = Array.Empty<Spawn>();
+        [Header("Fire spirit audio")]
+        [SerializeField] private AudioClip spiritVoiceClip;
         [Header("Finite eruption waves")]
         public bool enableWaves = true;
         public bool enableFinalObjective = true;
@@ -163,6 +165,12 @@ namespace GameJam.FireRescue
         void Release(Spawn spawn, LavaCreatureActor actor)
         {
             spawn.spawned = true; SpawnedCount++; living.Add(actor);
+            if (spiritVoiceClip)
+            {
+                var voice = actor.GetComponent<LavaSpiritAudio>();
+                if (!voice) voice = actor.gameObject.AddComponent<LavaSpiritAudio>();
+                if (!voice.clip) voice.clip = spiritVoiceClip;
+            }
             var siege = actor.GetComponent<LavaCreatureCombat>();
             if (!siege) siege = actor.gameObject.AddComponent<LavaCreatureCombat>();
             // A repeating low-discrepancy pattern guarantees both roles even in a three-spirit wave.

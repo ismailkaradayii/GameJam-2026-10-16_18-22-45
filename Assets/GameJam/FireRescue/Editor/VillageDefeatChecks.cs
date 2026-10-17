@@ -79,7 +79,7 @@ public static class VillageDefeatChecks
             CheckThat("Loss freezes gameplay and releases the cursor", Time.timeScale == 0 && flow.player.GameplaySuspended && Cursor.lockState == CursorLockMode.None && Cursor.visible);
             survival.TickObjective();
             CheckThat("The survival objective agrees with the village loss", survival.State == VolcanoSurvivalObjective.MissionState.Lost);
-            CheckOutcome("BÜTÜN KÖYLÜLER ÖLDÜ", "Köylülerin tamamı yangında hayatını kaybetti.");
+            CheckOutcome("ALL VILLAGERS LOST", "All villagers were lost in the fire.");
             Capture("01-all-villagers-lost");
 
             CreateFixture(false);
@@ -99,7 +99,7 @@ public static class VillageDefeatChecks
             House("Unrelated scenery house", new Vector3(35, 0, 35), fixture.transform);
             lastHouse.TickFire(.2f); TickFlow();
             CheckThat("All five collapsed village houses automatically end the game", flow.State == RescueGameFlow.GameState.Lost && flow.DefeatReason == RescueGameFlow.LossReason.VillageBurned);
-            CheckOutcome("KÖY YANDI", "Bütün evler tamamen yandı. Köyü kurtaramadın.");
+            CheckOutcome("VILLAGE DESTROYED", "All houses burned down. The village was lost.");
             Capture("02-village-burned");
             flow.Resume(); flow.FinishMission(true);
             CheckThat("Resume and late victory cannot overwrite defeat", flow.State == RescueGameFlow.GameState.Lost && flow.DefeatReason == RescueGameFlow.LossReason.VillageBurned && Time.timeScale == 0);
@@ -109,7 +109,7 @@ public static class VillageDefeatChecks
             foreach (var resident in evacuation.residents) BurnToDeath(resident);
             TickFlow();
             CheckThat("Total deaths beat a pending house rescue victory", flow.State == RescueGameFlow.GameState.Lost && flow.DefeatReason == RescueGameFlow.LossReason.AllVillagersLost);
-            CheckOutcome("BÜTÜN KÖYLÜLER ÖLDÜ", "Köylülerin tamamı yangında hayatını kaybetti.");
+            CheckOutcome("ALL VILLAGERS LOST", "All villagers were lost in the fire.");
 
             CreateFixture(false);
             foreach (var resident in evacuation.residents) BurnToDeath(resident);

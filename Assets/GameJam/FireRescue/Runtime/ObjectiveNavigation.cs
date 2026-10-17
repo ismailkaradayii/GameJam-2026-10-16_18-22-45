@@ -109,12 +109,12 @@ namespace GameJam.FireRescue
         {
             var player = mission.player;
             if (!mission.EruptionTriggered && mission.Phase == VolcanoMissionDirector.MissionPhase.Window && mission.story)
-            { CurrentLabel = "PENCERE | YANARDAĞA BAK"; radius = .7f; return mission.story.windowStop; }
+            { CurrentLabel = "WINDOW | LOOK AT THE VOLCANO"; radius = .7f; return mission.story.windowStop; }
             if (mission.State == VolcanoMissionDirector.FlowState.Intro) return null;
             if (!player.HasPistol && mission.weaponPickup && !mission.weaponPickup.IsCollected)
             { CurrentLabel = "PISTOL | SLOT 1"; radius = .75f; return mission.weaponPickup.transform; }
             if (!mission.EruptionTriggered && mission.Phase == VolcanoMissionDirector.MissionPhase.WarnVillage && mission.villageAlarm && !mission.villageAlarm.Activated)
-            { CurrentLabel = "KÖY ALARMI | " + (player.contextualInteractions ? player.contextualInteractions.Label(InteractionInput.Interact) : "E"); radius = .45f; return mission.villageAlarm.contactPoint; }
+            { CurrentLabel = "VILLAGE ALARM | " + (player.contextualInteractions ? player.contextualInteractions.Label(InteractionInput.Interact) : "E"); radius = .45f; return mission.villageAlarm.contactPoint; }
             if (!mission.EruptionTriggered && mission.Phase == VolcanoMissionDirector.MissionPhase.Weapon)
             { CurrentLabel = "LEAVE THE HOUSE | E: DOOR"; return mission.houseExit; }
             if (!mission.EruptionTriggered && mission.Phase == VolcanoMissionDirector.MissionPhase.Evacuate)
@@ -126,7 +126,7 @@ namespace GameJam.FireRescue
                     float d = (resident.transform.position - player.transform.position).sqrMagnitude;
                     if (d < distance) { distance = d; next = resident.transform; }
                 }
-                if (next) { CurrentLabel = "KÖYLÜLER | Q: BURAYA GELİN"; return next; }
+                if (next) { CurrentLabel = "VILLAGERS | Q: CALL OUT"; return next; }
                 CurrentLabel = "SHELTER | LEAD THE VILLAGERS"; color = shelterColor; radius = shelterRadius;
                 return mission.evacuation.ShelterOpened ? mission.evacuation.shelterEntrance : mission.evacuation.shelterApproach;
             }
@@ -155,7 +155,7 @@ namespace GameJam.FireRescue
                 return mission.houseExit;
             }
             if (!mission.EruptionTriggered && mission.PreparationComplete && mission.story && mission.story.defensePosition)
-            { CurrentLabel = "SAVUNMA NOKTASI | LAVIN GELİŞ YÖNÜ"; radius = mission.story.defenseRadius; color = dangerColor; return mission.story.defensePosition; }
+            { CurrentLabel = "DEFENSE POINT | LAVA APPROACH"; radius = mission.story.defenseRadius; color = dangerColor; return mission.story.defensePosition; }
             BurnableBuilding urgent = null; float priority = float.PositiveInfinity;
             foreach (var house in BurnableBuilding.ActiveBuildings)
             {

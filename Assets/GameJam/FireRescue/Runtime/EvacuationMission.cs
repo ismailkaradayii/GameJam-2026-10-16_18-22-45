@@ -128,7 +128,7 @@ namespace GameJam.FireRescue
             if (IsActive || IsComplete || IsResolved) return;
             IsActive = true;
             if (alarmTriggersPanic) foreach (var resident in residents) if (resident) resident.HearAlarm();
-            Say("ALARM! Köylüler evlerinden çıkıyor.\nQ ile 'Buraya gelin!' diye seslen; seni takip etsinler.", 7f);
+            Say("ALARM! Villagers are leaving their houses.\nPress Q to call them to follow you.", 7f);
         }
         public bool Shout()
         {
@@ -139,8 +139,8 @@ namespace GameJam.FireRescue
             foreach (var resident in residents)
                 if (resident && (villageWideCall || callAllAlarmedVillagers && resident.HasHeardAlarm ||
                     EvacuationResident.FlatDistance(PlayerTransform.position, resident.transform.position) <= shoutRadius) && resident.CallOutside()) count++;
-            Say(count > 0 ? "BURAYA GELİN! BENİ TAKİP EDİN!\n" + count + " köylü çağrını duydu." :
-                System.Array.Exists(residents, r => r && !r.IsDead && !r.IsCalled) ? "BURAYA GELİN!\nKöylülere yaklaşarak tekrar seslen." : "BENİ TAKİP EDİN! SIĞINAĞA GİDİYORUZ!", 4.5f);
+            Say(count > 0 ? "COME HERE! FOLLOW ME!\n" + count + " villagers heard your call." :
+                System.Array.Exists(residents, r => r && !r.IsDead && !r.IsCalled) ? "COME HERE!\nGet closer to the villagers and call again." : "FOLLOW ME! WE ARE GOING TO THE SHELTER!", 4.5f);
             return true;
         }
         void Say(string text, float seconds) { subtitle = text; subtitleUntil = Time.time + seconds; }
@@ -226,7 +226,7 @@ namespace GameJam.FireRescue
                 GUI.Label(new Rect(x+12,y+8,292,24),IsComplete ? "EVACUATION COMPLETE" : "OBJECTIVE · EVACUATE",titleStyle);
                 GUI.color=Color.white;
                 GUI.Label(new Rect(x+12,y+38,292,44),"Sheltered: "+RescuedCount+" / "+TotalCount+"    Called: "+CalledCount+" / "+TotalCount+"\n"+
-                    (IsComplete ? "Everyone is safe. Fill the water tank." : CalledCount<TotalCount ? "Q: Buraya gelin! Köylüleri topla." : "Lead the group to the shelter."),bodyStyle);
+                    (IsComplete ? "Everyone is safe. Fill the water tank." : CalledCount<TotalCount ? "Q: Call the villagers together." : "Lead the group to the shelter."),bodyStyle);
                 GUI.color=new Color(.15f,.23f,.24f);GUI.DrawTexture(new Rect(x+12,y+87,292,6),Texture2D.whiteTexture);
                 GUI.color=new Color(.2f,.85f,.6f);GUI.DrawTexture(new Rect(x+12,y+87,292*RescuedCount/Mathf.Max(1,TotalCount),6),Texture2D.whiteTexture);
                 GUI.color=Color.white;
@@ -245,7 +245,7 @@ namespace GameJam.FireRescue
                 if(shelterApproach) Marker(shelterApproach.position+Vector3.up*3,"SHELTER",new Color(.35f,1,.7f),scale,w,h);
                 var seen=new HashSet<Transform>();
                 foreach(var r in residents) if(r && !r.IsDead && !r.IsCalled && seen.Add(r.transform))
-                    Marker(r.transform.position+Vector3.up*4,"BURAYA GELİN · Q",new Color(1,.8f,.35f),scale,w,h);
+                    Marker(r.transform.position+Vector3.up*4,"CALL VILLAGERS · Q",new Color(1,.8f,.35f),scale,w,h);
             }
             GUI.matrix=oldMatrix;GUI.color=oldColor;
         }
@@ -292,7 +292,7 @@ namespace GameJam.FireRescue
             Vector3 forward=player.viewCamera?player.viewCamera.transform.forward:PlayerTransform.forward;
             float angle=Vector3.SignedAngle(Vector3.ProjectOnPlane(forward,Vector3.up),delta,Vector3.up);
             string direction=Mathf.Abs(angle)>135?"Behind":angle>25?"Right":angle< -25?"Left":"Ahead";
-            return (house?"Köylüler: ":"Shelter: ")+Mathf.RoundToInt(delta.magnitude)+" m · "+direction;
+            return (house?"Villagers: ":"Shelter: ")+Mathf.RoundToInt(delta.magnitude)+" m · "+direction;
         }
     }
 }

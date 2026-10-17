@@ -81,7 +81,7 @@ namespace GameJam.FireRescue
             if (!EruptionTriggered)
             {
                 PreparationRemaining = Mathf.Max(0f, PreparationRemaining - Time.deltaTime);
-                if (PreparationRemaining <= 2f) sequence.BeginExplosionAudio();
+                if (PreparationRemaining <= WindAudioPulse.ExplosionLeadSeconds) sequence.BeginExplosionAudio();
                 if (PreparationRemaining <= 0f) TriggerDeadline();
                 else TickPreparation();
                 return;
@@ -159,7 +159,7 @@ namespace GameJam.FireRescue
             State = FlowState.VolcanoCinematic; SetPhase(MissionPhase.Cinematic);
             sequence.BeginEruption(true);
             sequence.BeginExplosionAudio();
-            sequence.NotifyExplosionAudioEvent();
+            sequence.NotifyExplosionAudioEvent(cinematic ? cinematic.eruptionSeconds : 0f);
             if (cinematic) cinematic.BeginShot();
         }
         void SetPhase(MissionPhase next)
@@ -170,13 +170,13 @@ namespace GameJam.FireRescue
         public string ObjectiveTitle => EruptionTriggered ? "DEFEND THE VILLAGE" : Phase switch
         {
             MissionPhase.Intro => "ASHFALL",
-            MissionPhase.Window => "PENCEREDEN YANARDAĞA BAK",
+            MissionPhase.Window => "LOOK AT THE VOLCANO FROM THE WINDOW",
             MissionPhase.Weapon => villageAlarm ? "TAKE YOUR WEAPON" : "TAKE YOUR WEAPON AND LEAVE THE HOUSE",
             MissionPhase.WarnVillage => villageAlarm ? "ACTIVATE THE VILLAGE ALARM" : "WARN THE VILLAGE",
             MissionPhase.Evacuate => "EVACUATE THE VILLAGERS",
             MissionPhase.Truck => "PREPARE THE FIRE TRUCK",
             MissionPhase.Refill => "DRIVE TO THE LAKE",
-            MissionPhase.Ready => story && story.defensePosition ? "LAVIN GELECEĞİ TARAFTA HAZIR BEKLE" : "READY FOR THE ERUPTION",
+            MissionPhase.Ready => story && story.defensePosition ? "PREPARE FOR THE LAVA" : "READY FOR THE ERUPTION",
             _ => "READY FOR THE ERUPTION"
         };
         public string ObjectiveDetail
@@ -191,15 +191,15 @@ namespace GameJam.FireRescue
                 }
                 return Phase switch
                 {
-                    MissionPhase.Window => "Yatak odasındaki işaretli pencereye yaklaş. Yanardağda bir terslik var...",
+                    MissionPhase.Window => "Approach the marked bedroom window. Something is wrong with the volcano...",
                     MissionPhase.Weapon => player.HasPistol ? "Pistol in slot 1. Follow the marker to the front door. E opens doors." : "Pick up the pistol on the bedside cabinet. Press E when nearby.",
-                    MissionPhase.WarnVillage => villageAlarm ? "İlk evde kırmızı ışığın altındaki alarm butonuna yaklaş. " +
-                        (player.contextualInteractions ? player.contextualInteractions.Label(InteractionInput.Interact) : "E") + " ile bas ve köyü uyar." : "Warn the village to begin the evacuation.",
-                    MissionPhase.Evacuate => "Alarmı duyan köylüler dışarı çıkıyor. Q ile 'Buraya gelin!' diye seslen, ardından sığınağa götür.",
+                    MissionPhase.WarnVillage => villageAlarm ? "Approach the alarm button beneath the red light at the first house. " +
+                        (player.contextualInteractions ? player.contextualInteractions.Label(InteractionInput.Interact) : "E") + " to press it and warn the village." : "Warn the village to begin the evacuation.",
+                    MissionPhase.Evacuate => "Villagers are leaving their houses. Press Q to call them, then lead them to the shelter.",
                     MissionPhase.Truck => "Find the truck behind your house. Approach the driver's door and press " +
                         (player.contextualInteractions ? player.contextualInteractions.Label(InteractionInput.Interact) : "E") + ".",
                     MissionPhase.Refill => "Park in the BLUE lake ring. Press E to connect the intake and fill the tank.",
-                    MissionPhase.Ready => story && story.defensePosition ? "Yolu takip ederek kasabaya dön. İşaretli savunma noktasında lavın gelişine karşı hazır bekle." : "Return to the village. Keep the pistol and water tank ready.",
+                    MissionPhase.Ready => story && story.defensePosition ? "Follow the road back to town. Prepare for the lava at the marked defense point." : "Return to the village. Keep the pistol and water tank ready.",
                     _ => "Wake up. The volcano is stirring."
                 };
             }
