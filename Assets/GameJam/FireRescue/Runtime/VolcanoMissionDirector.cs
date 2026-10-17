@@ -7,7 +7,7 @@ namespace GameJam.FireRescue
     [DisallowMultipleComponent, DefaultExecutionOrder(-60)]
     public sealed class VolcanoMissionDirector : MonoBehaviour
     {
-        public enum MissionPhase { Evacuate, Refill, Warning, Cinematic, Defend, Intro, Weapon, WarnVillage, Truck, Ready }
+        public enum MissionPhase { Evacuate, Refill, Warning, Cinematic, Defend, Intro, Weapon, WarnVillage, Truck, Ready, Window }
         public enum FlowState { Intro, Preparation, VolcanoCinematic, LavaApproaching, FireSpiritCinematic, VillageDefense, Victory, Defeat }
         public EvacuationMission evacuation;
         public VolcanoEruptionSequence sequence;
@@ -24,6 +24,7 @@ namespace GameJam.FireRescue
         public WeaponPickup weaponPickup;
         public LakeFillStation fillStation;
         public VillageAlarmButton villageAlarm;
+        public VolcanoStorySequence story;
         [Header("Jam timing")]
         [Min(1f)] public float preparationSeconds = 120f;
         [Min(0f)] public float spiritRevealDelay = 1f;
@@ -51,6 +52,7 @@ namespace GameJam.FireRescue
             if (!gameFlow) gameFlow = FindFirstObjectByType<RescueGameFlow>();
             if (!encounter) encounter = FindFirstObjectByType<LavaCreatureEncounter>();
             if (!tank && player) tank = player.hose;
+            if (!story) story = GetComponent<VolcanoStorySequence>();
             PreparationRemaining = Mathf.Max(1f, preparationSeconds);
             if (sequence) { sequence.missionDirector = this; sequence.autoErupt = false; sequence.showHud = false; }
             if (evacuation) { evacuation.startAutomatically = false; evacuation.showHud = false; }
@@ -62,7 +64,7 @@ namespace GameJam.FireRescue
             began = true;
             if (player && standingSpawn) player.PlaceOnFoot(standingSpawn.position, standingSpawn.eulerAngles.y);
             if (cinematic && wakePose) cinematic.BeginIntro(wakePose);
-            else StartPreparation();
+            else CompleteIntro();
         }
         void Update() => TickMission();
         public void TickMission()
@@ -73,7 +75,7 @@ namespace GameJam.FireRescue
             if (Time.timeScale <= 0f || (gameFlow && gameFlow.BlocksGameplay)) return;
             if (State == FlowState.Intro)
             {
-                if (!cinematic || !cinematic.IsPlaying) StartPreparation();
+                if (!cinematic || !cinematic.IsPlaying) CompleteIntro();
                 return;
             }
             if (!EruptionTriggered)
@@ -107,6 +109,15 @@ namespace GameJam.FireRescue
             SetPhase(MissionPhase.Defend);
         }
         void StartPreparation() { State = FlowState.Preparation; SetPhase(MissionPhase.Weapon); }
+        void CompleteIntro()
+        {
+            if (story && story.isActiveAndEnabled)
+            {
+                if (!story.OpeningStarted && story.BeginOpening()) SetPhase(MissionPhase.Window);
+                if (story.IsOpening) return;
+            }
+            StartPreparation();
+        }
         void TickPreparation()
         {
             if (houseExit && player.HasPistol && !LeftStartingHouse)
@@ -139,6 +150,7 @@ namespace GameJam.FireRescue
         public void TriggerDeadline()
         {
             if (EruptionTriggered) return;
+            if (story) story.CancelOpening();
             EruptionTriggered = true; PreparationRemaining = 0f;
             SavedAtEruption = evacuation ? evacuation.RescuedCount : 0;
             WaterAtEruption = tank ? tank.TankLitres : 0;
@@ -158,11 +170,13 @@ namespace GameJam.FireRescue
         public string ObjectiveTitle => EruptionTriggered ? "DEFEND THE VILLAGE" : Phase switch
         {
             MissionPhase.Intro => "ASHFALL",
+            MissionPhase.Window => "PENCEREDEN YANARDAĞA BAK",
             MissionPhase.Weapon => villageAlarm ? "TAKE YOUR WEAPON" : "TAKE YOUR WEAPON AND LEAVE THE HOUSE",
             MissionPhase.WarnVillage => villageAlarm ? "ACTIVATE THE VILLAGE ALARM" : "WARN THE VILLAGE",
             MissionPhase.Evacuate => "EVACUATE THE VILLAGERS",
             MissionPhase.Truck => "PREPARE THE FIRE TRUCK",
             MissionPhase.Refill => "DRIVE TO THE LAKE",
+            MissionPhase.Ready => story && story.defensePosition ? "LAVIN GELECEĞİ TARAFTA HAZIR BEKLE" : "READY FOR THE ERUPTION",
             _ => "READY FOR THE ERUPTION"
         };
         public string ObjectiveDetail
@@ -177,14 +191,15 @@ namespace GameJam.FireRescue
                 }
                 return Phase switch
                 {
+                    MissionPhase.Window => "Yatak odasındaki işaretli pencereye yaklaş. Yanardağda bir terslik var...",
                     MissionPhase.Weapon => player.HasPistol ? "Pistol in slot 1. Follow the marker to the front door. E opens doors." : "Pick up the pistol on the bedside cabinet. Press E when nearby.",
                     MissionPhase.WarnVillage => villageAlarm ? "İlk evde kırmızı ışığın altındaki alarm butonuna yaklaş. " +
                         (player.contextualInteractions ? player.contextualInteractions.Label(InteractionInput.Interact) : "E") + " ile bas ve köyü uyar." : "Warn the village to begin the evacuation.",
-                    MissionPhase.Evacuate => "Q calls nearby villagers. Lead them to the GREEN shelter ring.",
+                    MissionPhase.Evacuate => evacuation && evacuation.villageWideCall ? "Q ile kasabadakileri evlerinden çağır. Seni takip eden herkesi YEŞİL sığınak işaretine götür." : "Q calls nearby villagers. Lead them to the GREEN shelter ring.",
                     MissionPhase.Truck => "Find the truck behind your house. Approach the driver's door and press " +
                         (player.contextualInteractions ? player.contextualInteractions.Label(InteractionInput.Interact) : "E") + ".",
                     MissionPhase.Refill => "Park in the BLUE lake ring. Press E to connect the intake and fill the tank.",
-                    MissionPhase.Ready => "Return to the village. Keep the pistol and water tank ready.",
+                    MissionPhase.Ready => story && story.defensePosition ? "Yolu takip ederek kasabaya dön. İşaretli savunma noktasında lavın gelişine karşı hazır bekle." : "Return to the village. Keep the pistol and water tank ready.",
                     _ => "Wake up. The volcano is stirring."
                 };
             }

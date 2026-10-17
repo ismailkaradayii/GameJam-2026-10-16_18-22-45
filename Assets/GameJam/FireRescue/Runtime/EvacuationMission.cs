@@ -24,6 +24,8 @@ namespace GameJam.FireRescue
         public bool startAutomatically = true;
         public float dispatchDelay = 3f;
         public float shoutRadius = 45f;
+        [Tooltip("The village siren scenario lets the existing Q call reach every house; follow and shelter behavior is unchanged.")]
+        public bool villageWideCall;
         public float shoutCooldown = 5f;
         public Key callKey = Key.Q;
         public event System.Action<EvacuationResident> ResidentRescued;
@@ -132,7 +134,7 @@ namespace GameJam.FireRescue
             nextShout = Time.time + Mathf.Max(1f, shoutCooldown);
             int count = 0;
             foreach (var resident in residents)
-                if (resident && resident.houseExit && EvacuationResident.FlatDistance(PlayerTransform.position, resident.houseExit.position) <= shoutRadius && resident.CallOutside()) count++;
+                if (resident && resident.houseExit && (villageWideCall || EvacuationResident.FlatDistance(PlayerTransform.position, resident.houseExit.position) <= shoutRadius) && resident.CallOutside()) count++;
             Say(count > 0 ? "YOU: Everyone outside! Follow me!\n" + count + " villagers heard your call." :
                 System.Array.Exists(residents, r => r && !r.IsDead && !r.IsCalled) ? "YOU: Everyone outside!\nMove closer to the other houses and call again." : "YOU: Follow me to the shelter!", 4.5f);
             return true;
