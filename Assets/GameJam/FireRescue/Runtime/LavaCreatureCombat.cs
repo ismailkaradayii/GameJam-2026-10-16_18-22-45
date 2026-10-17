@@ -45,6 +45,9 @@ namespace GameJam.FireRescue
         public float AttackCharge => IsAttacking && State == Motion.Windup ? Mathf.Clamp01(elapsed / duration) : 0f;
         public bool IsPlayerPouncing => attacking && State == Motion.Leaping;
         public float PlayerPounceProgress => IsPlayerPouncing ? Mathf.Clamp01(elapsed / duration) : 0f;
+        public bool IsIntroductionJump { get; private set; }
+        public float IntroductionJumpProgress => IsIntroductionJump && State == Motion.Leaping ? Mathf.Clamp01(elapsed / duration) : 0f;
+        public Vector3 IntroductionDirection => direction;
         public Vector3 ReservedLanding => State == Motion.Windup || State == Motion.Leaping ? landing : transform.position;
         public bool IsDescending => descentPath != null && descentIndex < descentPath.Length - 1;
         public float DescentProgress => descentDistances == null || descentDistances.Length < 2 ? 1f :
@@ -129,20 +132,39 @@ namespace GameJam.FireRescue
             AcquireTarget();
         }
 
+        /// <summary>A single safe, visible hop for the first-contact camera; normal combat resumes at landing.</summary>
+        public bool BeginIntroductionJump()
+        {
+            Initialize();
+            if (!initialized || !actor || actor.IsDefeated || IsDescending) return false;
+            grounded = start = GroundAt(transform.position);
+            direction = FindBuilding() ? Vector3.ProjectOnPlane(BuildingTarget.transform.position - start, Vector3.up).normalized :
+                target ? Vector3.ProjectOnPlane(target.PursuitPosition - start, Vector3.up).normalized : Vector3.forward;
+            if (direction.sqrMagnitude < .01f) direction = Vector3.forward;
+            attacking = downhillLeap = false; HideAttackTell();
+            landing = ChooseLanding(start, direction, Mathf.Min(hopDistance, 4.5f));
+            if (FlatDistance(start, landing) > .1f) direction = Vector3.ProjectOnPlane(landing - start, Vector3.up).normalized;
+            jump.CombatGrounded(start);
+            if (animator) animator.speed = animatorSpeed;
+            IsIntroductionJump = true;
+            Change(Motion.Windup, .34f);
+            return true;
+        }
+
         public void TickCombat(float dt)
         {
             if (!isActiveAndEnabled || dt <= 0f || float.IsNaN(dt) || float.IsInfinity(dt)) return;
             Initialize();
             if (!initialized || !actor || actor.IsDefeated) return;
             dt = Mathf.Min(dt, .1f);
-            if (!IsDescending && State != Motion.Emerging) IgniteThermalContacts(RoofBodyPosition, RoofBodyRadius + .22f);
+            if (!IsIntroductionJump && !IsDescending && State != Motion.Emerging) IgniteThermalContacts(RoofBodyPosition, RoofBodyRadius + .22f);
             lifetime += dt;
             if (attackBuildings && lifetime >= maximumLifeSeconds)
             {
                 // Stragglers dissipate; no infinite encounter if scenery blocks a hop.
                 actor.Dissipate(); return;
             }
-            if (PursuingBuilding && !IsDescending &&
+            if (!IsIntroductionJump && PursuingBuilding && !IsDescending &&
                 (State == Motion.Searching || State == Motion.Recovery) && !PlayerInPounceRange() && TickBuildingContact()) return;
             cooldown = Mathf.Max(0f, cooldown - dt);
             attackWait += dt;
@@ -227,7 +249,7 @@ namespace GameJam.FireRescue
                     UpdateAttackTell();
                     if (elapsed < duration) return;
                     struck = false;
-                    height = attacking ? .42f : downhillLeap ? 1.65f : .95f;
+                    height = IsIntroductionJump ? 3.4f : attacking ? .42f : downhillLeap ? 1.65f : .95f;
                     if (attacking)
                     {
                         cooldown = attackCooldown + lane % 4 * .17f;
@@ -240,7 +262,7 @@ namespace GameJam.FireRescue
                     HideAttackTell();
                     jump.BeginCombatJump(direction);
                     Leaps++;
-                    Change(Motion.Leaping, attacking ? pounceSeconds : downhillLeap ?
+                    Change(Motion.Leaping, IsIntroductionJump ? 1.2f : attacking ? pounceSeconds : downhillLeap ?
                         Mathf.Max(.64f, Mathf.Sqrt(Mathf.Max(0f, start.y - landing.y) / 18f)) : hopDuration);
                     break;
                 case Motion.Leaping:
@@ -259,11 +281,14 @@ namespace GameJam.FireRescue
                         t = 1f;
                         next = landing;
                     }
-                    jump.CombatPose(next, t);
+                    if (IsIntroductionJump)
+                        jump.CombatLaunchPose(next, (landing - start) + Vector3.up * (4f * height * (1f - 2f * t)), t);
+                    else jump.CombatPose(next, t);
                     if (t < 1f) return;
                     grounded = landing;
                     jump.CombatGrounded(grounded);
                     actor.LandingFeedback(grounded, attacking);
+                    IsIntroductionJump = false;
                     Change(Motion.Recovery, .14f + lane % 4 * .045f);
                     break;
                 case Motion.Recovery:
@@ -412,6 +437,7 @@ namespace GameJam.FireRescue
             // The roof dive is committed. Surviving hits still flash, but cannot pull an airborne
             // spirit through the roof into a grounded recoil pose; lethal hits retire it normally.
             if (State == Motion.RoofLeaping || IsPlayerPouncing) return;
+            IsIntroductionJump = false;
             alerted = true;
             retaliationUntil = Time.time + 4.5f; navigation.Invalidate();
             if (IsDescending && target && FlatDistance(transform.position, target.PursuitPosition) < 26f)

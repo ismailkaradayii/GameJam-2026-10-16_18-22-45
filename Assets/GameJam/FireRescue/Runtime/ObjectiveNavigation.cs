@@ -3,7 +3,7 @@ using UnityEngine.UI;
 
 namespace GameJam.FireRescue
 {
-    /// <summary>One current destination: world ring, projected label or a screen-edge arrow.</summary>
+    /// <summary>Glowing circles mark destinations; road arrows guide the truck between them.</summary>
     [DisallowMultipleComponent, DefaultExecutionOrder(270)]
     public sealed class ObjectiveNavigation : MonoBehaviour
     {
@@ -12,6 +12,7 @@ namespace GameJam.FireRescue
         public RectTransform marker;
         public Text label, arrow;
         public Image markerGlow;
+        public ObjectiveArrowGraphic directionArrow;
         public Canvas canvas;
         public bool compactLabels;
         string previousLabel, shortLabel;
@@ -30,7 +31,38 @@ namespace GameJam.FireRescue
         Transform drivingGuide;
         public Transform CurrentTarget { get; private set; }
         public string CurrentLabel { get; private set; }
-        readonly Vector3[] points = new Vector3[65];
+        readonly Vector3[] ringPoints = new Vector3[65];
+        readonly Vector3[] arrowPoints = new Vector3[8];
+        public bool UsesDirectionalArrow => mission && mission.player && mission.player.IsDriving && drivingGuide && CurrentTarget == drivingGuide;
+        static readonly Vector2[] arrowOutline = {
+            new Vector2(-.23f, -.65f), new Vector2(.23f, -.65f),
+            new Vector2(.23f, .02f), new Vector2(.6f, .02f), new Vector2(0, .78f),
+            new Vector2(-.6f, .02f), new Vector2(-.23f, .02f), new Vector2(-.23f, -.65f)
+        };
+        void Awake() => EnsureDirectionArrow();
+        public void EnsureDirectionArrow()
+        {
+            if (markerGlow) markerGlow.enabled = true;
+            if (!directionArrow && marker)
+            {
+                var icon = marker.Find("Destination arrow") as RectTransform;
+                if (!icon)
+                {
+                    icon = new GameObject("Destination arrow", typeof(RectTransform), typeof(CanvasRenderer), typeof(ObjectiveArrowGraphic)).GetComponent<RectTransform>();
+                    icon.SetParent(marker, false);
+                }
+                if (arrow)
+                {
+                    icon.anchorMin = icon.anchorMax = arrow.rectTransform.anchorMin;
+                    icon.anchoredPosition = arrow.rectTransform.anchoredPosition +
+                        (Vector2.one * .5f - arrow.rectTransform.pivot) * arrow.rectTransform.rect.size;
+                }
+                icon.sizeDelta = new Vector2(48, 56);
+                directionArrow = icon.GetComponent<ObjectiveArrowGraphic>();
+            }
+            if (arrow) arrow.enabled = false;
+            if (directionArrow) { directionArrow.raycastTarget = false; directionArrow.enabled = false; }
+        }
         void LateUpdate()
         {
             if (!mission || !mission.player || !mission.player.viewCamera) return;
@@ -42,12 +74,20 @@ namespace GameJam.FireRescue
             if (!visible) return;
             var player = mission.player;
             Vector3 world = CurrentTarget.position;
+            bool drivingArrow = UsesDirectionalArrow;
             if (ring)
             {
+                Vector3[] points = drivingArrow ? arrowPoints : ringPoints;
+                Vector3 origin = player.IsDriving && player.drive ? player.drive.transform.position : player.transform.position;
+                Vector3 forward = Vector3.ProjectOnPlane(world - origin, Vector3.up).normalized;
+                if (forward.sqrMagnitude < .01f) forward = Vector3.ProjectOnPlane(player.viewCamera.transform.forward, Vector3.up).normalized;
+                Vector3 right = Vector3.Cross(Vector3.up, forward);
+                float arrowSize = Mathf.Clamp(radius, .7f, player.IsDriving ? 5f : 3.5f);
                 for (int i = 0; i < points.Length; i++)
                 {
                     float angle = i * Mathf.PI * 2 / (points.Length - 1);
-                    Vector3 p = world + new Vector3(Mathf.Cos(angle), 0, Mathf.Sin(angle)) * radius;
+                    Vector3 p = drivingArrow ? world + (right * arrowOutline[i].x + forward * arrowOutline[i].y) * arrowSize :
+                        world + new Vector3(Mathf.Cos(angle), 0, Mathf.Sin(angle)) * radius;
                     if (CurrentTarget != (mission.weaponPickup ? mission.weaponPickup.transform : null) &&
                         CurrentTarget != (mission.story ? mission.story.windowStop : null) &&
                         CurrentTarget != (mission.villageAlarm ? mission.villageAlarm.contactPoint : null))
@@ -57,7 +97,7 @@ namespace GameJam.FireRescue
                                 p.y = terrain.SampleHeight(p) + terrain.transform.position.y;
                     points[i] = p + Vector3.up * .18f;
                 }
-                ring.widthMultiplier = radius < 1 ? .09f : .3f;
+                ring.widthMultiplier = radius < 1 ? .08f : .25f;
                 ring.positionCount = points.Length; ring.SetPositions(points);
                 Color bright = color * (ringBrightness + .25f * Mathf.Sin(Time.time * 3)); bright.a = 1;
                 ring.startColor = ring.endColor = bright;
@@ -88,21 +128,25 @@ namespace GameJam.FireRescue
                     previousLabel = CurrentLabel;
                     int divider = CurrentLabel.IndexOf('|');
                     shortLabel = divider >= 0 ? CurrentLabel.Substring(0, divider).TrimEnd() : CurrentLabel;
-                    if (compactLabels) shortLabel = System.Globalization.CultureInfo.InvariantCulture.TextInfo.ToTitleCase(shortLabel.ToLowerInvariant());
+                    if (compactLabels) { var culture = System.Globalization.CultureInfo.GetCultureInfo("tr-TR"); shortLabel = culture.TextInfo.ToTitleCase(shortLabel.ToLower(culture)); }
                 }
                 label.color = compactLabels ? new Color(.94f, .96f, .98f) : color;
                 label.text = (compactLabels ? shortLabel : CurrentLabel) + "\n" + Mathf.RoundToInt(Vector3.Distance(player.transform.position, world)) + " m";
             }
-            if (arrow)
+            if (directionArrow)
             {
-                arrow.text = offscreen ? "\u25B2" : "\u25C6"; arrow.color = Color.Lerp(color, Color.white, .65f);
-                arrow.rectTransform.localRotation = offscreen ? Quaternion.Euler(0, 0, Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg - 90) : Quaternion.identity;
+                directionArrow.enabled = drivingArrow;
+                directionArrow.color = Color.Lerp(color, Color.white, .3f);
+                directionArrow.rectTransform.localRotation = Quaternion.Euler(0, 0,
+                    offscreen ? Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg - 90 : 180);
+                directionArrow.rectTransform.localScale = Vector3.one * (1f + .045f * Mathf.Sin(Time.unscaledTime * 3f));
             }
             if (markerGlow)
             {
-                Color glow = color; glow.a = .62f + .18f * Mathf.Sin(Time.unscaledTime * 3f);
+                markerGlow.enabled = !drivingArrow;
+                Color glow = color; glow.a = .62f + .12f * Mathf.Sin(Time.unscaledTime * 2.6f);
                 markerGlow.color = glow;
-                markerGlow.rectTransform.localScale = Vector3.one * (1f + .12f * Mathf.Sin(Time.unscaledTime * 3f));
+                markerGlow.rectTransform.localScale = Vector3.one * (1f + .07f * Mathf.Sin(Time.unscaledTime * 2.6f));
             }
         }
         Transform SelectTarget(ref Color color, ref float radius)
@@ -112,11 +156,11 @@ namespace GameJam.FireRescue
             { CurrentLabel = "WINDOW | LOOK AT THE VOLCANO"; radius = .7f; return mission.story.windowStop; }
             if (mission.State == VolcanoMissionDirector.FlowState.Intro) return null;
             if (!player.HasPistol && mission.weaponPickup && !mission.weaponPickup.IsCollected)
-            { CurrentLabel = "PISTOL | SLOT 1"; radius = .75f; return mission.weaponPickup.transform; }
+            { CurrentLabel = "PISTOL | " + InputLabel(InteractionInput.Interact, "E") + ": TAKE"; radius = .75f; return mission.weaponPickup.transform; }
             if (!mission.EruptionTriggered && mission.Phase == VolcanoMissionDirector.MissionPhase.WarnVillage && mission.villageAlarm && !mission.villageAlarm.Activated)
             { CurrentLabel = "VILLAGE ALARM | " + (player.contextualInteractions ? player.contextualInteractions.Label(InteractionInput.Interact) : "E"); radius = .45f; return mission.villageAlarm.contactPoint; }
             if (!mission.EruptionTriggered && mission.Phase == VolcanoMissionDirector.MissionPhase.Weapon)
-            { CurrentLabel = "LEAVE THE HOUSE | E: DOOR"; return mission.houseExit; }
+            { CurrentLabel = "LEAVE THE HOUSE | " + InputLabel(InteractionInput.Interact, "E") + ": OPEN DOOR"; return mission.houseExit; }
             if (!mission.EruptionTriggered && mission.Phase == VolcanoMissionDirector.MissionPhase.Evacuate)
             {
                 Transform next = null; float distance = float.PositiveInfinity;
@@ -126,15 +170,15 @@ namespace GameJam.FireRescue
                     float d = (resident.transform.position - player.transform.position).sqrMagnitude;
                     if (d < distance) { distance = d; next = resident.transform; }
                 }
-                if (next) { CurrentLabel = "VILLAGERS | Q: CALL OUT"; return next; }
+                if (next) { CurrentLabel = "VILLAGERS | " + InputLabel(InteractionInput.CallVillagers, "Q") + ": CALL OUT"; return next; }
                 CurrentLabel = "SHELTER | LEAD THE VILLAGERS"; color = shelterColor; radius = shelterRadius;
                 return mission.evacuation.ShelterOpened ? mission.evacuation.shelterEntrance : mission.evacuation.shelterApproach;
             }
             if (!mission.EruptionTriggered && mission.Phase == VolcanoMissionDirector.MissionPhase.Truck)
-            { CurrentLabel = "FIRE TRUCK | E: ENTER"; radius = 5; return player.driverDoor; }
+            { CurrentLabel = "FIRE TRUCK | " + InputLabel(InteractionInput.Interact, "E") + ": ENTER"; radius = 5; return player.driverDoor; }
             if (mission.fillStation && ((!mission.EruptionTriggered && mission.Phase == VolcanoMissionDirector.MissionPhase.Refill) || mission.EruptionTriggered && mission.tank.Tank01 < .05f))
             {
-                if (!player.IsDriving) { CurrentLabel = "FIRE TRUCK | E: ENTER"; radius = 5; return player.driverDoor; }
+                if (!player.IsDriving) { CurrentLabel = "FIRE TRUCK | " + InputLabel(InteractionInput.Interact, "E") + ": ENTER"; radius = 5; return player.driverDoor; }
                 CurrentLabel = "LAKE | REFILL WATER"; radius = mission.fillStation.parkingRadius;
                 if (player.drive && !mission.fillStation.InRange &&
                     EvacuationResident.FlatDistance(player.drive.transform.position, mission.fillStation.transform.position) > drivingMarkerLookAhead * 1.4f &&
@@ -150,7 +194,7 @@ namespace GameJam.FireRescue
                  !mission.EruptionTriggered && mission.PreparationComplete && lakeRoad[lakeRoad.Length - 1] &&
                  EvacuationResident.FlatDistance(player.drive.transform.position, lakeRoad[lakeRoad.Length - 1].position) > 25))
             {
-                CurrentLabel = "VILLAGE | RETURN TO VILLAGE"; radius = 4;
+                CurrentLabel = "VILLAGE | RETURN"; radius = 4;
                 if (TryGetRoadGuidance(player.drive.transform.position, 1, out var villageGuide)) return PlaceDrivingGuide(villageGuide);
                 return mission.houseExit;
             }
@@ -163,13 +207,14 @@ namespace GameJam.FireRescue
                 float score = house.SecondsUntilCollapse + Vector3.Distance(player.transform.position, house.transform.position) * .06f;
                 if (score < priority) { priority = score; urgent = house; }
             }
-            if (urgent) { color = dangerColor; radius = 7; CurrentLabel = "HOUSE ON FIRE"; return urgent.transform; }
+            if (urgent) { color = dangerColor; radius = 7; CurrentLabel = "HOUSE ON FIRE | EXTINGUISH WITH WATER"; return urgent.transform; }
             if (mission.encounter)
                 foreach (var actor in mission.encounter.LivingCreatures) if (actor && !actor.IsDefeated)
-                { color = dangerColor; CurrentLabel = "FIRE SPIRIT"; return actor.transform; }
-            CurrentLabel = "VILLAGE | GET READY";
+                { color = dangerColor; CurrentLabel = "FIRE SPIRIT | STOP IT BEFORE THE HOUSES"; return actor.transform; }
+            CurrentLabel = "KASABA | HAZIR BEKLE";
             return mission.houseExit;
         }
+        string InputLabel(InteractionInput input, string fallback) => mission.player.contextualInteractions ? mission.player.contextualInteractions.Label(input) : fallback;
         /// <summary>Project onto the road each frame, then advance along it. No checkpoint has to be visited.</summary>
         public bool TryGetRoadGuidance(Vector3 position, int direction, out Vector3 target)
         {

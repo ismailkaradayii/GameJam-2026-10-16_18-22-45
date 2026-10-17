@@ -13,7 +13,7 @@ namespace GameJam.FireRescue
         public string leaveHouse = "Leave house", takePistolFirst = "Take the pistol before leaving";
         public string walkOutside = "Walk outside through the door";
         public string enterTruck = "Enter truck", exitTruck = "Exit truck";
-        public string stopBeforeExit = "Stop the truck before exiting";
+        public string stopBeforeExit = "Slow below 20 km/h before exiting";
         public string drivingHint = "WASD to drive · {0} to spray water";
         public string clearExit = "Exit blocked. Park in an open area.";
         public string callVillagers = "Call villagers", leadVillager = "Lead villager to shelter";

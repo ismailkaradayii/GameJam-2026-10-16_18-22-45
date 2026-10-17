@@ -201,7 +201,7 @@ public static class ContextualInteractionChecks
                 mission.TickMission();
                 Check("truck objective advances to refill", mission.Phase == VolcanoMissionDirector.MissionPhase.Refill);
                 cameraFixture.Look(player.drive.transform.position - player.drive.transform.forward * 23 + Vector3.up * 8, exit.FocusPosition(ui)); ui.RefreshSelection();
-                Check("vehicle exit shows F", ui.CurrentTarget == exit && ui.Label(ui.CurrentOffer.input) == "[F]", Snapshot());
+                Check("vehicle exit shows E", ui.CurrentTarget == exit && ui.Label(ui.CurrentOffer.input) == "[E]", Snapshot());
                 player.gameFlow.Pause(); Next(5); return;
             case 5:
                 if (age < .25f) return;
@@ -222,18 +222,18 @@ public static class ContextualInteractionChecks
                 if (age < 1.5f) return;
                 ui.RefreshSelection();
                 if (!Capture("05-lake-eligibility.png")) return;
-                Check("lake prompt uses real guided fill eligibility", ui.CurrentTarget == lake && ui.CurrentOffer.input == InteractionInput.Interact && !ui.CurrentOffer.blocked, Snapshot());
+                Check("lake prompt uses real guided fill eligibility", ui.CurrentTarget == lake && ui.CurrentOffer.input == InteractionInput.Pump && !ui.CurrentOffer.blocked, Snapshot());
                 initialTank = player.hose.Tank01;
-                Check("existing E fill starts the actual pump", mission.fillStation.Interact() && mission.fillStation.IsFilling && player.hose.IsPumping);
+                Check("guided fill starts the actual pump", mission.fillStation.Interact() && mission.fillStation.IsFilling && player.hose.IsPumping);
                 Next(9); return;
             case 9:
                 if (age < .8f) return;
                 ui.RefreshSelection();
                 if (!Capture("04-lake-progress.png")) return;
-                Check("automatic fill displays actual tank progress with E disconnect", ui.CurrentTarget == lake && ui.CurrentOffer.showProgress && ui.CurrentOffer.input == InteractionInput.Interact &&
+                Check("automatic fill displays actual tank progress with P disconnect", ui.CurrentTarget == lake && ui.CurrentOffer.showProgress && ui.CurrentOffer.input == InteractionInput.Pump &&
                     player.hose.Tank01 > initialTank && Mathf.Abs(ui.CurrentOffer.progress - player.hose.Tank01) < .002f, Snapshot());
                 Check("progress is rendered by the prefab", ui.progressGroup.activeSelf && ui.progressFill.fillAmount > 0);
-                Check("E disconnect cancels the original pump and retracts the hose", mission.fillStation.Interact() && !mission.fillStation.IsFilling && !player.hose.IsDeployed);
+                Check("P disconnect cancels the original pump and retracts the hose", mission.fillStation.Interact() && !mission.fillStation.IsFilling && !player.hose.IsDeployed);
                 // Camera and input remain live for multi-resolution projection checks.
                 resolution = 0; SetResolution(sizes[resolution]); Next(10); return;
             case 10:

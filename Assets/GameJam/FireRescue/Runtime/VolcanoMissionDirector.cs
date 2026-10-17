@@ -167,7 +167,7 @@ namespace GameJam.FireRescue
             if (Phase == next) return;
             Phase = next; ObjectiveChanged?.Invoke();
         }
-        public string ObjectiveTitle => EruptionTriggered ? "DEFEND THE VILLAGE" : Phase switch
+        public string ObjectiveTitle => EruptionTriggered ? (!player.HasPistol ? "TAKE YOUR WEAPON FIRST" : "DEFEND THE VILLAGE") : Phase switch
         {
             MissionPhase.Intro => "ASHFALL",
             MissionPhase.Window => "LOOK AT THE VOLCANO FROM THE WINDOW",
@@ -185,24 +185,26 @@ namespace GameJam.FireRescue
             {
                 if (EruptionTriggered)
                 {
-                    if (!player.HasPistol) return "Collect the pistol from your bedroom. The village needs you!";
-                    if (tank.Tank01 < .05f) return "Shoot the fire spirits. Refill the truck at the BLUE lake marker to fight fires.";
-                    return "Shoot the fire spirits. Use the truck's water cannon on burning houses.";
+                    if (!player.HasPistol) return "Follow the blue marker to the bedroom pistol. Press " + InputLabel(InteractionInput.Interact, "E") + " to take it and stop the spirits before they reach the houses.";
+                    if (tank.Tank01 < .05f) return "Shoot the fire spirits. Follow the blue arrows to refill the truck at the lake, then fight the house fires.";
+                    return player.IsDriving ? InputLabel(InteractionInput.ExitVehicle, "E") + " exits the truck. Equip slot 1 and stop the spirits before they reach the houses. Use the water cannon on house fires." :
+                        "Spirits leap onto houses and start fires. 1: pistol  ·  Right click: aim  ·  Left click: fire. Use the truck water cannon on burning houses.";
                 }
                 return Phase switch
                 {
                     MissionPhase.Window => "Approach the marked bedroom window. Something is wrong with the volcano...",
-                    MissionPhase.Weapon => player.HasPistol ? "Pistol in slot 1. Follow the marker to the front door. E opens doors." : "Pick up the pistol on the bedside cabinet. Press E when nearby.",
+                    MissionPhase.Weapon => player.HasPistol ? "Pistol in slot 1. Follow the marker to the front door. " + InputLabel(InteractionInput.Interact, "E") + " opens doors." : "Follow the glowing blue ring to the bedside pistol. Press " + InputLabel(InteractionInput.Interact, "E") + " to take it.",
                     MissionPhase.WarnVillage => villageAlarm ? "Approach the alarm button beneath the red light at the first house. " +
                         (player.contextualInteractions ? player.contextualInteractions.Label(InteractionInput.Interact) : "E") + " to press it and warn the village." : "Warn the village to begin the evacuation.",
-                    MissionPhase.Evacuate => "Villagers are leaving their houses. Press Q to call them, then lead them to the shelter.",
+                    MissionPhase.Evacuate => "Villagers are leaving their houses. Press " + InputLabel(InteractionInput.CallVillagers, "Q") + " to call them, then follow the green marker to the shelter.",
                     MissionPhase.Truck => "Find the truck behind your house. Approach the driver's door and press " +
                         (player.contextualInteractions ? player.contextualInteractions.Label(InteractionInput.Interact) : "E") + ".",
-                    MissionPhase.Refill => "Park in the BLUE lake ring. Press E to connect the intake and fill the tank.",
+                    MissionPhase.Refill => "Follow the blue arrows to the lake and park in the blue ring. Press " + InputLabel(InteractionInput.Pump, "P") + " to connect the intake and fill the tank. " + InputLabel(InteractionInput.ExitVehicle, "E") + " exits the truck.",
                     MissionPhase.Ready => story && story.defensePosition ? "Follow the road back to town. Prepare for the lava at the marked defense point." : "Return to the village. Keep the pistol and water tank ready.",
                     _ => "Wake up. The volcano is stirring."
                 };
             }
         }
+        string InputLabel(InteractionInput input, string fallback) => player && player.contextualInteractions ? player.contextualInteractions.Label(input) : fallback;
     }
 }

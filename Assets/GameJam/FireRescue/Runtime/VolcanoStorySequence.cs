@@ -14,6 +14,7 @@ namespace GameJam.FireRescue
         public Transform[] windowRoute = System.Array.Empty<Transform>();
         [Tooltip("A small lean toward the lower window pane; blended out before returning control.")]
         public Vector3 windowEyeOffset = new Vector3(-2.2f, -2.2f, 0);
+        [Range(35f, 80f)] public float windowFieldOfView = 50f;
         [Min(.1f)] public float approachSpeed = 2.8f;
         [Min(1f)] public float approachTimeout = 12f;
         [Min(.1f)] public float arrivalRadius = .28f;
@@ -49,6 +50,9 @@ namespace GameJam.FireRescue
         int waypoint;
         bool ownsMovement, stoppedForEruption;
         Vector3 appliedViewOffset;
+        Vector3 baseViewLocalPosition;
+        Quaternion smoothViewRotation;
+        float openingFov;
         FireRescuePlayer Player => mission ? mission.player : null;
 
         void Awake()
@@ -61,6 +65,9 @@ namespace GameJam.FireRescue
         {
             if (OpeningStarted || !Player || Player.IsDriving || !windowStop || !volcanoLookTarget) return false;
             OpeningStarted = IsOpening = true;
+            openingFov = Player.viewCamera.fieldOfView;
+            baseViewLocalPosition = Player.viewCamera.transform.localPosition;
+            smoothViewRotation = Player.viewCamera.transform.rotation;
             Player.SetCinematicLocked(true); Player.RefreshEquipmentState(); ownsMovement = true;
             Speak(Thought.Approach, "I can't shake this feeling... I'll look out the window.", 6f, true);
             return true;
@@ -85,14 +92,36 @@ namespace GameJam.FireRescue
         void LateUpdate()
         {
             if (!IsOpening || !ownsMovement || !Player || !Player.viewCamera || VolcanoCinematic.IsPlayingAny) return;
-            float approach = AtWindow ? 1f : 1f - Mathf.Clamp01(EvacuationResident.FlatDistance(Player.transform.position, windowStop.position) / 4f);
+            // Lean only after the body has stopped, rather than pushing the lens sideways into
+            // bedroom geometry while the character is still negotiating the approach.
+            float approach = AtWindow ? Mathf.SmoothStep(0, 1, ObservationElapsed / 1.6f) : 0f;
             float leave = 1f - Mathf.SmoothStep(0, 1, Mathf.InverseLerp(observationSeconds - 1.2f, observationSeconds, ObservationElapsed));
-            appliedViewOffset = windowEyeOffset * (Mathf.SmoothStep(0, 1, approach) * leave);
-            Player.viewCamera.transform.position += appliedViewOffset;
+            var view = Player.viewCamera;
+            baseViewLocalPosition = view.transform.localPosition;
+            appliedViewOffset = windowEyeOffset * (approach * leave);
+            Vector3 origin = view.transform.position;
+            float length = appliedViewOffset.magnitude;
+            if (length > .001f)
+                foreach (var hit in Physics.SphereCastAll(origin, .08f, appliedViewOffset / length, length, ~0, QueryTriggerInteraction.Ignore))
+                    if (!hit.transform.IsChildOf(Player.transform))
+                        length = Mathf.Min(length, Mathf.Max(0, hit.distance - .1f));
+            appliedViewOffset = appliedViewOffset.normalized * length;
+            view.transform.position = origin + appliedViewOffset;
+            // Aim from the final lens position, not from the unshifted player's eye.
+            if (AtWindow)
+            {
+                Quaternion focus = Quaternion.LookRotation(volcanoLookTarget.position - view.transform.position);
+                view.transform.rotation = Quaternion.Slerp(smoothViewRotation, focus, approach * leave);
+            }
+            view.fieldOfView = Mathf.Lerp(openingFov, windowFieldOfView, approach * leave);
         }
         void RemoveViewOffset()
         {
-            if (Player && Player.viewCamera) Player.viewCamera.transform.position -= appliedViewOffset;
+            if (Player && Player.viewCamera && appliedViewOffset.sqrMagnitude > 0f)
+            {
+                Player.viewCamera.transform.localPosition = baseViewLocalPosition;
+                Player.viewCamera.fieldOfView = openingFov;
+            }
             appliedViewOffset = Vector3.zero;
         }
 
@@ -119,8 +148,9 @@ namespace GameJam.FireRescue
                         Vector3 focus = distance < 3f && waypoint >= windowRoute.Length ? volcanoLookTarget.position :
                             destination.position + Vector3.up * (Player.viewCamera.transform.position.y - Player.transform.position.y);
                         Quaternion look = Quaternion.LookRotation(focus - Player.viewCamera.transform.position);
+                        smoothViewRotation = Quaternion.Slerp(smoothViewRotation, look, 1f - Mathf.Exp(-2.7f * dt));
                         Player.SimulateCinematicWalk(destination.position,
-                            Quaternion.Slerp(Player.viewCamera.transform.rotation, look, 1f - Mathf.Exp(-3f * dt)), approachSpeed);
+                            smoothViewRotation, approachSpeed);
                         // A moved prop must never leave the player permanently locked. The same window
                         // becomes a normal guided destination until the player walks into position.
                         if (approachElapsed >= approachTimeout) ReleaseMovement();
@@ -129,8 +159,9 @@ namespace GameJam.FireRescue
                 }
             }
             Quaternion facing = Quaternion.LookRotation(volcanoLookTarget.position - Player.viewCamera.transform.position);
+            smoothViewRotation = Quaternion.Slerp(smoothViewRotation, facing, 1f - Mathf.Exp(-3f * dt));
             Player.SimulateCinematicWalk(Player.transform.position,
-                Quaternion.Slerp(Player.viewCamera.transform.rotation, facing, 1f - Mathf.Exp(-4f * dt)), 0f);
+                smoothViewRotation, 0f);
             ObservationElapsed += dt;
             if (!OmenPlayed && ObservationElapsed >= omenDelay)
             {

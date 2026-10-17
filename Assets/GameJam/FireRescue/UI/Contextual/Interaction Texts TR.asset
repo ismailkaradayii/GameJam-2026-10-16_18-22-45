@@ -22,7 +22,7 @@ MonoBehaviour:
   walkOutside: "Walk outside through the door"
   enterTruck: "Enter truck"
   exitTruck: "Exit truck"
-  stopBeforeExit: "Stop the truck before exiting"
+  stopBeforeExit: "Slow below 20 km/h before exiting"
   drivingHint: "WASD to drive · {0} to spray water"
   clearExit: "Exit blocked. Park in an open area."
   callVillagers: "Call villagers"

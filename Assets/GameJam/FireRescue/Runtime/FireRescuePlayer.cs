@@ -22,7 +22,11 @@ namespace GameJam.FireRescue
         public VolcanoMissionDirector mission;
         public ContextualInteractionUI contextualInteractions;
         [Header("Interaction keys (Input System)")]
-        public Key interactKey = Key.E, exitVehicleKey = Key.F, retractHoseKey = Key.R, pumpKey = Key.P;
+        public Key interactKey = Key.E, retractHoseKey = Key.R, pumpKey = Key.P;
+        // Entry and exit always share the same interaction binding.
+        public Key exitVehicleKey => interactKey;
+        public const float MaximumExitSpeedKph = 20f;
+        public bool CanExitAtCurrentSpeed => drive && Mathf.Abs(drive.SpeedKph) < MaximumExitSpeedKph;
         public event Action<string> NoticeRaised;
         public string ActiveNotice => Time.unscaledTime < noticeUntil ? notice : "";
         [Tooltip("The authored bedroom pickup owns the existing slot 1.")]
@@ -195,7 +199,8 @@ namespace GameJam.FireRescue
                     lookAngularVelocity = new Vector2(lookYaw - previousYaw, lookPitch - previousPitch) / Time.deltaTime;
             }
 
-            if (IsDriving && exitVehicleKey != Key.None && keyboard[exitVehicleKey].wasPressedThisFrame) ExitVehicle();
+            // Consume a successful exit so the same E press cannot immediately enter again.
+            if (IsDriving && interactKey != Key.None && keyboard[interactKey].wasPressedThisFrame && ExitVehicle()) return;
 
             Vector2 move = new Vector2(
                 (keyboard.dKey.isPressed ? 1f : 0f) - (keyboard.aKey.isPressed ? 1f : 0f),
@@ -205,7 +210,7 @@ namespace GameJam.FireRescue
                 if (pistol) pistol.SetExternalInput(false, false, false, false, false, false);
                 if (drive && drive.Thermal && keyboard.xKey.isPressed) drive.Thermal.SuppressFromTank(hose, Time.deltaTime);
                 var station = mission ? mission.fillStation : null;
-                if (station && interactKey != Key.None && keyboard[interactKey].wasPressedThisFrame) station.Interact();
+                if (station && pumpKey != Key.None && keyboard[pumpKey].wasPressedThisFrame) station.Interact();
                 bool filling = station && station.IsFilling;
                 if (drive) drive.SetInput(filling ? 0 : move.y, filling ? 0 : move.x, filling || keyboard.spaceKey.isPressed);
                 SetCannonActive(!filling && mouse != null && mouse.rightButton.isPressed);
@@ -300,9 +305,9 @@ namespace GameJam.FireRescue
         {
             if (GameplaySuspended) return false;
             if (!IsDriving || !drive || !playerBody) return false;
-            if (Mathf.Abs(drive.SpeedKph) > 4f)
+            if (!CanExitAtCurrentSpeed)
             {
-                ShowNotice("Stop the truck before exiting.");
+                ShowNotice("Slow below 20 km/h before exiting.");
                 return false;
             }
             Vector3 destination = exitPoint ? exitPoint.position : drive.transform.position - drive.transform.right * 3f;
@@ -323,6 +328,7 @@ namespace GameJam.FireRescue
             lookYaw = drive.transform.eulerAngles.y;
             lookPitch = 8f;
             verticalVelocity = 0f;
+            if (mission && mission.fillStation) mission.fillStation.Cancel();
             SetDriving(false);
             return true;
         }
@@ -736,7 +742,7 @@ namespace GameJam.FireRescue
             GUI.DrawTexture(new Rect(32f, 86f, 318f * Mathf.Clamp01(amount), 9f), Texture2D.whiteTexture);
             GUI.color = Color.white;
             GUI.Label(new Rect(32f, 102f, 315f, 33f), GetWaterStatus(), textStyle);
-            GUI.Label(new Rect(32f, 137f, 315f, 54f), IsDriving ? "WASD Drive  ·  Space Brake  ·  F Exit\nRight click Water  ·  Mouse Aim  ·  Esc Cursor" :
+            GUI.Label(new Rect(32f, 137f, 315f, 54f), IsDriving ? "WASD Drive  ·  Space Brake  ·  E Exit\nRight click Water  ·  Mouse Aim  ·  Esc Cursor" :
                 "WASD Move  ·  Shift Sprint  ·  E Enter\nE Hose  ·  P Pump  ·  R " + (pistol && pistol.Equipped ? "Reload" : "Retract"), textStyle);
 
             string prompt = GetPrompt();
@@ -778,11 +784,11 @@ namespace GameJam.FireRescue
                 var station = mission ? mission.fillStation : null;
                 if (station && station.InRange)
                 {
-                    if (station.IsFilling) return "FILLING WATER TANK...  |  E: Disconnect";
+                    if (station.IsFilling) return "FILLING WATER TANK...  |  P: Disconnect  |  E: Exit";
                     if (hose && hose.Tank01 >= .999f) return "TANK FULL  |  Return to the village";
-                    return drive.SpeedKph > station.maximumFillSpeedKph ? "SPACE: Stop in the blue ring to refill" : "E: Fill water tank";
+                    return drive.SpeedKph > station.maximumFillSpeedKph ? "SPACE: Stop in the blue ring to refill" : "P: Fill water tank  |  E: Exit";
                 }
-                return "WASD: Drive  |  SPACE: Brake  |  RMB: Water cannon  |  F: Exit";
+                return "WASD: Drive  |  SPACE: Brake  |  RMB: Water cannon  |  E: Exit below 20 km/h";
             }
             if (hose && hose.IsCarried) return "E: Drop intake in water  |  P: Pump";
             if (TryGetDoorTarget(out InteractiveDoor door)) return door.Prompt;

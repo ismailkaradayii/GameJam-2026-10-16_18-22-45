@@ -173,7 +173,7 @@ public static class TruckLakeRouteChecks
         }
         else if(phase==9)
         {
-            InputSystem.QueueStateEvent(keyboard,age<.2f?new KeyboardState():new KeyboardState(Key.F));
+            InputSystem.QueueStateEvent(keyboard,age<.2f?new KeyboardState():new KeyboardState(Key.E));
             if(player.IsDriving)return;
             lines.Add("PASS F exited safely at village after the full round trip. position="+player.transform.position+" door="+player.driverDoor.position);
             InputSystem.QueueStateEvent(keyboard,new KeyboardState());Next(10,12);

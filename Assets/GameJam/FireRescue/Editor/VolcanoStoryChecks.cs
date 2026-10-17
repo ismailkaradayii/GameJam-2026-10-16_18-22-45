@@ -119,12 +119,12 @@ public static class VolcanoStoryChecks
             case 2:
                 if (!story.OmenPlayed || story.ObservationElapsed < story.omenDelay + .35f) return;
                 Check("only the small omen particles fire", story.omenSmoke.particleCount > 0 && story.omenSparks.particleCount > 0 && !mission.sequence.effects.IsErupting && mission.sequence.Stage == VolcanoEruptionSequence.EruptionStage.Waiting);
-                Check("inner thoughts use the existing readable subtitle area", hud.subtitleText.transform.parent.gameObject.activeSelf && hud.subtitleText.font == story.subtitleFont && hud.subtitleText.text.Contains("kıvılcım"));
+                Check("inner thoughts use the existing readable subtitle area", hud.subtitleText.transform.parent.gameObject.activeSelf && hud.subtitleText.font == story.subtitleFont && hud.subtitleText.text.Contains("sparks"));
                 if (!fixture.PhotoReady("01-window-omen.png")) return;
                 Next(3); return;
             case 3:
                 if (story.CurrentThought != VolcanoStorySequence.Thought.Foreseen) return;
-                Check("recognition follows the smoke and spark", story.HasSpoken(VolcanoStorySequence.Thought.Unease) && story.HasSpoken(VolcanoStorySequence.Thought.Omen) && story.CurrentLine.Contains("Bu zamanın geleceğini biliyordum"));
+                Check("recognition follows the smoke and spark", story.HasSpoken(VolcanoStorySequence.Thought.Unease) && story.HasSpoken(VolcanoStorySequence.Thought.Omen) && story.CurrentLine.Contains("I knew this day would come"));
                 if (!fixture.PhotoReady("02-window-recognition.png")) return;
                 Next(4); return;
             case 4:
@@ -201,17 +201,17 @@ public static class VolcanoStoryChecks
             case 17:
                 if (age < 1f) return;
                 Check("lake connection still requires the submerged, reachable intake", mission.fillStation.CanFill && mission.fillStation.water.ContainsIntake(mission.fillStation.intakePoint.position));
-                KeyDown(player.interactKey); Next(18); return;
+                KeyDown(player.pumpKey); Next(18); return;
             case 18:
                 if (!mission.fillStation.IsFilling) return;
-                KeyUp(); Check("existing E starts the physical hose and pump", player.hose.IsDeployed && player.hose.IsPumping);
+                KeyUp(); Check("P starts the physical hose and pump", player.hose.IsDeployed && player.hose.IsPumping);
                 if (!fixture.PhotoReady("04-lake-filling.png")) return;
                 Next(19, 25); return;
             case 19:
                 if (player.hose.Tank01 < .999f || mission.fillStation.IsFilling || !mission.PreparationComplete) return;
                 Check("real water filling completes and retrieves the intake", !player.hose.IsDeployed && player.hose.TankLitres >= 1998 && mission.Phase == VolcanoMissionDirector.MissionPhase.Ready);
                 if (story.CurrentThought != VolcanoStorySequence.Thought.Return) return;
-                Check("full tank triggers the return thought", story.CurrentLine.Contains("Lavın geleceği tarafta hazır beklemeliyim"));
+                Check("full tank triggers the return thought", story.CurrentLine.Contains("prepare where the lava will reach the town"));
                 if (!fixture.PhotoReady("05-return-guidance.png")) return;
                 previousTimer = mission.PreparationRemaining; player.gameFlow.Pause(); Next(20); return;
             case 20:

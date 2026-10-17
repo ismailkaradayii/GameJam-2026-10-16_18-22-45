@@ -213,6 +213,7 @@ public static class FinalLoopChecks
                 {
                     sawSpirits = true; sawSlowMotion |= Time.timeScale < 1 && player.CinematicLocked;
                     if (mission.cinematic.Elapsed > 1 && mission.cinematic.Elapsed < 1.12f) Capture("05-spirits");
+                    if (mission.cinematic.CanContinueSpirit) mission.cinematic.ContinueSpiritIntroduction();
                     return;
                 }
                 if (!sawSpirits) return;

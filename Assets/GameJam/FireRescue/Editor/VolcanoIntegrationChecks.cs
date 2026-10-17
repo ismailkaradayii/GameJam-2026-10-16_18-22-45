@@ -314,8 +314,8 @@ public static class VolcanoIntegrationChecks
         Add("enter_vehicle_hands_and_weapon_yield", entered && player.IsDriving && drive.IsDriven && !player.playerBody.enabled && !pistol.Available && !firstPerson.handsCamera.enabled,
             "entered=" + entered + "; weaponAvailable=" + pistol.Available);
         if (!entered) throw new InvalidOperationException("Could not enter the real truck at its driver door.");
-        drive.body.linearVelocity = drive.transform.forward * 2f;
-        Add("moving_vehicle_blocks_exit", !player.ExitVehicle() && player.IsDriving, "speedKph=" + drive.SpeedKph);
+        drive.body.linearVelocity = drive.transform.forward * 8f;
+        Add("vehicle_above_20_kph_blocks_exit", !player.ExitVehicle() && player.IsDriving, "speedKph=" + drive.SpeedKph);
         drive.body.linearVelocity = Vector3.zero;
         bool exited = player.ExitVehicle();
         player.RefreshEquipmentState();
@@ -394,7 +394,7 @@ public static class VolcanoIntegrationChecks
             drive.body.linearVelocity = Vector3.zero;
             drive.body.angularVelocity = Vector3.zero;
             MoveFoot(player.driverDoor.position, truckRotation);
-            DispatchInput(new[] { Key.F });
+            DispatchInput(new[] { Key.E });
             Add("input_f_enters_real_vehicle", player.IsDriving && drive.IsDriven && !pistol.Available && !player.playerBody.enabled,
                 "driving=" + player.IsDriving + "; weaponAvailable=" + pistol.Available);
             DispatchInput();
@@ -409,7 +409,7 @@ public static class VolcanoIntegrationChecks
 
             drive.body.linearVelocity = Vector3.zero;
             drive.body.angularVelocity = Vector3.zero;
-            DispatchInput(new[] { Key.F });
+            DispatchInput(new[] { Key.E });
             Add("input_f_exits_real_vehicle", !player.IsDriving && !drive.IsDriven && player.playerBody.enabled && pistol.Available,
                 "driving=" + player.IsDriving + "; motor=" + player.playerBody.enabled);
             DispatchInput();

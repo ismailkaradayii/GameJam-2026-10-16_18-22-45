@@ -100,14 +100,14 @@ public static class FinalLoopSetup
         var replacements = new Dictionary<string, string>
         {
             { "Önce halkı sığınağa götür; ardından kasabayı yangından koru.", "Hazırlanmak için 120 saniyen var. Ardından köyü savun." },
-            { "Aracın arkasından hortumu al; göle bakıp ucunu bırak.", "Araçla MAVİ göl halkasında dur. E bağlantıyı kurar; depo dolunca hortum otomatik toplanır." },
+            { "Aracın arkasından hortumu al; göle bakıp ucunu bırak.", "Araçla MAVİ göl halkasında dur. P bağlantıyı kurar; E araçtan indirir. Depo dolunca hortum otomatik toplanır." },
             { "Hortum ucu göldeyken depoyu doldurmak için pompayı aç.", "İstersen yaya halde aracın arkasından hortumu al, ucunu göle bırak ve P ile pompayı aç." },
             { "1 silahı çek/kaldır, 0 silahı kaldır. Hortum taşırken silah kapanır.", "Komodindeki tabancayı E ile al. 1 silahı çek/kaldır, 0 silahı kaldır. Araçtan inince silah geri gelir." }
         };
         foreach (var text in Object.FindObjectsByType<Text>(FindObjectsInactive.Include, FindObjectsSortMode.None))
         {
             if (text.gameObject.scene != menuScene) continue;
-            if (text.text.Contains("250 litre suyla")) text.text = "Yatak odasındaki tabancayı E ile al ve evden çık. Q ile köylüleri çağır; YEŞİL halkalı sığınağa götür. Evin arkasındaki itfaiyeye bin, MAVİ göl işaretinde E ile depoyu doldur. 120 saniye dolunca hazırlığın bitmese de volkan patlar. Üç alev ruhu dalgasını durdur, yanan evleri söndür. En az bir ev ayakta kalırsa kazanırsın; bütün evler yıkılırsa kaybedersin. Sıcak lavdan uzak dur.";
+            if (text.text.Contains("250 litre suyla")) text.text = "Yatak odasındaki tabancayı E ile al ve evden çık. Q ile köylüleri çağır; YEŞİL halkalı sığınağa götür. Evin arkasındaki itfaiyeye E ile bin, MAVİ göl işaretinde P ile depoyu doldur. Hız 20 km/sa altındayken E ile araçtan in. 120 saniye dolunca hazırlığın bitmese de volkan patlar. Üç alev ruhu dalgasını durdur, yanan evleri söndür. En az bir ev ayakta kalırsa kazanırsın; bütün evler yıkılırsa kaybedersin. Sıcak lavdan uzak dur.";
             else if (replacements.TryGetValue(text.text, out string replacement)) text.text = replacement;
             else continue;
             EditorUtility.SetDirty(text);

@@ -20,14 +20,16 @@ namespace Ashfall.UI
         {"Hazırlanmak için 120 saniyen var. Ardından köyü savun.", "You have 120 seconds to prepare. Then defend the village."},
         {"Yaya hareket / araç sürüşü. Fareyle etrafa bak.", "Move on foot or drive. Look around with the mouse."},
         {"Yaya halde koş.", "Sprint on foot."}, {"Araçta fren; yaya halde silah çekiliyken zıpla.", "Brake in the vehicle; jump on foot with the weapon drawn."},
-        {"Sürücü kapısında E ile bin; durduktan sonra F ile in.", "Press E at the driver's door to enter; stop and press F to exit."},
+        {"Sürücü kapısında E ile bin; durduktan sonra F ile in.", "Press E at the driver's door to enter. Press E to exit below 20 km/h."},
+        {"Sürücü kapısında E ile bin; hız 20 km/sa altındayken E ile in.", "Press E at the driver's door to enter. Press E to exit below 20 km/h."},
         {"Aracın arkasında hortumu topla; sonra araca binebilirsin.", "Retract the hose at the rear before entering the truck."},
         {"Yaya halde sol tık ateş, sağ tık nişan al.", "On foot, left click to fire and right click to aim."},
         {"Arka hortum etkileşimi yokken şarjör değiştir.", "Reload when the rear hose interaction is unavailable."},
         {"Silah çekiliyken çömel / kalk.", "Crouch or stand with the weapon drawn."},
         {"Oyunu duraklat; Devam Et ile sürdür veya ana menüye dön.", "Pause the game; resume or return to the main menu."},
         {"Evlerin yakınında 'Herkes dışarıya!' diye seslen. Halkı sığınağa götür.", "Call out near the houses and lead the villagers to shelter."},
-        {"Araçla MAVİ göl halkasında dur. E bağlantıyı kurar; depo dolunca hortum otomatik toplanır.", "Stop in the BLUE lake ring and press E to connect. The hose retracts when the tank is full."},
+        {"Araçla MAVİ göl halkasında dur. E bağlantıyı kurar; depo dolunca hortum otomatik toplanır.", "Stop in the BLUE lake ring and press P to connect. E exits the truck. The hose retracts when the tank is full."},
+        {"Araçla MAVİ göl halkasında dur. P bağlantıyı kurar; E araçtan indirir. Depo dolunca hortum otomatik toplanır.", "Stop in the BLUE lake ring and press P to connect. E exits the truck. The hose retracts when the tank is full."},
         {"İstersen yaya halde aracın arkasından hortumu al, ucunu göle bırak ve P ile pompayı aç.", "On foot, take the hose from the rear of the truck, drop its intake in the lake, and press P to start the pump."},
         {"Araçtayken sağ tık basılı tut. Evleri söndür, lavları soğut ve ruhlara su sık. İşaret suyun tahmini çarpma noktasını gösterir; suyun hedefe ulaşmasını bekle.", "Hold right click in the truck to extinguish houses, cool lava, and spray spirits. The marker shows the predicted impact point; allow time for the water to reach it."},
         {"Komodindeki tabancayı E ile al. 1 silahı çek/kaldır, 0 silahı kaldır. Araçtan inince silah geri gelir.", "Press E to take the bedside pistol. Press 1 to draw or holster it, or 0 to holster. Your weapon returns after exiting the truck."},
@@ -48,7 +50,8 @@ namespace Ashfall.UI
         {"Araçtayken fareyle nişan al; sağ tık basılı tutarak su püskürt.", "In the truck, aim with the mouse and hold right click to spray water."},
         {"Lav akışlarından ve çöken evlerden uzak dur.", "Stay away from lava flows and collapsing houses."},
         {"Evlerin yanına yaklaş, Q ile seslen ve halkı SHELTER tabelalı sığınağa götür.", "Approach the houses, call with Q and lead villagers to the shelter."},
-        {"E ile yakındaki kapı veya hortumla etkileş. F ile itfaiye aracına bin ya da in.", "Press E to interact with nearby doors or the hose. Use F to enter or exit the fire truck."},
+        {"E ile yakındaki kapı veya hortumla etkileş. F ile itfaiye aracına bin ya da in.", "Press E to interact, enter the truck, or exit below 20 km/h. Press P at the lake to refill."},
+        {"E ile etkileş ve araca bin. Hız 20 km/sa altındayken E ile in. Göldeki su dolumu P.", "Press E to interact, enter the truck, or exit below 20 km/h. Press P at the lake to refill."},
         {"Q  HERKES DIŞARIYA!  ·  EN YAKIN EV: 212 m", "Q  CALL VILLAGERS  ·  NEAREST HOUSE: 212 m"},
         {"Görevi yeniden başlat", "Restart mission"}, {"Ana ses", "Master volume"}, {"Oyun duraklatıldı", "Game paused"}, {"Yaya", "On foot"},
         {"Kasaba durumu", "Town status"}, {"Fare hassasiyeti", "Mouse sensitivity"}, {"Su az · Gölden doldur", "Low water · Refill at lake"},
@@ -84,7 +87,7 @@ namespace Ashfall.UI
             string translated;
             if (Exact.TryGetValue(label.text, out translated)) label.text = translated;
             else if (label.text.StartsWith("Yatak odasındaki tabancayı"))
-                label.text = "Take the pistol from your bedroom with E and leave the house. Call villagers with Q and lead them to the GREEN shelter ring. Enter the fire truck behind the house and fill its tank with E at the BLUE lake marker. The volcano erupts after 120 seconds, even if preparations are incomplete. Stop three waves of fire spirits and extinguish burning houses. You win if at least one house survives; you lose if all are destroyed. Stay away from hot lava.";
+                label.text = "Take the pistol from your bedroom with E and leave the house. Call villagers with Q and lead them to the GREEN shelter ring. Enter the fire truck with E and fill its tank with P at the BLUE lake marker. Press E to exit below 20 km/h. The volcano erupts after 120 seconds, even if preparations are incomplete. Stop three waves of fire spirits and extinguish burning houses. You win if at least one house survives; you lose if all are destroyed. Stay away from hot lava.";
             previous = label.text;
         }
     }

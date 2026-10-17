@@ -86,7 +86,7 @@ public static class ContextualInteractionSetup
         entry.x = -entry.x;
         Add("Truck opposite cab door", ContextualInteractionKind.TruckEntry, player.drive.transform, entry,
             player.drive.transform, player.interactionDistance + 5, 40, .9f);
-        Add("Truck exit - F", ContextualInteractionKind.TruckExit, player.drive.transform, new Vector3(0, 2.5f, 1.5f),
+        Add("Truck exit - E", ContextualInteractionKind.TruckExit, player.drive.transform, new Vector3(0, 2.5f, 1.5f),
             player.drive.transform, 42, 52, .05f);
         var distinctExits = new HashSet<Transform>();
         foreach (var resident in mission.evacuation.residents)

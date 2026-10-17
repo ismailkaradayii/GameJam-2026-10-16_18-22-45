@@ -148,33 +148,33 @@ public static class FireRescueInputChecks
                 case 0:
                     if (elapsed < 0.6d) return;
                     Require("input_gate_ready", player.enabled && ReadFocused() && Cursor.lockState == CursorLockMode.Locked, GateEvidence());
-                    Press(Key.F, 1, "F_exit_press");
+                    Press(Key.E, 1, "E_exit_press");
                     break;
                 case 1:
                     if (elapsed < 0.2d) return;
-                    Release(2, "F_exit_release");
+                    Release(2, "E_exit_release");
                     break;
                 case 2:
                     if (elapsed < 0.2d) return;
-                    Require("F_exits_vehicle", !player.IsDriving && player.playerBody.enabled && !drive.IsDriven, StateEvidence());
-                    Press(Key.F, 3, "F_enter_press");
+                    Require("E_exits_vehicle", !player.IsDriving && player.playerBody.enabled && !drive.IsDriven, StateEvidence());
+                    Press(Key.E, 3, "E_enter_press");
                     break;
                 case 3:
                     if (elapsed < 0.2d) return;
-                    Release(4, "F_enter_release");
+                    Release(4, "E_enter_release");
                     break;
                 case 4:
                     if (elapsed < 0.2d) return;
-                    Require("F_enters_vehicle", player.IsDriving && !player.playerBody.enabled && drive.IsDriven, StateEvidence());
-                    Press(Key.F, 5, "F_exit_again_press");
+                    Require("E_enters_vehicle", player.IsDriving && !player.playerBody.enabled && drive.IsDriven, StateEvidence());
+                    Press(Key.E, 5, "E_exit_again_press");
                     break;
                 case 5:
                     if (elapsed < 0.2d) return;
-                    Release(6, "F_exit_again_release");
+                    Release(6, "E_exit_again_release");
                     break;
                 case 6:
                     if (elapsed < 0.2d) return;
-                    Require("F_exits_again", !player.IsDriving && player.playerBody.enabled, StateEvidence());
+                    Require("E_exits_again", !player.IsDriving && player.playerBody.enabled, StateEvidence());
                     PlacePlayer(FindGround(hose.hoseSocket.position + hose.hoseSocket.forward * 1.25f));
                     AimWithMouse(hose.hoseSocket.position);
                     EnterPhase(7, "rear_pickup_position_settle");
