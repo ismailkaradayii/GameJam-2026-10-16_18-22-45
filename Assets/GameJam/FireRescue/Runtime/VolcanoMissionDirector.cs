@@ -14,9 +14,11 @@ namespace GameJam.FireRescue
         public MissionPhase Phase { get; private set; }
         public bool PreparationComplete => evacuation && evacuation.IsComplete && Phase >= MissionPhase.Warning;
         GUIStyle title, body;
+        RescueHUD rescueHud;
 
         void Awake()
         {
+            rescueHud = FindFirstObjectByType<RescueHUD>();
             if (!evacuation) evacuation = FindFirstObjectByType<EvacuationMission>();
             if (!sequence) sequence = FindFirstObjectByType<VolcanoEruptionSequence>();
             if (!player) player = FindFirstObjectByType<FireRescuePlayer>();
@@ -27,7 +29,7 @@ namespace GameJam.FireRescue
         void Update() => TickMission();
         public void TickMission()
         {
-            if (!evacuation || !sequence || !tank) return;
+            if (!evacuation || !sequence || !tank || Time.timeScale <= 0f || (player && player.GameplaySuspended)) return;
             if (Phase == MissionPhase.Evacuate && evacuation.IsComplete)
             {
                 Phase = MissionPhase.Refill;
@@ -44,7 +46,7 @@ namespace GameJam.FireRescue
         }
         void OnGUI()
         {
-            if (VolcanoCinematic.IsPlayingAny || !tank || !evacuation) return;
+            if (VolcanoCinematic.IsPlayingAny || !tank || !evacuation || (rescueHud && rescueHud.enabled)) return;
             if (title == null)
             {
                 title = new GUIStyle(GUI.skin.label) { fontSize = 16, fontStyle = FontStyle.Bold };

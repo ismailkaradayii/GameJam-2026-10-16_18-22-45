@@ -53,7 +53,7 @@ namespace GameJam.FireRescue
             Cursor.lockState = CursorLockMode.Locked; Cursor.visible = false;
             Elapsed = 0; HasPlayed = IsPlaying = IsPlayingAny = true;
             audioSource = go.AddComponent<AudioSource>(); audioSource.spatialBlend = 0; audioSource.volume = .85f;
-            if (eruptionSound) audioSource.PlayOneShot(eruptionSound);
+            if (eruptionSound && !FindFirstObjectByType<WindAudioPulse>()) audioSource.PlayOneShot(eruptionSound);
             UpdatePose();
         }
         public void TickShot(float dt)

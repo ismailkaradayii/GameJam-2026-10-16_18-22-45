@@ -43,6 +43,7 @@ namespace GameJam.FireRescue
         }
         void Update()
         {
+            if (Time.timeScale <= 0f || (player && player.GameplaySuspended)) return;
             if (startAutomatically && !IsActive && !IsComplete && Time.time - started >= dispatchDelay) BeginMission();
             var t = PlayerTransform;
             if (IsActive && t && shelterApproach && Mathf.Abs(t.position.y - shelterApproach.position.y) < 5f &&
@@ -64,7 +65,7 @@ namespace GameJam.FireRescue
         }
         public bool Shout()
         {
-            if (!IsActive || IsComplete || !PlayerTransform || Time.time < nextShout) return false;
+            if (!IsActive || IsComplete || !PlayerTransform || Time.timeScale <= 0f || (player && player.GameplaySuspended) || Time.time < nextShout) return false;
             if (player.IsDriving) { Say("Seslenmek için F ile araçtan in.", 3f); return false; }
             nextShout = Time.time + Mathf.Max(1f, shoutCooldown);
             if (voice && shoutClip) voice.PlayOneShot(shoutClip);

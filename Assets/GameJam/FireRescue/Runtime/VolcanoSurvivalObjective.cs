@@ -16,6 +16,7 @@ namespace GameJam.FireRescue
         public MissionState State { get; private set; }
         public bool IsFinished => State == MissionState.Won || State == MissionState.Lost;
         readonly Dictionary<Behaviour, bool> controls = new Dictionary<Behaviour, bool>();
+        RescueGameFlow rescueFlow;
         bool bound, previousRecovery, pausedWorld;
         float previousTimeScale = 1f;
         CursorLockMode previousLock;
@@ -27,6 +28,7 @@ namespace GameJam.FireRescue
 
         void BindPlayer()
         {
+            if (!rescueFlow) rescueFlow = FindFirstObjectByType<RescueGameFlow>();
             if (!encounter) encounter = GetComponent<LavaCreatureEncounter>();
             if (!player) player = FindFirstObjectByType<FireRescuePlayer>();
             if (!vitals && player && player.firstPerson) vitals = CreatureCombatPlayer.Ensure(player.firstPerson);
@@ -39,7 +41,7 @@ namespace GameJam.FireRescue
 
         public void TickObjective()
         {
-            if (!isActiveAndEnabled || IsFinished) return;
+            if (!isActiveAndEnabled || IsFinished || Time.timeScale <= 0f || (rescueFlow && rescueFlow.BlocksGameplay)) return;
             BindPlayer();
             if (!encounter || !encounter.enableWaves) return;
             if (vitals && vitals.Health <= 0f) { Lose(); return; }
@@ -49,7 +51,7 @@ namespace GameJam.FireRescue
             foreach (var house in BurnableBuilding.ActiveBuildings) if (house && house.IsBurning) { firesOut = false; break; }
             State = encounter.IsCleared && firesOut ? MissionState.ReturnToTruck : MissionState.Fighting;
             // Returning early is safe, but cannot skip the remaining enemies or the rescue.
-            if (State == MissionState.ReturnToTruck && (!sequence.evacuation || sequence.evacuation.IsComplete) &&
+            if ((!rescueFlow || !rescueFlow.IsConfigured) && State == MissionState.ReturnToTruck && (!sequence.evacuation || sequence.evacuation.IsComplete) &&
                 player && player.IsDriving && player.drive) Finish(MissionState.Won);
         }
 
@@ -98,7 +100,8 @@ namespace GameJam.FireRescue
 
         void OnGUI()
         {
-            if (!showHud || !encounter || !encounter.enableWaves || VolcanoCinematic.IsPlayingAny) return;
+            if (!showHud || !encounter || !encounter.enableWaves || VolcanoCinematic.IsPlayingAny ||
+                (rescueFlow && rescueFlow.State != RescueGameFlow.GameState.Playing)) return;
             if (title == null)
             {
                 title = new GUIStyle(GUI.skin.label) { fontSize = 19, fontStyle = FontStyle.Bold };

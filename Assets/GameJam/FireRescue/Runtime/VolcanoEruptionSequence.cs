@@ -51,6 +51,7 @@ namespace GameJam.FireRescue
         public ParticleSystem[] suppressedLegacyEffects = Array.Empty<ParticleSystem>();
         public VolcanoEruptionEffects effects;
         public VolcanoCameraShake cameraShake;
+        [SerializeField] private WindAudioPulse audioTimeline;
         public bool autoErupt = true;
         [Min(0f)] public float autoEruptAfter = 15f;
         [Min(0f)] public float warningSeconds = 3f;
@@ -84,6 +85,8 @@ namespace GameJam.FireRescue
         public void InitializeSequence()
         {
             if (Initialized) return;
+            if (!audioTimeline) audioTimeline = FindFirstObjectByType<WindAudioPulse>();
+            if (audioTimeline) audioTimeline.ResetSequence();
             Stage = EruptionStage.Waiting;
             StageElapsed = FlowElapsed = 0f;
             foreach (Route route in routes) if (route?.flow) route.flow.Initialize();
@@ -130,6 +133,15 @@ namespace GameJam.FireRescue
         void TickStep(float step)
         {
             if (Stage == EruptionStage.Waiting && WaitingForPreparation) return;
+            if (audioTimeline) audioTimeline.TickSequence(step);
+
+            // Warning is the final authored countdown before the actual eruption event.
+            // Start on the exact simulation step that crosses its two-second boundary.
+            if (Stage == EruptionStage.Warning && audioTimeline &&
+                StageElapsed <= Mathf.Max(0f, warningSeconds - 2f) &&
+                StageElapsed + step >= Mathf.Max(0f, warningSeconds - 2f))
+                audioTimeline.BeginExplosionSound();
+
             StageElapsed += step;
             if (Stage == EruptionStage.Waiting)
             {
@@ -142,6 +154,7 @@ namespace GameJam.FireRescue
                 {
                     Stage = EruptionStage.Erupting;
                     StageElapsed = 0f;
+                    if (audioTimeline) audioTimeline.NotifyExplosionEvent();
                     if (effects) effects.BeginEruption();
                     if (cinematic) cinematic.BeginShot();
                     if (enableCameraShake && cameraShake) cameraShake.Shake(8f, .35f);

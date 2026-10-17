@@ -44,14 +44,23 @@ public static class VolcanoHazardChecks
             rig.transform.rotation = Quaternion.LookRotation(origin-rig.transform.position);
             var tank = rig.AddComponent<FireHoseSystem>(); tank.enabled = false; tank.SetTankLitres(1000);
             var cannon = rig.AddComponent<FireTruckWaterCannon>(); cannon.enabled = false; cannon.tank = tank; cannon.muzzle = rig.transform; cannon.ignoredCollisionRoot = rig.transform;
-            cannon.SetSpraying(true); cannon.TickSpray(4);
-            check("water_cannon_cools_lava_and_consumes_tank",cannon.HitLava==cooling&&!cooling.IsHotAt(origin)&&Mathf.Abs(tank.TankLitres-860)<.01f,"Four seconds deliver 140 litres into the struck patch.");
+            // The player's collision test is finished; keep its body out of this water-only fixture.
+            player.playerBody.enabled = false; Physics.SyncTransforms();
+            bool hitCooling = false;
+            cannon.SetSpraying(true);
+            for (int i=0;i<200;i++) { cannon.TickSpray(.02f); hitCooling |= cannon.HitLava==cooling; }
+            cannon.SetSpraying(false);
+            for (int i=0;i<100;i++) { cannon.TickSpray(.02f); hitCooling |= cannon.HitLava==cooling; }
+            player.playerBody.enabled = bodyEnabled; Physics.SyncTransforms();
+            check("water_cannon_cools_lava_and_consumes_tank",hitCooling&&!cooling.IsHotAt(origin)&&Mathf.Abs(tank.TankLitres-860)<.02f,"Four seconds emit 140 litres; physical water finishes travelling after release.");
             check("cooling_is_local",cooling.IsHotAt(origin+Vector3.right*20)&&!cooling.IsHotAt(origin),"Distant molten lava remains hot.");
             before=health.Health; contact.TickContact(1);
             check("cooled_lava_stops_contact_damage",!contact.InHotLava&&health.Health==before,"Cooled patch no longer burns the player.");
             source.ScanNow(); check("cooled_lava_stops_house_ignition",!house.IsBurning,"Dry house cannot reignite from the cooled contact patch.");
-            house.Ignite(); house.TickFire(100);
-            check("unattended_house_becomes_ash",house.IsBurnedOut&&!house.IsBurning&&house.transform.Find("Burned house · ash and charred beams"),"Cumulative burn damage collapses the building into ash and charred rubble.");
+            var doomedObject = new GameObject("Unrescued house collapse fixture"); doomedObject.transform.SetParent(root.transform);
+            var doomed = doomedObject.AddComponent<BurnableBuilding>(); doomed.secondsToCollapse = 90;
+            doomed.Ignite(); doomed.TickFire(100);
+            check("unattended_house_becomes_ash",doomed.IsBurnedOut&&!doomed.IsBurning&&doomed.transform.Find("Burned house · ash and charred beams"),"An unrescued building collapses; the previously rescued house stays safe.");
         }
         finally
         {

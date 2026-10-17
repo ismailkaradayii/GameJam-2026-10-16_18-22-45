@@ -380,7 +380,7 @@ namespace GameJam.FireRescue
             door = null;
             if (GameplaySuspended || IsDriving || !viewCamera || (hose && hose.IsCarried)) return false;
             int count = Physics.RaycastNonAlloc(viewCamera.transform.position, viewCamera.transform.forward, doorHits,
-                Mathf.Max(0f, interactionDistance), ~0, QueryTriggerInteraction.Ignore);
+                Mathf.Clamp(interactionDistance, 0f, 3f), ~0, QueryTriggerInteraction.Ignore);
             if (count == doorHits.Length) return false;
             float nearest = float.PositiveInfinity;
             Collider surface = null;

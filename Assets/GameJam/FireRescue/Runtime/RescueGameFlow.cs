@@ -18,18 +18,20 @@ namespace GameJam.FireRescue
         public GameState State { get; private set; } = GameState.Playing;
         public int RescuedCount => rescued.Count;
         public int TargetCount => targets.Count;
-        public bool BlocksGameplay => State != GameState.Playing || returningToMenu;
+        public bool BlocksGameplay => State != GameState.Playing || returningToMenu || (survival && survival.IsFinished);
         public bool IsConfigured => targets.Count == RequiredHouses;
         public bool ReturningToMenu => returningToMenu;
         public event Action<int, int> ProgressChanged;
         public event Action<GameState> StateChanged;
         readonly HashSet<BurnableBuilding> targets = new HashSet<BurnableBuilding>();
         readonly HashSet<BurnableBuilding> rescued = new HashSet<BurnableBuilding>();
+        VolcanoSurvivalObjective survival;
         bool completionPending, returningToMenu, ownsPause;
         float previousTimeScale = 1f;
 
         void Awake()
         {
+            survival = FindFirstObjectByType<VolcanoSurvivalObjective>();
             State = GameState.Playing;
             rescued.Clear(); targets.Clear();
             completionPending = returningToMenu = ownsPause = false;
@@ -59,6 +61,7 @@ namespace GameJam.FireRescue
         }
         void Update()
         {
+            if (survival && survival.IsFinished) return;
             // Water hits happen in cannon LateUpdate; finalize on the next Update, after that tick has finished.
             if (completionPending && State != GameState.Won && !returningToMenu)
             {
@@ -72,7 +75,7 @@ namespace GameJam.FireRescue
         }
         public void Pause()
         {
-            if (State != GameState.Playing || returningToMenu || completionPending) return;
+            if (BlocksGameplay || completionPending) return;
             Suspend(GameState.Paused);
         }
         void Suspend(GameState nextState)
@@ -86,7 +89,7 @@ namespace GameJam.FireRescue
         }
         public void Resume()
         {
-            if (State != GameState.Paused || returningToMenu || completionPending) return;
+            if (State != GameState.Paused || returningToMenu || completionPending || (survival && survival.IsFinished)) return;
             State = GameState.Playing;
             ReleasePause();
             if (player) player.SetGameplaySuspended(false);

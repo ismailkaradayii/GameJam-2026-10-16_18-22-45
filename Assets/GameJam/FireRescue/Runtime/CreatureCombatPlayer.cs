@@ -11,7 +11,8 @@ namespace GameJam.FireRescue
         public bool allowRecovery = true;
         public event System.Action Defeated;
         public float Health { get; private set; } = 100f;
-        public bool CanBeAttacked => isActiveAndEnabled && Health > 0f && (!coordinator || (!coordinator.IsDriving && !coordinator.CinematicLocked));
+        public bool CanBeAttacked => isActiveAndEnabled && Health > 0f && Time.timeScale > 0f &&
+            (!coordinator || (!coordinator.IsDriving && !coordinator.GameplaySuspended));
         public Vector3 PursuitPosition => coordinator && coordinator.IsDriving && coordinator.drive
             ? coordinator.drive.transform.position : transform.position;
         public Vector3 AttackPoint => body ? body.bounds.center : transform.position + Vector3.up * .9f;

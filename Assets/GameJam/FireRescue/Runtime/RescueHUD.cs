@@ -50,6 +50,7 @@ namespace GameJam.FireRescue
         void LateUpdate()
         {
             if (!flow || !player || !hose) return;
+            if (canvas) canvas.enabled = !VolcanoCinematic.IsPlayingAny || flow.BlocksGameplay;
             bool playing = flow.State == RescueGameFlow.GameState.Playing;
             if (objectiveText) objectiveText.text = "KURTARILAN EVLER   " + flow.RescuedCount + " / " + RescueGameFlow.RequiredHouses;
             if (waterText) waterText.text = Mathf.CeilToInt(hose.TankLitres) + " / " + Mathf.RoundToInt(hose.tankCapacityLitres) + " L";
@@ -75,6 +76,15 @@ namespace GameJam.FireRescue
         void UpdateEruption()
         {
             if (!eruptionText || !eruption) return;
+            var mission = eruption.missionDirector;
+            if (eruption.Stage == VolcanoEruptionSequence.EruptionStage.Waiting && mission)
+            {
+                bool evacuating = mission.Phase == VolcanoMissionDirector.MissionPhase.Evacuate;
+                eruptionText.text = evacuating ? "HALKI KURTAR\nQ ile seslen · Sığınak: " +
+                    (eruption.evacuation ? eruption.evacuation.RescuedCount + " / " + eruption.evacuation.TotalCount : "0 / 7") :
+                    "SU DEPOSUNU DOLDUR\nDepo dolunca volkan uyanacak";
+                return;
+            }
             switch (eruption.Stage)
             {
                 case VolcanoEruptionSequence.EruptionStage.Waiting:
