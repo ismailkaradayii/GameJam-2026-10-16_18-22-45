@@ -11,13 +11,17 @@ namespace GameJam.FireRescue
         public LineRenderer ring;
         public RectTransform marker;
         public Text label, arrow;
+        public Image markerGlow;
         public Canvas canvas;
+        public bool compactLabels;
+        string previousLabel, shortLabel;
         [Min(1f)] public float objectiveRadius = 3f;
         [Min(1f)] public float shelterRadius = 8f;
         [Min(10f)] public float edgeMargin = 70f;
         public Color objectiveColor = new Color(.18f, .7f, 1f);
         public Color shelterColor = new Color(.2f, 1f, .45f);
         public Color dangerColor = new Color(1f, .28f, .12f);
+        [Min(1f)] public float ringBrightness = 3.2f;
         public Transform[] lakeRoad = System.Array.Empty<Transform>();
         public Transform[] lakeTurnaround = System.Array.Empty<Transform>();
         [Min(10f)] public float drivingMarkerLookAhead = 32f;
@@ -51,9 +55,10 @@ namespace GameJam.FireRescue
                                 p.y = terrain.SampleHeight(p) + terrain.transform.position.y;
                     points[i] = p + Vector3.up * .18f;
                 }
-                ring.widthMultiplier = radius < 1 ? .07f : .22f;
+                ring.widthMultiplier = radius < 1 ? .09f : .3f;
                 ring.positionCount = points.Length; ring.SetPositions(points);
-                ring.startColor = ring.endColor = color * (1.1f + .15f * Mathf.Sin(Time.time * 3));
+                Color bright = color * (ringBrightness + .25f * Mathf.Sin(Time.time * 3)); bright.a = 1;
+                ring.startColor = ring.endColor = bright;
             }
             if (!marker || !canvas) return;
             Vector3 projected = player.viewCamera.WorldToViewportPoint(world + Vector3.up * (player.IsDriving ? 8f : 2f));
@@ -74,11 +79,28 @@ namespace GameJam.FireRescue
             // Keep distant guidance and world rings; avoid a second boxed label on a nearby prompt.
             if (player.contextualInteractions && player.contextualInteractions.isActiveAndEnabled &&
                 player.contextualInteractions.ReplacesNavigationLabel(CurrentTarget)) marker.gameObject.SetActive(false);
-            if (label) { label.color = color; label.text = CurrentLabel + "\n" + Mathf.RoundToInt(Vector3.Distance(player.transform.position, world)) + " m"; }
+            if (label)
+            {
+                if (previousLabel != CurrentLabel)
+                {
+                    previousLabel = CurrentLabel;
+                    int divider = CurrentLabel.IndexOf('|');
+                    shortLabel = divider >= 0 ? CurrentLabel.Substring(0, divider).TrimEnd() : CurrentLabel;
+                    if (compactLabels) shortLabel = System.Globalization.CultureInfo.InvariantCulture.TextInfo.ToTitleCase(shortLabel.ToLowerInvariant());
+                }
+                label.color = compactLabels ? new Color(.94f, .96f, .98f) : color;
+                label.text = (compactLabels ? shortLabel : CurrentLabel) + "\n" + Mathf.RoundToInt(Vector3.Distance(player.transform.position, world)) + " m";
+            }
             if (arrow)
             {
-                arrow.text = offscreen ? "\u25B2" : "\u25C6"; arrow.color = color;
+                arrow.text = offscreen ? "\u25B2" : "\u25C6"; arrow.color = Color.Lerp(color, Color.white, .65f);
                 arrow.rectTransform.localRotation = offscreen ? Quaternion.Euler(0, 0, Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg - 90) : Quaternion.identity;
+            }
+            if (markerGlow)
+            {
+                Color glow = color; glow.a = .62f + .18f * Mathf.Sin(Time.unscaledTime * 3f);
+                markerGlow.color = glow;
+                markerGlow.rectTransform.localScale = Vector3.one * (1f + .12f * Mathf.Sin(Time.unscaledTime * 3f));
             }
         }
         Transform SelectTarget(ref Color color, ref float radius)

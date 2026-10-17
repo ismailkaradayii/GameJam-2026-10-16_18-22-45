@@ -423,7 +423,8 @@ namespace Itfaiye
             Vector3 indexDirection = hand.InverseTransformVector(index.position - hand.position);
             Vector3 littleDirection = hand.InverseTransformVector(little.position - hand.position);
             Vector3 localForward = (indexDirection + littleDirection).normalized;
-            Vector3 localPalm = Vector3.Cross(indexDirection, littleDirection).normalized;
+            // Right-hand winding: little to index gives the palm's outward normal.
+            Vector3 localPalm = Vector3.Cross(littleDirection, indexDirection).normalized;
             Vector3 forward = Vector3.ProjectOnPlane(view.forward, normal).normalized;
             if (forward.sqrMagnitude < .01f) forward = Vector3.ProjectOnPlane(view.up, normal).normalized;
             buttonPalmRotation = Quaternion.LookRotation(forward, -normal) * Quaternion.Inverse(Quaternion.LookRotation(localForward, localPalm));

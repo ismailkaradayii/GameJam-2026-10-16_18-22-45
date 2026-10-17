@@ -29,6 +29,15 @@ namespace GameJam.FireRescue
         public Canvas canvas;
         public ContextualInteractionUI contextualInteractions;
 
+        [Header("Clean gameplay presentation")]
+        public bool cleanPresentation;
+        public CanvasGroup gameplayGroup;
+        [Min(280f)] public float objectiveWidth = 400f;
+        RectTransform cleanQuest, cleanSpeed, cleanSubtitle, cleanToast;
+        string laidOutTitle, laidOutBody, laidOutHint, laidOutSubtitle, laidOutToast;
+        float laidOutWidth;
+        int layoutScreenWidth, layoutScreenHeight;
+
         [Header("Integrated gameplay")]
         public Text equipmentText;
         public GameObject equipmentGroup, waterGroup;
@@ -57,6 +66,7 @@ namespace GameJam.FireRescue
         public Button pauseSettingsButton, pauseHowToPlayButton, restartButton, quitButton, settingsBackButton, howToPlayBackButton;
         [SerializeField] AudioClip pauseClickClip;
         public Text victoryTitleText, victoryDetailText, victoryStatsText;
+        [Min(.1f)] public float outcomeFadeInSeconds = .65f;
 
         [Header("Pause settings")]
         public Slider masterSlider, musicSlider, sfxSlider, sensitivitySlider;
@@ -69,6 +79,7 @@ namespace GameJam.FireRescue
         float toastUntil;
         RescueGameFlow.GameState previousState = (RescueGameFlow.GameState)(-1);
         bool previousSurvivalFinished;
+        bool previousOutcomeVisible;
         public bool PauseVisible => pausePanel && pausePanel.alpha > .99f;
         public bool VictoryVisible => victoryPanel && victoryPanel.alpha > .99f;
 
@@ -167,9 +178,11 @@ namespace GameJam.FireRescue
             if (!vitals) vitals = survivalObjective ? survivalObjective.vitals : FindFirstObjectByType<CreatureCombatPlayer>();
             if (canvas) canvas.enabled = !VolcanoCinematic.IsPlayingAny || flow.BlocksGameplay;
             bool playing = flow.State == RescueGameFlow.GameState.Playing;
+            if (gameplayGroup) gameplayGroup.alpha = playing && !VolcanoCinematic.IsPlayingAny ? 1f : 0f;
+            bool showMessage = playing && evacuation && evacuation.MessageRemaining > 0f;
             int standing = 0, burning = 0;
             foreach (var house in flow.targetBuildings) if (house) { if (!house.IsBurnedOut) standing++; if (house.IsBurning) burning++; }
-            if (objectiveText) objectiveText.text = "Houses standing   " + standing + " / " + Mathf.Max(1, flow.TargetCount);
+            if (objectiveText) objectiveText.text = (cleanPresentation ? "Houses   " : "Houses standing   ") + standing + " / " + Mathf.Max(1, flow.TargetCount);
             if (missionDirector && (!objectiveSeen || previousPhase != missionDirector.Phase))
             {
                 if (objectiveSeen && !missionDirector.EruptionTriggered && missionDirector.Phase != VolcanoMissionDirector.MissionPhase.Weapon)
@@ -187,9 +200,17 @@ namespace GameJam.FireRescue
                 var label = waterText ? waterText.transform.parent.Find("WaterLabel") : null;
                 if (label) label.gameObject.SetActive(showWater);
             }
-            if (equipmentGroup) equipmentGroup.SetActive(playing && player.HasPistol && !player.IsDriving);
+            if (equipmentGroup) equipmentGroup.SetActive(playing && player.HasPistol && !player.IsDriving && (!cleanPresentation || !hose.IsCarried));
+            if (cleanPresentation && equipmentGroup)
+            {
+                var equipmentRect = equipmentGroup.transform as RectTransform;
+                Vector2 position = new Vector2(-28, showWater ? 194 : 60);
+                if (equipmentRect && equipmentRect.anchoredPosition != position) equipmentRect.anchoredPosition = position;
+            }
             if (equipmentText && player.pistol) equipmentText.text = "1  PISTOL  " + (player.pistol.Equipped ? player.pistol.Ammo + " / " + player.pistol.reserveAmmo : "[HOLSTERED]") +
                 (player.pistol.IsReloading ? "  RELOADING " + Mathf.RoundToInt(player.pistol.ReloadProgress * 100) + "%" : "");
+            if (cleanPresentation && equipmentText && player.pistol) equipmentText.text = "1   PISTOL    " +
+                (player.pistol.IsReloading ? "RELOADING" : player.pistol.Equipped ? player.pistol.Ammo + " / " + player.pistol.reserveAmmo : "HOLSTERED");
             if (waterText) waterText.text = Mathf.CeilToInt(hose.TankLitres) + " / " + Mathf.RoundToInt(hose.tankCapacityLitres) + " L";
             if (waterFill) waterFill.fillAmount = hose.Tank01;
             if (pumpText) pumpText.text = Ashfall.UI.AshfallTypography.NaturalCase(player.WaterStatus);
@@ -214,32 +235,103 @@ namespace GameJam.FireRescue
             }
             if (toastText)
             {
-                bool showToast = playing && Time.unscaledTime < toastUntil;
+                bool showToast = playing && Time.unscaledTime < toastUntil && (!cleanPresentation || !showMessage);
                 toastText.gameObject.SetActive(true);
                 toastText.transform.parent.gameObject.SetActive(showToast);
             }
             if (subtitleText)
             {
-                bool showMessage = playing && evacuation && evacuation.MessageRemaining > 0f;
                 subtitleText.transform.parent.gameObject.SetActive(showMessage);
                 if (showMessage) subtitleText.text = evacuation.CurrentMessage;
             }
             UpdateEruption(); UpdateTarget(playing);
+            if (cleanPresentation)
+            {
+                RefreshCleanLayout();
+                if (cleanSpeed) cleanSpeed.gameObject.SetActive(playing && player.IsDriving);
+                if (objectiveText) objectiveText.transform.parent.gameObject.SetActive(playing && (!missionDirector || !missionDirector.EruptionTriggered));
+            }
             bool survivalFinished = survivalObjective && survivalObjective.IsFinished;
-            bool showOutcome = flow.State == RescueGameFlow.GameState.Won || flow.State == RescueGameFlow.GameState.Lost || survivalFinished;
-            SetPanel(victoryPanel, showOutcome);
+            bool showOutcome = (flow.HasResult || survivalFinished) && (!flow.HasResult || flow.ResultReady);
+            PresentOutcome(showOutcome);
             if (showOutcome) UpdateOutcome(survivalFinished);
 
-            if (previousState != flow.State || previousSurvivalFinished != survivalFinished)
+            if (previousState != flow.State || previousSurvivalFinished != survivalFinished || previousOutcomeVisible != showOutcome)
             {
                 previousState = flow.State;
                 SetPanel(pausePanel, flow.State == RescueGameFlow.GameState.Paused);
                 SetPanel(pauseMenuGroup, flow.State == RescueGameFlow.GameState.Paused);
                 SetPanel(settingsPanel, false); SetPanel(howToPlayPanel, false);
                 previousSurvivalFinished = survivalFinished;
+                previousOutcomeVisible = showOutcome;
                 var selection = flow.State == RescueGameFlow.GameState.Paused ? resumeButton : showOutcome && survivalObjective && survivalObjective.State == VolcanoSurvivalObjective.MissionState.Lost ? outcomeRestartButton : showOutcome ? victoryMenuButton : null;
                 if (selection && EventSystem.current) EventSystem.current.SetSelectedGameObject(selection.gameObject);
             }
+        }
+
+        void PresentOutcome(bool visible)
+        {
+            if (!victoryPanel) return;
+            if (visible && !victoryPanel.gameObject.activeSelf) victoryPanel.gameObject.SetActive(true);
+            victoryPanel.alpha = visible && flow && flow.HasResult ? Mathf.SmoothStep(0, 1, flow.ResultRevealElapsed / Mathf.Max(.1f, outcomeFadeInSeconds)) :
+                Mathf.MoveTowards(victoryPanel.alpha, visible ? 1f : 0f, Time.unscaledDeltaTime / Mathf.Max(.1f, outcomeFadeInSeconds));
+            victoryPanel.interactable = visible && victoryPanel.alpha >= .99f;
+            victoryPanel.blocksRaycasts = victoryPanel.interactable;
+            if (!visible && victoryPanel.alpha <= 0 && victoryPanel.gameObject.activeSelf) victoryPanel.gameObject.SetActive(false);
+        }
+
+        /// <summary>Fits the existing objective and notifications to their real content.</summary>
+        public void RefreshCleanLayout()
+        {
+            if (!cleanPresentation || !questTitleText || !questBodyText || !questHintText || !canvas) return;
+            if (!cleanQuest) cleanQuest = questTitleText.transform.parent as RectTransform;
+            if (!cleanSpeed && speedText) cleanSpeed = speedText.transform.parent as RectTransform;
+            if (!cleanSubtitle && subtitleText) cleanSubtitle = subtitleText.transform.parent as RectTransform;
+            if (!cleanToast && toastText) cleanToast = toastText.transform.parent as RectTransform;
+            if (layoutScreenWidth != Screen.width || layoutScreenHeight != Screen.height)
+            {
+                layoutScreenWidth = Screen.width; layoutScreenHeight = Screen.height;
+                laidOutTitle = laidOutBody = laidOutHint = laidOutSubtitle = laidOutToast = null;
+            }
+            float width = Mathf.Min(objectiveWidth, ((RectTransform)canvas.transform).rect.width * .32f);
+            if (laidOutTitle != questTitleText.text || laidOutBody != questBodyText.text || laidOutHint != questHintText.text || !Mathf.Approximately(width, laidOutWidth))
+            {
+                laidOutTitle = questTitleText.text; laidOutBody = questBodyText.text; laidOutHint = questHintText.text; laidOutWidth = width;
+                cleanQuest.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, width);
+                float textWidth = width - 40f;
+                float y = 38f;
+                y += PlaceText(questTitleText, 20, y, textWidth, 30) + 8f;
+                y += PlaceText(questBodyText, 20, y, textWidth, 24);
+                bool progress = !string.IsNullOrEmpty(questHintText.text);
+                questHintText.gameObject.SetActive(progress);
+                if (progress) y += 12f + PlaceText(questHintText, 20, y + 12f, textWidth, 22);
+                if (questFill && questFill.transform.parent is RectTransform track)
+                {
+                    track.gameObject.SetActive(progress);
+                    if (progress) { track.anchoredPosition = new Vector2(20, -y - 12f); track.sizeDelta = new Vector2(textWidth, 3); y += 15f; }
+                }
+                cleanQuest.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, y + 18f);
+            }
+            if (cleanSubtitle && laidOutSubtitle != subtitleText.text)
+            {
+                laidOutSubtitle = subtitleText.text;
+                cleanSubtitle.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, PlaceText(subtitleText, 20, 14, 640, 26) + 28);
+            }
+            if (cleanToast && laidOutToast != toastText.text)
+            {
+                laidOutToast = toastText.text;
+                cleanToast.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, PlaceText(toastText, 20, 12, 380, 24) + 24);
+            }
+        }
+        static float PlaceText(Text text, float x, float y, float width, float minimumHeight)
+        {
+            var rect = text.rectTransform;
+            rect.anchorMin = rect.anchorMax = rect.pivot = new Vector2(0, 1);
+            rect.anchoredPosition = new Vector2(x, -y);
+            rect.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, width);
+            float height = Mathf.Max(minimumHeight, Mathf.Ceil(text.preferredHeight));
+            rect.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, height);
+            return height;
         }
 
         void UpdateOutcome(bool survivalFinished)
@@ -378,7 +470,9 @@ namespace GameJam.FireRescue
         {
             var target = cannon ? cannon.PredictedTarget : null;
             bool aiming = playing && player.IsDriving && cannon;
-            bool showTarget = aiming && target;
+            bool contextualProgress = contextualInteractions && contextualInteractions.HasVisiblePrompt && contextualInteractions.CurrentTarget &&
+                contextualInteractions.CurrentTarget.kind == ContextualInteractionKind.BuildingFire;
+            bool showTarget = aiming && target && !contextualProgress;
             if (targetGroup) targetGroup.SetActive(showTarget);
             if (showTarget)
             {

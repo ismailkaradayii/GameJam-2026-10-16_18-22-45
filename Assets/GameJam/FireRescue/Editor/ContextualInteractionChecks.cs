@@ -257,7 +257,7 @@ public static class ContextualInteractionChecks
                 Check("already extinguished fire cannot duplicate feedback", ui.FeedbackCount == beforeFeedback + 1);
                 player.gameFlow.FinishMission(false); Next(11); return;
             case 11:
-                if (age < .3f) return;
+                if (age < player.gameFlow.resultDelaySeconds + ui.hud.outcomeFadeInSeconds + .2f) return;
                 Check("FAILED result hides all contextual UI", !ui.HasVisiblePrompt && ui.ActiveFeedbackCount == 0 && ui.hud.VictoryVisible);
                 Check("no missing references or TMP geometry errors during review", runtimeError == null);
                 player.gameFlow.RestartMission(); Next(12); return;
@@ -270,7 +270,7 @@ public static class ContextualInteractionChecks
                     ui.FeedbackCount == 0 && ui.mission.evacuation.RescuedCount == 0 && !player.HasPistol && player.contextualInteractions == ui && ui.hud.contextualInteractions == ui);
                 player.gameFlow.FinishMission(true); Next(13); return;
             case 13:
-                if (age < .35f) return;
+                if (age < player.gameFlow.resultDelaySeconds + ui.hud.outcomeFadeInSeconds + .2f) return;
                 Check("SUCCESS result hides all contextual UI", !ui.HasVisiblePrompt && ui.ActiveFeedbackCount == 0 && ui.hud.VictoryVisible);
                 player.gameFlow.ReturnToMainMenu(); Next(14); return;
             case 14:

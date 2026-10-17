@@ -169,7 +169,7 @@ public static class TeamBranchMergeReview
                 // Only terminal UI is forced here. The full loop check covers natural mission transitions.
                 mission.gameFlow.FinishMission(false); Next(3);
             }
-            else if (phase == 3 && age > .4f)
+            else if (phase == 3 && age > mission.gameFlow.resultDelaySeconds + hud.outcomeFadeInSeconds + .2f)
             {
                 Check("Defeat uses the new outcome page", hud.VictoryVisible && hud.victoryTitleText.text.Contains("FAILED") && hud.outcomeRestartButton.gameObject.activeSelf);
                 Check("Outcome retains villagers, houses and fire statistics", hud.victoryStatsText.text.Contains("Saved Villagers") && hud.victoryStatsText.text.Contains("Houses Saved") && hud.victoryStatsText.text.Contains("Fires Extinguished"));
@@ -185,7 +185,7 @@ public static class TeamBranchMergeReview
                 Check("Restart returns to a fresh preparation", Time.timeScale == 1 && mission.PreparationRemaining > 115 && !mission.player.HasPistol);
                 mission.gameFlow.FinishMission(true); Next(5);
             }
-            else if (phase == 5 && age > .4f)
+            else if (phase == 5 && age > mission.gameFlow.resultDelaySeconds + hud.outcomeFadeInSeconds + .2f)
             {
                 Check("Victory uses the same new outcome page", hud.VictoryVisible && hud.victoryTitleText.text.Contains("SUCCESS"));
                 Check("No runtime errors", errors.Count == 0); Finish(null);

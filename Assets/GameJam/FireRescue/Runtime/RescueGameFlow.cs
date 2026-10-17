@@ -14,6 +14,8 @@ namespace GameJam.FireRescue
         public BurnableBuilding[] targetBuildings = Array.Empty<BurnableBuilding>();
         public FireRescuePlayer player;
         public string mainMenuSceneName = "MainMenu";
+        [Header("Result presentation")]
+        [Min(0f)] public float resultDelaySeconds = 2.4f;
         public const int RequiredHouses = 5;
         public GameState State { get; private set; } = GameState.Playing;
         public int RescuedCount => rescued.Count;
@@ -21,6 +23,10 @@ namespace GameJam.FireRescue
         public bool BlocksGameplay => State != GameState.Playing || returningToMenu;
         public bool IsConfigured => targets.Count > 0;
         public bool ReturningToMenu => returningToMenu;
+        public bool HasResult => State == GameState.Won || State == GameState.Lost;
+        public float EndingProgress => HasResult ? Mathf.Clamp01((Time.unscaledTime - finishedAt) / Mathf.Max(.01f, resultDelaySeconds)) : 0f;
+        public bool ResultReady => HasResult && (resultDelaySeconds <= 0 || EndingProgress >= 1f);
+        public float ResultRevealElapsed => HasResult ? Mathf.Max(0, Time.unscaledTime - finishedAt - Mathf.Max(0, resultDelaySeconds)) : 0f;
         public event Action<int, int> ProgressChanged;
         public event Action<GameState> StateChanged;
         readonly HashSet<BurnableBuilding> targets = new HashSet<BurnableBuilding>();
@@ -28,6 +34,8 @@ namespace GameJam.FireRescue
         VolcanoSurvivalObjective survival;
         bool completionPending, returningToMenu, ownsPause;
         float previousTimeScale = 1f;
+        float finishedAt;
+        bool resultCursorReleased;
 
         void Awake()
         {
@@ -62,6 +70,12 @@ namespace GameJam.FireRescue
         }
         void Update()
         {
+            if (HasResult)
+            {
+                if (ResultReady && !resultCursorReleased)
+                { resultCursorReleased = true; Cursor.lockState = CursorLockMode.None; Cursor.visible = true; }
+                return;
+            }
             if (survival && survival.IsFinished) return;
             // Water hits happen in cannon LateUpdate; finalize on the next Update, after that tick has finished.
             if (completionPending && State != GameState.Won && !returningToMenu)
@@ -83,9 +97,10 @@ namespace GameJam.FireRescue
         {
             if (!ownsPause) previousTimeScale = Time.timeScale > 0 ? Time.timeScale : 1f;
             ownsPause = true; State = nextState;
+            if (HasResult) { finishedAt = Time.unscaledTime; resultCursorReleased = false; }
             if (player) player.SetGameplaySuspended(true);
             Time.timeScale = 0f;
-            Cursor.lockState = CursorLockMode.None; Cursor.visible = true;
+            Cursor.lockState = CursorLockMode.None; Cursor.visible = !HasResult;
             StateChanged?.Invoke(State);
         }
         public void Resume()

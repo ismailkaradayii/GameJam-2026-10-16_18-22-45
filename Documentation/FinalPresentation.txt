@@ -1,0 +1,31 @@
+SON GÖRSEL DÜZELTMELER
+
+1. Lake ve diğer hedeflerin dünya halkası HDR ve additive olarak daha parlak.
+   Üstteki işaret beyaza yakın çekirdek ve yumuşak, nabız gibi parlayan halo taşır.
+2. Araçtan inme, göl dolumu ve yangın söndürme ipuçları sağ kenarda küçük bir
+   düzen kullanır. Başlık 24, tuş 23, açıklama 17 pt; normal yaya düzeni korunur.
+   Yangın hedeflendiğinde ekrandaki ikinci söndürme ilerleme kartı gizlenir.
+   Etkileşimlerde mevcut Modular fontunun Türkçe destekli TMP atlası kullanılır.
+3. Patlama alt yazısı yalnızca: The Volcano has awakened
+4. Yedi güvenli bekleme noktası mağaranın kıvrılan iç koridoruna taşındı.
+   Girişten uzaklıklar yaklaşık 16–22 metre. Tahliye sayacı girişte güncellenir;
+   NPC kendi yerine yürür ve sonra diz çöker. Sığınak kutusu bu yerleri kapsar.
+5. Oyun sonucunda kontrol ve simülasyon durur. Kenarlardan merkeze kararma
+   2.4 saniye sürer. Ardından sonuç paneli 0.65 saniyede belirir; tuşlar panel
+   açılınca etkinleşir. Başarı ve başarısızlık aynı geçişi kullanır.
+
+Inspector: RescueGameFlow.resultDelaySeconds; RescueHUD.outcomeFadeInSeconds;
+ContextualInteractionUI.vehiclePromptWidth/vehicleScreenHeight;
+ObjectiveNavigation.ringBrightness.
+
+Sahne, materyal, TMP font ve Contextual Interaction UI prefabı bağlandı.
+Ek Inspector kurulumu gerekmez.
+Editör aracı: GameJam > Final Loop > Apply final presentation fixes.
+İzole kontrol: GameJam > Final Loop > Review final presentation fixes (isolated).
+Raporlar ve kararma örnekleri: Logs/FinalPresentation.
+
+Elle Play Mode kontrolü: Köylüleri sığınağa götür; kapıdan ilerleyip iç kısımda
+çökmelerini izle. İtfaiyeyle göle giderken işaretin parlamasını ve sağdaki küçük
+tuş ipucunu kontrol et. Patlamada tek alt yazıyı gör. Yangın söndürürken merkezin
+açık kalmasını kontrol et. Başarı/başarısızlıkta önce kararma, sonra sonuç paneli
+gelmeli; Restart ve Main Menu çalışmalı. İzole testler tam bir oynanış turu değildir.

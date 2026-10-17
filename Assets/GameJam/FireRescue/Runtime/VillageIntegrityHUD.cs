@@ -17,6 +17,7 @@ namespace GameJam.FireRescue
         public Image[] houseFills = Array.Empty<Image>();
         public Text[] houseLabels = Array.Empty<Text>();
         public float preparationHeight = 68f, defenseHeight = 142f;
+        public bool compactLabels;
         public float Integrity01 { get; private set; } = 1f;
         public int BurningCount { get; private set; }
         public int LostCount { get; private set; }
@@ -50,7 +51,8 @@ namespace GameJam.FireRescue
                 { houseFills[i].fillAmount = health; houseFills[i].color = tint; }
                 if (i < houseLabels.Length && houseLabels[i])
                 {
-                    houseLabels[i].text = "EV " + (i + 1) + (ruined ? "  KÜL" : "  %" + Mathf.RoundToInt(health * 100));
+                    houseLabels[i].text = compactLabels ? (i + 1) + (ruined ? "  LOST" : "  " + Mathf.RoundToInt(health * 100) + "%") :
+                        "EV " + (i + 1) + (ruined ? "  KÜL" : "  %" + Mathf.RoundToInt(health * 100));
                     houseLabels[i].color = ruined ? Ruined : tint;
                 }
             }
@@ -60,7 +62,8 @@ namespace GameJam.FireRescue
             { percentageText.text = "%" + Mathf.RoundToInt(Integrity01 * 100); percentageText.color = HealthColor(Integrity01); }
             if (statusText)
             {
-                statusText.text = houses.Length > 0 && LostCount == houses.Length ? "TÜM EVLER KÜL OLDU · KÖY KAYBEDİLDİ" :
+                statusText.text = compactLabels ? "Fires " + BurningCount + "   /   Houses lost " + LostCount + " of " + houses.Length + (Integrity01 <= .3f ? "  — CRITICAL" : "") :
+                    houses.Length > 0 && LostCount == houses.Length ? "TÜM EVLER KÜL OLDU · KÖY KAYBEDİLDİ" :
                     "Yanan: " + BurningCount + "   ·   Kül olan: " + LostCount + " / " + houses.Length +
                     (Integrity01 <= .3f ? "   ·   KRİTİK! Evleri söndür." : "   ·   Evler kül oldukça kaybetmeye yaklaşırsın.");
                 statusText.color = Integrity01 <= .3f ? Critical : new Color(.86f, .84f, .79f);

@@ -1,0 +1,43 @@
+VOLCANO DEMO — SADE HUD
+
+Kaydedilmiş Volcano_Demo sahnesindeki mevcut HUD düzenlendi.
+Lav/kaya çerçeveleri kaldırıldı; mevcut Source Sans 3 Regular/Semibold kullanıldı.
+Ana menü sahnesi yeniden oluşturulmadı. Görev, input, araç ve envanter API'ları korunur.
+
+- Sol üstte içeriğe göre boyutlanan tek görev kartı.
+- Üst ortada kompakt sayaç; patlama sonrası aynı alanda köy dayanıklılığı.
+- Ev sayacı küçük, tek satırlık gösterge. Savunmada tekrar eden sayaç gizlenir.
+- Bildirimler alt ortaya taşınır; dispatch ve görev tostu aynı anda üst üste gelmez.
+- Yaya "On foot" kartı gizlenir. Hız yalnız araçta görünür.
+- Su ve silah bilgileri bağlama göre görünür; hortumda kartlar çakışmaz.
+- Hedef oku ve mesafe arka plansız, kısa etiketle gösterilir.
+- Pause ve sonuç ekranlarında oyun HUD'ı gizlenir; menü butonları korunur.
+- Eski frame sizer'lar kapatıldı. Yeni görev yerleşimi metin/çözünürlük değişiminde hesaplanır.
+
+Değişen dosyalar:
+Assets/BK/PureNature_Volcano/Scenes/Volcano_Demo.unity
+Assets/GameJam/FireRescue/Runtime/RescueHUD.cs
+Assets/GameJam/FireRescue/Runtime/ObjectiveNavigation.cs
+Assets/GameJam/FireRescue/Runtime/VillageIntegrityHUD.cs
+Assets/GameJam/FireRescue/Editor/CleanHudSetup.cs (+ meta)
+Assets/GameJam/FireRescue/Editor/CleanHudChecks.cs (+ meta)
+
+Unity 6000.0.58f2 doğrulaması:
+14/14 gerçek-frame UI kontrolü geçti. 1920x1080, 1280x720, 1024x768 ve
+2560x1080'de kart sınırları, metin yüksekliği, sayaç çakışması, bağlamsal
+görünürlük, bildirim, savunma, pause/resume ve sonuç ekranı kontrol edildi.
+Görsel fixture görev aşamasını, bakış açısını ve sayacı ayarlar; bu görüntüler
+baştan sona manuel oynanmış bir görev turu olarak sunulmaz.
+Etkileşim testinin yeniden çalıştırılması, editörde ayrı bir oyun turu açıkken
+gerekli Edit Mode önkoşulunda durdu. Önceki 59 kontrol bu HUD sürümünün yeni
+test sonucu olarak sayılmaz. Oyun turu kesilmedi.
+
+Rapor: Logs/CleanHUD/checks.txt
+Referans doğrulaması: Logs/CleanHUD/validation.txt
+Görüntüler: Logs/CleanHUD/01-clean-truck-1920.png, 03-clean-defense.png,
+04-clean-pause.png ve 05-clean-success.png
+
+Inspector'da elle bağlantı gerekmez. Manuel kısa tur: tabanca ve alarm E,
+tahliye, araca E ile binme, su doldurma, F ile inme ve Escape menüsü.
+Tekrar doğrulamak için Edit Mode'da GameJam > Final Loop > Check clean HUD
+ve Check contextual interaction UI komutları kullanılabilir.

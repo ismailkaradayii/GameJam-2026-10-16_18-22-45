@@ -211,11 +211,12 @@ namespace GameJam.FireRescue
             GUI.DrawTexture(new Rect(0, 0, Screen.width, bar), Texture2D.whiteTexture);
             GUI.DrawTexture(new Rect(0, Screen.height - bar, Screen.width, bar), Texture2D.whiteTexture);
             if (caption == null) caption = new GUIStyle(GUI.skin.label) { alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Bold };
+            if (Ashfall.UI.AshfallTypography.Modular) caption.font = Ashfall.UI.AshfallTypography.Modular;
             caption.fontSize = Mathf.RoundToInt(Mathf.Clamp(Screen.height / 40f, 14, 30));
             caption.normal.textColor = new Color(1, .83f, .6f);
             GUI.color = Color.white;
             string message = Kind == ShotKind.Intro ? "ASHFALL  |  EVERY SECOND COUNTS" : Kind == ShotKind.Spirits ?
-                "DEFEND THE VILLAGE! SHOOT THE FIRE SPIRITS!" : "VOLCANO ERUPTION IN: 00:00  |  THE VOLCANO HAS AWAKENED";
+                "DEFEND THE VILLAGE! SHOOT THE FIRE SPIRITS!" : "The Volcano has awakened";
             GUI.Label(new Rect(0, Screen.height - bar, Screen.width, bar), message, caption);
             GUI.color = color; GUI.depth = depth;
         }

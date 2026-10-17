@@ -44,6 +44,10 @@ namespace GameJam.FireRescue
         public float feedbackRise = 48f;
         public Vector2 screenOffset = new Vector2(60f, 54f);
         public Vector2 screenMargin = new Vector2(24f, 28f);
+        [Header("Compact vehicle instructions")]
+        public bool compactVehiclePrompts = true;
+        [Min(220f)] public float vehiclePromptWidth = 300f;
+        [Range(.25f, .75f)] public float vehicleScreenHeight = .47f;
 
         public ContextualInteractionTarget CurrentTarget => selected.target;
         public InteractionOffer CurrentOffer => selected;
@@ -68,6 +72,9 @@ namespace GameJam.FireRescue
         string shelterDetail;
         string retractBeforeEntryDetail, enablePumpDetail, disablePumpDetail, drivingDetail;
         bool keysDirty = true;
+        bool presentationCached, vehicleLayout;
+        Vector2 worldPromptSize;
+        float worldTitleSize, worldKeySize, worldDetailSize;
 
         void Awake()
         {
@@ -127,7 +134,8 @@ namespace GameJam.FireRescue
             if (displayed.target && promptGroup.alpha > 0f)
             {
                 Vector3 world = displayed.target.FocusPosition(this) + Vector3.up * displayed.target.labelHeight;
-                if (!Track(promptRect, world, screenOffset)) promptGroup.alpha = 0f;
+                if (player.IsDriving && compactVehiclePrompts) DockVehiclePrompt();
+                else if (!Track(promptRect, world, screenOffset)) promptGroup.alpha = 0f;
             }
             TickFeedback(dt);
         }
@@ -328,11 +336,49 @@ namespace GameJam.FireRescue
             SetText(keyText, key);
             bool hasKey = !string.IsNullOrEmpty(key);
             if (keyText.gameObject.activeSelf != hasKey) keyText.gameObject.SetActive(hasKey);
-            titleText.rectTransform.anchoredPosition = new Vector2(0, hasKey ? 76 : 30);
-            detailText.rectTransform.anchoredPosition = new Vector2(0, hasKey ? -64 : -24);
+            ApplyPromptLayout(player.IsDriving && compactVehiclePrompts, hasKey);
             keyText.color = displayed.blocked ? new Color(.85f, .84f, .8f, 1) : new Color(1, .98f, .92f, 1);
             if (progressGroup.activeSelf != displayed.showProgress) progressGroup.SetActive(displayed.showProgress);
             if (displayed.showProgress) progressFill.fillAmount = Mathf.Clamp01(displayed.progress);
+        }
+        void ApplyPromptLayout(bool vehicle, bool hasKey)
+        {
+            bool changed = !presentationCached || vehicleLayout != vehicle || (vehicle && promptRect.sizeDelta.x != vehiclePromptWidth);
+            if (!presentationCached)
+            {
+                worldPromptSize = promptRect.sizeDelta;
+                worldTitleSize = titleText.fontSize; worldKeySize = keyText.fontSize; worldDetailSize = detailText.fontSize;
+                presentationCached = true;
+            }
+            vehicleLayout = vehicle;
+            float width = vehicle ? vehiclePromptWidth : worldPromptSize.x;
+            if (changed)
+            {
+                promptRect.sizeDelta = vehicle ? new Vector2(width, 154) : worldPromptSize;
+                titleText.fontSize = vehicle ? 24 : worldTitleSize;
+                keyText.fontSize = vehicle ? 23 : worldKeySize;
+                detailText.fontSize = vehicle ? 17 : worldDetailSize;
+                titleText.alignment = keyText.alignment = detailText.alignment = vehicle ? TextAlignmentOptions.Left : TextAlignmentOptions.Center;
+                titleText.rectTransform.sizeDelta = new Vector2(width, vehicle ? 34 : 56);
+                keyText.rectTransform.sizeDelta = new Vector2(width, vehicle ? 34 : 82);
+                detailText.rectTransform.sizeDelta = new Vector2(width, vehicle ? 48 : 72);
+            }
+            titleText.rectTransform.anchoredPosition = new Vector2(0, vehicle ? 44 : hasKey ? 76 : 30);
+            keyText.rectTransform.anchoredPosition = new Vector2(0, vehicle ? 12 : 10);
+            detailText.rectTransform.anchoredPosition = new Vector2(0, vehicle ? -32 : hasKey ? -64 : -24);
+            if (progressGroup) ((RectTransform)progressGroup.transform).anchoredPosition = new Vector2(0, vehicle ? -70 : -114);
+        }
+        void DockVehiclePrompt()
+        {
+            Camera uiCamera = canvas.renderMode == RenderMode.ScreenSpaceOverlay ? null : canvas.worldCamera;
+            Rect safe = Screen.safeArea;
+            RectTransformUtility.ScreenPointToLocalPointInRectangle(canvasRect, safe.min, uiCamera, out Vector2 lower);
+            RectTransformUtility.ScreenPointToLocalPointInRectangle(canvasRect, safe.max, uiCamera, out Vector2 upper);
+            Vector2 half = promptRect.rect.size * .5f;
+            Vector2 centre = new Vector2(upper.x - half.x - screenMargin.x - 12,
+                Mathf.Lerp(lower.y, upper.y, vehicleScreenHeight));
+            centre.y = ClampToFit(centre.y, lower.y + half.y + screenMargin.y, upper.y - half.y - screenMargin.y);
+            promptRect.anchoredPosition = AvoidHud(centre, half, lower + screenMargin, upper - screenMargin);
         }
         static void SetText(TMP_Text label, string value) { if (label && label.text != value) label.text = value ?? ""; }
 

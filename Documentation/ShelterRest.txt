@@ -1,0 +1,25 @@
+SIĞINAKTA DİNLENEN KÖYLÜLER
+
+Yedi köylü mevcut safePlace noktalarına yürür, girişe dönüp durur ve diz çöker.
+Sığınak eşiğini geçmek tahliye sayacını güncellemeye devam eder; köşeye yerleşme
+ve animasyonun bitmesi görev ilerlemesini bekletmez. Dinlenen NPC takip etmez.
+
+CivilianEvacuation.controller mevcut yedi Animator'a zaten bağlıdır. Bu
+controller'a ShelterRest koşulu ve iki silahsız animasyon eklendi. Bacaklar ve
+çöküş mevcut humanoid kliplerinden, rahat kol/parmak pozu mevcut Idle'dan alınır.
+Root motion kapalıdır. Kaydedilmiş sahneyi tekrar kurmak gerekmez.
+
+EvacuationResident Inspector:
+- shelterSlotRadius: kişisel noktaya yaklaşma toleransı (varsayılan 0.45 m).
+- shelterRestDelay: durup yöneldikten sonra çökme gecikmesi (varsayılan 0.4 sn).
+
+Editör araçları: GameJam > Evacuation > Configure shelter rest animations;
+GameJam > Evacuation > Review shelter rest (isolated preview).
+Bu araçlar oyun sahnesini kaydetmez, köylüleri taşımaz ve Play Mode başlatmaz.
+Raporlar/görüntüler: Logs/ShelterRest.
+
+Elle kontrol: Play, tabanca ve alarm görevlerini tamamla, Q ile köylüleri çağır.
+Grubu sığınağa götür. Sayaç girişte artmalı; her köylü farklı yerine yürüyüp
+diz çökmeli. Sığınaktan uzaklaşınca yerlerinde kalmalılar. Pause devamı ve
+Restart sonrasında yeni sahnede normal bekleme pozuna dönmelerini kontrol et.
+İzole animasyon ve NavMesh kontrolleri tam bir Play Mode tahliye turu değildir.

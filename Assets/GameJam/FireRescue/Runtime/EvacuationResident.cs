@@ -16,9 +16,13 @@ namespace GameJam.FireRescue
         public float reactionSeconds = 1.5f;
         public float walkingSpeed = 2f;
         public float runningSpeed = 5.8f;
+        [Header("Shelter rest")]
+        [Min(.1f)] public float shelterSlotRadius = .45f;
+        [Min(0f)] public float shelterRestDelay = .4f;
         public ResidentState State { get; private set; }
         public bool IsCalled => State != ResidentState.Waiting;
         public bool IsSafe => State == ResidentState.Sheltered;
+        public bool IsResting { get; private set; }
         public NavMeshAgent Agent { get; private set; }
         public bool HasNavigationProblem { get; private set; }
         [Min(1f)] public float catchUpSpeed = 11f;
@@ -26,9 +30,12 @@ namespace GameJam.FireRescue
         float reactionLeft, repathAt, stuckFor;
         Vector3 recoveryPosition;
         int entranceStep;
+        float settledFor;
+        bool supportsShelterRest;
         Vector3 lastPosition;
         static readonly int Speed = Animator.StringToHash("Speed");
         static readonly int Panic = Animator.StringToHash("Panic");
+        static readonly int ShelterRest = Animator.StringToHash("ShelterRest");
 
         void Awake()
         {
@@ -37,7 +44,13 @@ namespace GameJam.FireRescue
             Agent.angularSpeed = 360f;
             Agent.avoidancePriority = 25 + formationIndex;
             if (!animator) animator = GetComponentInChildren<Animator>();
-            if (animator) animator.applyRootMotion = false;
+            if (animator)
+            {
+                animator.applyRootMotion = false;
+                foreach (var parameter in animator.parameters)
+                    if (parameter.nameHash == ShelterRest && parameter.type == AnimatorControllerParameterType.Bool)
+                        supportsShelterRest = true;
+            }
             lastPosition = transform.position;
             recoveryPosition = transform.position;
         }
@@ -64,7 +77,7 @@ namespace GameJam.FireRescue
                 if (UnityEngine.AI.NavMesh.SamplePosition(transform.position, out var recovered, 2f, Agent.areaMask)) Agent.Warp(recovered.position);
                 else { HasNavigationProblem = true; return; }
             }
-            if (IsCalled && !IsSafe && State != ResidentState.Panicking)
+            if (IsCalled && (!IsSafe || (safePlace && !IsResting)) && State != ResidentState.Panicking)
             {
                 if (FlatDistance(transform.position, recoveryPosition) < .2f) stuckFor += Time.deltaTime;
                 else { stuckFor = 0; recoveryPosition = transform.position; }
@@ -130,12 +143,33 @@ namespace GameJam.FireRescue
             }
             else if (State == ResidentState.Sheltered && safePlace)
             {
-                if (FlatDistance(transform.position, safePlace.position) > 1f) GoTo(safePlace.position, walkingSpeed, .65f);
-                else { Stop(); transform.rotation = Quaternion.Slerp(transform.rotation, safePlace.rotation, Time.deltaTime * 3f); }
+                RestAtShelterPlace();
             }
             float actualSpeed = Time.deltaTime > .0001f ? FlatDistance(transform.position, lastPosition) / Time.deltaTime : 0;
             lastPosition = transform.position;
             if (animator) animator.SetFloat(Speed, Mathf.Min(actualSpeed / Mathf.Max(.1f, transform.lossyScale.y), 7f), .18f, Time.deltaTime);
+        }
+        void RestAtShelterPlace()
+        {
+            // Rescue is counted at the threshold; settling into a personal corner is visual.
+            if (IsResting) { Stop(); return; }
+            float radius = Mathf.Max(.1f, shelterSlotRadius);
+            if (!Arrived(safePlace.position, radius))
+            {
+                settledFor = 0f;
+                GoTo(safePlace.position, walkingSpeed, radius * .5f);
+                return;
+            }
+            Stop();
+            transform.rotation = Quaternion.Slerp(transform.rotation, safePlace.rotation, Time.deltaTime * 5f);
+            if (Quaternion.Angle(transform.rotation, safePlace.rotation) > 10f) { settledFor = 0f; return; }
+            settledFor += Time.deltaTime;
+            if (settledFor < shelterRestDelay + (formationIndex % 3) * .12f || !animator || !supportsShelterRest) return;
+            Agent.ResetPath();
+            Agent.updateRotation = false;
+            animator.SetBool(Panic, false);
+            animator.SetBool(ShelterRest, true);
+            IsResting = true;
         }
         void Stop()
         {

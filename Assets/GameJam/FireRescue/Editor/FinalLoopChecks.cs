@@ -242,6 +242,7 @@ public static class FinalLoopChecks
                     house.ApplyWater(house.litresToExtinguish); seenSpawns = Mathf.Max(1, seenSpawns);
                 }
                 if (flow.State != RescueGameFlow.GameState.Won) return;
+                if (!Object.FindFirstObjectByType<RescueHUD>().VictoryVisible) return;
                 Require("unshot_spirit_reaches_house", runner && runner.ReachedBuilding && !runner.Dissipated, "First spirit reached its building through real hop movement.");
                 Require("finite_waves_and_clear_fires_win", mission.encounter.IsCleared && flow.targetBuildings.Any(h => !h.IsBurnedOut) && flow.targetBuildings.All(h => !h.IsBurning), "Planned=" + mission.encounter.PlannedCount + "; spawned=" + mission.encounter.SpawnedCount);
                 Require("result_stats_visible", Object.FindFirstObjectByType<RescueHUD>().VictoryVisible, "Result modal.");
