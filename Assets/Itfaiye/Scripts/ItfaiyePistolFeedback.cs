@@ -25,6 +25,8 @@ namespace Itfaiye
         [Header("Audio")]
         public AudioClip[] shotClips;
         public AudioClip concreteImpact, metalImpact, woodImpact, dirtImpact;
+        [Tooltip("Dedicated contact sound for the fire spirit and metallic vehicles. Weapon shots remain separate.")]
+        public AudioClip targetImpactClip;
         [Range(0f, 1f)] public float shotVolume = .65f;
         [Range(0f, 1f)] public float impactVolume = .65f;
         [Header("Creature hit confirmation")]
@@ -123,6 +125,8 @@ namespace Itfaiye
             if (hit.collider == null) return;
             TotalImpacts++;
             LastSurface=ResolveSurface(hit.collider);
+            bool metalVehicle = hit.collider.GetComponentInParent<GameJam.FireRescue.FireTruckDrive>() != null;
+            if (metalVehicle) LastSurface = ItfaiyeSurfaceKind.Metal;
             hitTime=Time.time; hitPoint=hit.point; hitTransform=hit.collider.transform; localHitPoint=hitTransform.InverseTransformPoint(hit.point);
             var creature = hit.collider.GetComponentInParent<GameJam.FireRescue.LavaCreatureActor>();
             creatureHit = creature != null;
@@ -139,6 +143,7 @@ namespace Itfaiye
                     confirmAudio.pitch = killingHit ? 1f : Random.Range(.96f, 1.04f);
                     confirmAudio.PlayOneShot(confirmation, creatureConfirmVolume * (killingHit ? 1.15f : 1f));
                 }
+                PlayTargetImpact(hit.point);
                 return;
             }
             SpawnMark(hit, LastSurface);
@@ -236,9 +241,15 @@ namespace Itfaiye
                 Emit(effect.dust,hit,Random.Range(.2f,.8f),Random.Range(.06f,.13f),Random.Range(.25f,.55f),dustColor);
             for(int i=0;i<(surface==ItfaiyeSurfaceKind.Metal?15:8);i++)
                 Emit(effect.chips,hit,Random.Range(1.1f,3.7f),Random.Range(.012f,.028f),Random.Range(.13f,.32f),surface==ItfaiyeSurfaceKind.Metal?new Color(2.5f,1.45f,.35f,1):dustColor);
-            var clip=surface==ItfaiyeSurfaceKind.Metal?metalImpact:surface==ItfaiyeSurfaceKind.Wood?woodImpact:surface==ItfaiyeSurfaceKind.Dirt?dirtImpact:concreteImpact;
+            var clip=surface==ItfaiyeSurfaceKind.Metal?(targetImpactClip?targetImpactClip:metalImpact):surface==ItfaiyeSurfaceKind.Wood?woodImpact:surface==ItfaiyeSurfaceKind.Dirt?dirtImpact:concreteImpact;
             effect.audio.clip=clip; effect.audio.volume=impactVolume; effect.audio.pitch=Random.Range(.9f,1.1f);
             if(clip!=null && impactVolume>0f) effect.audio.Play();
+        }
+        void PlayTargetImpact(Vector3 point)
+        {
+            if (!targetImpactClip || impactVolume <= 0f) return;
+            float sfx = Mathf.Clamp01(PlayerPrefs.GetFloat("Ashfall.SfxVolume", 1f));
+            AudioSource.PlayClipAtPoint(targetImpactClip, point, impactVolume * sfx);
         }
         static ParticleSystem CreateParticles(string name,Transform parent,Material material)
         {

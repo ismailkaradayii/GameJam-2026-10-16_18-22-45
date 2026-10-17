@@ -23,7 +23,7 @@ public static class AshfallMenuButtonStyleBuilder
         importer.mipmapEnabled = false;
         importer.filterMode = FilterMode.Bilinear;
         importer.textureCompression = TextureImporterCompression.Compressed;
-        importer.spriteBorder = Vector4.zero;
+        importer.spriteBorder = new Vector4(150f, 100f, 150f, 100f);
         importer.SaveAndReimport();
 
         Sprite plate = AssetDatabase.LoadAssetAtPath<Sprite>(SpritePath);
@@ -68,9 +68,8 @@ public static class AshfallMenuButtonStyleBuilder
             if (label != null)
             {
                 label.alignment = TextAnchor.MiddleLeft;
-                label.fontStyle = FontStyle.Bold;
-                label.fontSize = 39;
-                label.color = new Color(1f, 0.94f, 0.87f, 1f);
+                Ashfall.UI.AshfallTypography.Apply(label, Ashfall.UI.AshfallTypography.Role.Button, 34);
+                label.text = Ashfall.UI.AshfallTypography.NaturalCase(label.text);
                 label.raycastTarget = false;
                 RectTransform labelRect = label.rectTransform;
                 labelRect.anchorMin = Vector2.zero;

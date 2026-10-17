@@ -160,7 +160,7 @@ namespace Ashfall.MainMenu
             SetOptions(displayModeDropdown, new List<string> { "Fullscreen", "Windowed", "Borderless" });
             SetOptions(qualityDropdown, new List<string>(QualitySettings.names));
             SetOptions(vsyncDropdown, new List<string> { "Off", "On" });
-            SetOptions(frameRateDropdown, new List<string> { "30 FPS", "60 FPS", "120 FPS", "Unlimited" });
+            SetOptions(frameRateDropdown, new List<string> { "30 fps", "60 fps", "120 fps", "Unlimited" });
         }
 
         private List<string> ResolutionLabels()
@@ -297,7 +297,7 @@ namespace Ashfall.MainMenu
         {
             if (dialogMode != DialogMode.None) return;
             dialogMode = DialogMode.RestoreDefaults;
-            ShowConfirmation("RESTORE DEFAULTS", "Reset audio and graphics preferences? Your gameplay progress and saves will not be changed.", "CONFIRM", "CANCEL");
+            ShowConfirmation("Restore defaults", "Reset audio and graphics preferences? Your gameplay progress and saves will not be changed.", "Confirm", "Cancel");
         }
 
         public bool TryCancelDialog()
@@ -313,7 +313,7 @@ namespace Ashfall.MainMenu
             if (dialogMode != DialogMode.DisplayChange) previousDisplay = CaptureDisplay();
             ApplyDisplay(resolution, mode);
             dialogMode = DialogMode.DisplayChange;
-            ShowConfirmation("KEEP DISPLAY SETTINGS?", "The display will return to its previous configuration when the timer ends.", "KEEP CHANGES", "REVERT");
+            ShowConfirmation("Keep display settings?", "The display will return to its previous configuration when the timer ends.", "Keep changes", "Revert");
             if (displayCountdown != null) StopCoroutine(displayCountdown);
             displayCountdown = StartCoroutine(DisplayConfirmationCountdown(10f));
         }

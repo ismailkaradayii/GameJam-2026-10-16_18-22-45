@@ -101,12 +101,12 @@ public static class AshfallSettingsSceneBuilder
     private static void BuildSettingsContents(Transform panel, AshfallSettingsController controller)
     {
         Text title = MakeText("SettingsTitle", panel, "SETTINGS", 34, MainText, TextAnchor.MiddleLeft);
-        Anchored(title.rectTransform, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(18f, -52f), new Vector2(-18f, -4f), new Vector2(0.5f, 1f));
+        Anchored(title.rectTransform, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(44f, -82f), new Vector2(-44f, -34f), new Vector2(0.5f, 1f));
         Text subtitle = MakeText("SettingsSubtitle", panel, "Tune the experience to your system.", 16, MutedText, TextAnchor.MiddleLeft);
-        Anchored(subtitle.rectTransform, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(18f, -88f), new Vector2(-18f, -54f), new Vector2(0.5f, 1f));
-        MakeRule("SettingsTitleRule", panel, Accent, new Vector2(18f, -150f), new Vector2(-18f, -147f));
+        Anchored(subtitle.rectTransform, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(44f, -124f), new Vector2(-44f, -84f), new Vector2(0.5f, 1f));
+        MakeRule("SettingsTitleRule", panel, Accent, new Vector2(44f, -148f), new Vector2(-44f, -147f));
 
-        ScrollRect scroll = CreateScrollView("SettingsScrollView", panel, new Vector2(18f, 82f), new Vector2(-18f, -150f));
+        ScrollRect scroll = CreateScrollView("SettingsScrollView", panel, new Vector2(44f, 100f), new Vector2(-44f, -164f));
         Transform content = scroll.content;
         AddSectionTitle(content, "AUDIO");
         Slider master = AddSliderRow(content, "MASTER VOLUME", "Controls all menu and gameplay audio.", out Text masterValue);
@@ -123,7 +123,7 @@ public static class AshfallSettingsSceneBuilder
 
         Button back = MakeButton("SettingsBackButton", panel, "BACK", Card, MainText, 58f);
         StylePanelButton(back, true);
-        Anchored(back.GetComponent<RectTransform>(), new Vector2(0f, 0f), new Vector2(1f, 0f), new Vector2(28f, 22f), new Vector2(-28f, 80f), new Vector2(0.5f, 0f));
+        Anchored(back.GetComponent<RectTransform>(), new Vector2(0f, 0f), new Vector2(1f, 0f), new Vector2(44f, 28f), new Vector2(-44f, 86f), new Vector2(0.5f, 0f));
 
         CanvasGroup confirmation = BuildConfirmationDialog(panel, out Text dialogTitle, out Text dialogMessage,
             out Text countdown, out Button confirmButton, out Text confirmLabel, out Button cancelButton, out Text cancelLabel);
@@ -164,17 +164,17 @@ public static class AshfallSettingsSceneBuilder
     private static void BuildHowToContents(Transform panel)
     {
         Text title = MakeText("HowToTitle", panel, "NASIL OYNANIR", 34, MainText, TextAnchor.MiddleLeft);
-        Anchored(title.rectTransform, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(18f, -52f), new Vector2(-18f, -4f), new Vector2(0.5f, 1f));
+        Anchored(title.rectTransform, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(44f, -82f), new Vector2(-44f, -34f), new Vector2(0.5f, 1f));
         Text subtitle = MakeText("HowToSubtitle", panel, "Önce halkı sığınağa götür; ardından kasabayı yangından koru.", 16, MutedText, TextAnchor.MiddleLeft);
-        Anchored(subtitle.rectTransform, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(18f, -88f), new Vector2(-18f, -54f), new Vector2(0.5f, 1f));
-        MakeRule("HowToTitleRule", panel, Accent, new Vector2(18f, -150f), new Vector2(-18f, -147f));
+        Anchored(subtitle.rectTransform, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(44f, -124f), new Vector2(-44f, -84f), new Vector2(0.5f, 1f));
+        MakeRule("HowToTitleRule", panel, Accent, new Vector2(44f, -148f), new Vector2(-44f, -147f));
 
-        ScrollRect scroll = CreateScrollView("HowToScrollView", panel, new Vector2(18f, 82f), new Vector2(-18f, -150f));
+        ScrollRect scroll = CreateScrollView("HowToScrollView", panel, new Vector2(44f, 100f), new Vector2(-44f, -164f));
         Transform content = scroll.content;
         Text status = MakeInfoCard(content, "VOLCANO DEMO — KASABAYI KORU", "Önce evlere yaklaş, Q ile seslen ve 7 sivili SHELTER tabelalı sığınağa götür. Sonra itfaiyenin deposunu gölden doldur. 10 saniyelik patlama sahnesinden sonra alev ruhlarını durdur. 250 litre suyla başlarsın. Beş evi tamamen söndürünce kazanırsın; kurtarılan ev tekrar yanmaz. Yanan evleri 90 saniye içinde söndür; yaklaşan lavları suyla soğut. Sıcak lava girersen canın azalır.");
-        status.fontSize = 14;
+        status.fontSize = 17;
         var missionCardLayout = status.transform.parent.GetComponent<LayoutElement>();
-        missionCardLayout.preferredHeight = missionCardLayout.minHeight = 138f;
+        missionCardLayout.preferredHeight = -1f; missionCardLayout.minHeight = 138f;
         AddSectionTitle(content, "HAREKET VE ARAÇ");
         AddControlRow(content, "HAREKET", "WASD", "Yaya hareket / araç sürüşü. Fareyle etrafa bak.", true);
         AddControlRow(content, "KOŞ", "SHIFT", "Yaya halde koş.", false);
@@ -196,13 +196,14 @@ public static class AshfallSettingsSceneBuilder
 
         Button back = MakeButton("HowToBackButton", panel, "BACK", Card, MainText, 58f);
         StylePanelButton(back, true);
-        Anchored(back.GetComponent<RectTransform>(), new Vector2(0f, 0f), new Vector2(1f, 0f), new Vector2(28f, 22f), new Vector2(-28f, 80f), new Vector2(0.5f, 0f));
+        Anchored(back.GetComponent<RectTransform>(), new Vector2(0f, 0f), new Vector2(1f, 0f), new Vector2(44f, 28f), new Vector2(-44f, 86f), new Vector2(0.5f, 0f));
     }
 
     private static void AddSectionTitle(Transform content, string text)
     {
         Text heading = MakeText(text.Replace(' ', '_') + "Section", content, text, 17, AccentLight, TextAnchor.MiddleLeft);
-        heading.fontStyle = FontStyle.Bold;
+        heading.font = Ashfall.UI.AshfallTypography.Semibold;
+        heading.fontStyle = FontStyle.Normal;
         LayoutElement layout = heading.gameObject.AddComponent<LayoutElement>();
         layout.preferredHeight = 34f;
         layout.minHeight = 34f;
@@ -257,9 +258,10 @@ public static class AshfallSettingsSceneBuilder
         Image bg = row.gameObject.AddComponent<Image>();
         bg.color = new Color(Ink.r, Ink.g, Ink.b, 0.48f);
         bg.raycastTarget = false;
+        AddLavaEdge(row, "RowLavaEdge");
         LayoutElement layout = row.gameObject.AddComponent<LayoutElement>();
-        layout.preferredHeight = height;
-        layout.minHeight = height;
+        layout.preferredHeight = -1f;
+        layout.minHeight = Mathf.Max(height, 88f);
         HorizontalLayoutGroup horizontal = row.gameObject.AddComponent<HorizontalLayoutGroup>();
         horizontal.padding = new RectOffset(18, 18, 10, 10);
         horizontal.spacing = 16f;
@@ -267,7 +269,7 @@ public static class AshfallSettingsSceneBuilder
         horizontal.childControlWidth = true;
         horizontal.childControlHeight = true;
         horizontal.childForceExpandWidth = false;
-        horizontal.childForceExpandHeight = true;
+        horizontal.childForceExpandHeight = false;
         return row;
     }
 
@@ -401,6 +403,7 @@ public static class AshfallSettingsSceneBuilder
         Image trackImage = track.gameObject.AddComponent<Image>();
         trackImage.sprite = AssetDatabase.LoadAssetAtPath<Sprite>(LavaPlatePath);
         trackImage.type = Image.Type.Sliced;
+        trackImage.pixelsPerUnitMultiplier = 8f;
         trackImage.color = new Color(0.30f, 0.28f, 0.27f, 0.98f);
         AddOutline(trackImage, new Color(0.72f, 0.66f, 0.61f, 0.94f), 1.25f);
         RectTransform fillArea = MakeRect("FillArea", root);
@@ -417,9 +420,12 @@ public static class AshfallSettingsSceneBuilder
         RectTransform handle = MakeRect("Handle", handleArea);
         handle.anchorMin = handle.anchorMax = new Vector2(0.5f, 0.5f);
         handle.pivot = new Vector2(0.5f, 0.5f);
-        handle.sizeDelta = new Vector2(36f, 56f);
+        handle.sizeDelta = new Vector2(28f, 36f);
         Image handleImage = handle.gameObject.AddComponent<Image>();
-        handleImage.color = Hex("74675D");
+        handleImage.sprite = AssetDatabase.LoadAssetAtPath<Sprite>(LavaPlatePath);
+        handleImage.type = Image.Type.Sliced;
+        handleImage.pixelsPerUnitMultiplier = 12f;
+        handleImage.color = new Color(.65f, .60f, .55f);
         handleImage.raycastTarget = true;
         AddOutline(handleImage, new Color(0.88f, 0.76f, 0.64f, 0.9f), 1.25f);
         RectTransform handleCore = MakeRect("MetalCore", handle).GetComponent<RectTransform>();
@@ -433,16 +439,6 @@ public static class AshfallSettingsSceneBuilder
         Image handleGlowImage = handleGlow.gameObject.AddComponent<Image>();
         handleGlowImage.color = AccentLight;
         handleGlowImage.raycastTarget = false;
-        RectTransform handleFacet = MakeRect("MetalFacet", handle).GetComponent<RectTransform>();
-        handleFacet.anchorMin = handleFacet.anchorMax = new Vector2(0.5f, 0.5f);
-        handleFacet.pivot = new Vector2(0.5f, 0.5f);
-        handleFacet.anchoredPosition = Vector2.zero;
-        handleFacet.sizeDelta = new Vector2(24f, 28f);
-        handleFacet.localRotation = Quaternion.Euler(0f, 0f, 45f);
-        Image handleFacetImage = handleFacet.gameObject.AddComponent<Image>();
-        handleFacetImage.color = Hex("75665B");
-        handleFacetImage.raycastTarget = false;
-        AddOutline(handleFacetImage, new Color(AccentLight.r, AccentLight.g, AccentLight.b, 0.9f), 1f);
         slider.fillRect = fill;
         slider.handleRect = handle;
         slider.targetGraphic = handleImage;
@@ -590,19 +586,25 @@ public static class AshfallSettingsSceneBuilder
         Outline staleOutline = background.GetComponent<Outline>();
         if (staleOutline != null) Object.DestroyImmediate(staleOutline);
         RectTransform basalt = MakeRect("BasaltPanelSurface", transform).GetComponent<RectTransform>();
-        Anchored(basalt, Vector2.zero, Vector2.one, new Vector2(0f, 0f), new Vector2(0f, -166f), new Vector2(0.5f, 0.5f));
+        Anchored(basalt, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero, new Vector2(0.5f, 0.5f));
         basalt.SetAsFirstSibling();
         Image basaltImage = basalt.gameObject.AddComponent<Image>();
         basaltImage.sprite = AssetDatabase.LoadAssetAtPath<Sprite>(SettingsPanelPath);
         basaltImage.type = Image.Type.Sliced;
-        basaltImage.color = new Color(0.48f, 0.45f, 0.42f, 0.92f);
+        basaltImage.pixelsPerUnitMultiplier = 4f;
+        basaltImage.color = new Color(0.68f, 0.66f, 0.63f, 0.98f);
         basaltImage.raycastTarget = false;
+        RectTransform readingSurface = MakeRect("ReadingSurface", transform);
+        Anchored(readingSurface, Vector2.zero, Vector2.one, new Vector2(28f, 26f), new Vector2(-28f, -26f), new Vector2(.5f, .5f));
+        Image readingImage = readingSurface.gameObject.AddComponent<Image>();
+        readingImage.color = new Color(.018f, .021f, .024f, .76f);
+        readingImage.raycastTarget = false;
         Transform oldPanelEdge = transform.Find("PanelLavaEdge");
         if (oldPanelEdge != null) Object.DestroyImmediate(oldPanelEdge.gameObject);
         group.alpha = 1f;
         group.interactable = true;
         group.blocksRaycasts = true;
-        MakeRule("TopAccent", rect, Accent, new Vector2(0f, 0f), new Vector2(0f, -4f), true);
+
     }
 
     private static void PrepareLavaPlateSprite()
@@ -671,7 +673,8 @@ public static class AshfallSettingsSceneBuilder
         if (image == null) return;
         image.sprite = AssetDatabase.LoadAssetAtPath<Sprite>(LavaPlatePath);
         image.type = Image.Type.Sliced;
-        image.color = Color.white;
+        image.pixelsPerUnitMultiplier = 8f;
+        image.color = new Color(.8f, .78f, .75f);
         Transform oldEdge = button.transform.Find("ButtonLavaEdge");
         if (oldEdge != null) Object.DestroyImmediate(oldEdge.gameObject);
         Transform oldUnderline = button.transform.Find("ButtonLavaUnderline");
@@ -694,8 +697,7 @@ public static class AshfallSettingsSceneBuilder
         if (label != null)
         {
             label.alignment = centered ? TextAnchor.MiddleCenter : TextAnchor.MiddleLeft;
-            label.fontStyle = FontStyle.Bold;
-            label.color = MainText;
+            Ashfall.UI.AshfallTypography.Apply(label, Ashfall.UI.AshfallTypography.Role.Button, 20);
         }
     }
 
@@ -710,8 +712,10 @@ public static class AshfallSettingsSceneBuilder
         text.color = color;
         text.alignment = alignment;
         text.horizontalOverflow = HorizontalWrapMode.Wrap;
-        text.verticalOverflow = VerticalWrapMode.Truncate;
+        text.verticalOverflow = VerticalWrapMode.Overflow;
         text.raycastTarget = false;
+        text.text = name == "KeyLabel" ? value : Ashfall.UI.AshfallTypography.NaturalCase(value);
+        Ashfall.UI.AshfallTypography.Apply(text, Ashfall.UI.AshfallTypography.Infer(text), size);
         return text;
     }
 

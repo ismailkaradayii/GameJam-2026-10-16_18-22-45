@@ -22,6 +22,11 @@ namespace GameJam.FireRescue
         [Min(0.02f)] public float meshUpdateInterval = 0.1f;
         [Tooltip("Village branches can be stopped by cooling the advancing lava front.")]
         public bool canBeStoppedByWater;
+        [Header("Flow ambience")]
+        [SerializeField] private AudioSource flowAudioSource;
+        [SerializeField] private AudioClip bubblingClip;
+        [SerializeField, Range(0f, 1f)] private float bubblingVolume = .5f;
+        [SerializeField, Min(.01f)] private float bubblingFadeSpeed = 1.5f;
         public bool StoppedByCooling => canBeStoppedByWater && IsInitialized && VisibleDistance > 0 &&
             ignitionSource && ignitionSource.IsHotSurfaceActive && !ignitionSource.IsHotAt(FrontPosition);
 
@@ -56,6 +61,8 @@ namespace GameJam.FireRescue
         private int columnCount;
         private int rowCount;
         private float untilMeshUpdate;
+        private bool audioFlowActive;
+        private bool audioPaused;
         private Vector3[] fullVertices;
         private Vector3[] fullNormals;
         private Vector4[] fullTangents;
@@ -77,6 +84,17 @@ namespace GameJam.FireRescue
         {
             if (IsInitialized)
                 return;
+            if (!flowAudioSource) flowAudioSource = GetComponent<AudioSource>();
+            if (!flowAudioSource) flowAudioSource = gameObject.AddComponent<AudioSource>();
+            flowAudioSource.playOnAwake = false;
+            flowAudioSource.loop = true;
+            flowAudioSource.spatialBlend = 1f;
+            flowAudioSource.dopplerLevel = 0f;
+            flowAudioSource.rolloffMode = AudioRolloffMode.Logarithmic;
+            flowAudioSource.minDistance = 8f;
+            flowAudioSource.maxDistance = 70f;
+            if (bubblingClip) { flowAudioSource.clip = bubblingClip; bubblingClip.LoadAudioData(); }
+            flowAudioSource.volume = 0f;
             if (source == null)
                 source = GetComponent<BK_Lava>();
             if (source == null)
@@ -176,6 +194,7 @@ namespace GameJam.FireRescue
 
         public void ResetFlow()
         {
+            SetAudioFlowActive(false, true);
             if (!IsInitialized)
             {
                 Initialize();
@@ -192,15 +211,48 @@ namespace GameJam.FireRescue
         {
             if (!IsInitialized)
                 Initialize();
-            if (!IsFinite(deltaTime) || deltaTime <= 0f || !IsFinite(speed) || speed <= 0f || HasArrived || StoppedByCooling)
+            if (!IsFinite(deltaTime) || deltaTime <= 0f)
                 return;
+            if (!IsFinite(speed) || speed <= 0f || HasArrived || StoppedByCooling)
+            {
+                SetAudioFlowActive(false);
+                return;
+            }
+            float previousDistance = DistanceTravelled;
             DistanceTravelled = Mathf.Min(Length, DistanceTravelled + speed * deltaTime);
+            SetAudioFlowActive(DistanceTravelled > previousDistance + Epsilon && !HasArrived);
             untilMeshUpdate -= deltaTime;
             if (untilMeshUpdate <= 0f || VisibleDistance <= 0f || HasArrived)
             {
                 ApplyDistance(DistanceTravelled);
                 untilMeshUpdate = IsFinite(meshUpdateInterval) ? Mathf.Max(0.02f, meshUpdateInterval) : 0.1f;
             }
+        }
+
+        private void SetAudioFlowActive(bool active, bool immediate = false)
+        {
+            audioFlowActive = active && isActiveAndEnabled && bubblingClip != null && flowAudioSource != null;
+            if (immediate && flowAudioSource)
+            {
+                flowAudioSource.Stop();
+                flowAudioSource.volume = 0f;
+            }
+        }
+
+        private void Update()
+        {
+            if (!flowAudioSource || !bubblingClip) return;
+            if (Time.timeScale <= 0f)
+            {
+                if (!audioPaused && flowAudioSource.isPlaying) flowAudioSource.Pause();
+                audioPaused = true;
+                return;
+            }
+            if (audioPaused) { flowAudioSource.UnPause(); audioPaused = false; }
+            float target = audioFlowActive ? bubblingVolume * Mathf.Clamp01(PlayerPrefs.GetFloat("Ashfall.SfxVolume", 1f)) : 0f;
+            if (audioFlowActive && !flowAudioSource.isPlaying) flowAudioSource.Play();
+            flowAudioSource.volume = Mathf.MoveTowards(flowAudioSource.volume, target, Mathf.Max(.01f, bubblingFadeSpeed) * Time.deltaTime);
+            if (!audioFlowActive && flowAudioSource.volume <= .001f && flowAudioSource.isPlaying) flowAudioSource.Stop();
         }
 
         /// <summary>Immediate deterministic seek, clamped to this route's world-space length.</summary>
@@ -451,6 +503,9 @@ namespace GameJam.FireRescue
 
         private void OnDisable()
         {
+            audioFlowActive = false;
+            audioPaused = false;
+            if (flowAudioSource) { flowAudioSource.volume = 0f; flowAudioSource.Stop(); }
             if (IsInitialized && ignitionSource != null)
                 ignitionSource.heatEnabled = false;
         }
