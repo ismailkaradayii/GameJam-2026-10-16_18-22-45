@@ -117,11 +117,70 @@ namespace GameJam.FireRescue
 
             musicSourceBaseVolumes = CacheVolumes(musicSources);
             ApplySavedSettings();
+            ConfigureReadableHudText();
+            HideTransientCenterNotifications();
             SetPanel(pausePanel, false);
             SetPanel(victoryPanel, false);
             SetPanel(settingsPanel, false);
             SetPanel(howToPlayPanel, false);
             SetPanel(pauseMenuGroup, true);
+        }
+
+        void ConfigureReadableHudText()
+        {
+            // Keep the compact volcanic frames, but use their available area more effectively.
+            // Best-fit provides a safe fallback for translations and narrower aspect ratios.
+            FitText(questTitleText, 18, 25, false);
+            FitText(questBodyText, 16, 20, true);
+            FitText(questHintText, 15, 19, false);
+            if (questTitleText)
+                FitText(questTitleText.transform.parent.Find("QuestKicker")?.GetComponent<Text>(), 14, 17, false);
+            FitText(objectiveText, 15, 19, false);
+            FitText(speedText, 15, 19, false);
+            FitText(eruptionText, 18, 27, false);
+
+            FitText(victoryTitleText, 24, 34, true);
+            FitText(victoryDetailText, 17, 22, true);
+            FitText(victoryStatsText, 17, 21, true);
+            FitButtonText(outcomeRestartButton, 17, 22);
+            FitButtonText(victoryMenuButton, 17, 22);
+
+            if (!villageIntegrity) return;
+            FitText(villageIntegrity.percentageText, 18, 25, false);
+            FitText(villageIntegrity.statusText, 13, 17, false);
+            if (villageIntegrity.houseLabels != null)
+                foreach (Text label in villageIntegrity.houseLabels) FitText(label, 11, 16, false);
+            if (villageIntegrity.defenseGroup)
+                FitText(villageIntegrity.defenseGroup.transform.Find("Title")?.GetComponent<Text>(), 17, 24, false);
+        }
+
+        static void FitButtonText(Button button, int minimum, int preferred)
+        {
+            if (button) FitText(button.GetComponentInChildren<Text>(true), minimum, preferred, false);
+        }
+
+        static void FitText(Text label, int minimum, int preferred, bool wrap)
+        {
+            if (!label) return;
+            label.fontSize = preferred;
+            label.resizeTextForBestFit = true;
+            label.resizeTextMinSize = minimum;
+            label.resizeTextMaxSize = preferred;
+            label.horizontalOverflow = wrap ? HorizontalWrapMode.Wrap : HorizontalWrapMode.Overflow;
+            label.verticalOverflow = VerticalWrapMode.Truncate;
+        }
+
+        void HideTransientCenterNotifications()
+        {
+            SetTextContainerActive(toastText, false);
+            SetTextContainerActive(subtitleText, false);
+        }
+
+        static void SetTextContainerActive(Text label, bool active)
+        {
+            if (!label) return;
+            Transform container = label.transform.parent;
+            (container ? container.gameObject : label.gameObject).SetActive(active);
         }
 
         void OnEnable() { if (flow) flow.ProgressChanged += OnProgress; }
@@ -239,17 +298,9 @@ namespace GameJam.FireRescue
                     ? Ashfall.UI.AshfallTypography.NaturalCase(player.InteractionPrompt) : "";
                 promptText.transform.parent.gameObject.SetActive(!string.IsNullOrWhiteSpace(promptText.text));
             }
-            if (toastText)
-            {
-                bool showToast = playing && Time.unscaledTime < toastUntil && (!cleanPresentation || !showMessage);
-                toastText.gameObject.SetActive(true);
-                toastText.transform.parent.gameObject.SetActive(showToast);
-            }
-            if (subtitleText)
-            {
-                subtitleText.transform.parent.gameObject.SetActive(showMessage);
-                if (showMessage) subtitleText.text = evacuation.CurrentMessage;
-            }
+            // Mission progress already lives in the fixed quest HUD. Avoid intermittent
+            // toast/subtitle frames appearing over the player's view.
+            HideTransientCenterNotifications();
             UpdateEruption(); UpdateTarget(playing);
             if (cleanPresentation)
             {
