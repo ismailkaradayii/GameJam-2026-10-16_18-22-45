@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.AI;
 
 namespace GameJam.FireRescue
 {
@@ -17,6 +18,13 @@ namespace GameJam.FireRescue
         [Min(.1f)] public float downhillHopDistance = 7.2f;
         [Min(1f)] public float personalSpace = 2.2f;
         public CreatureCombatPlayer target;
+        [Header("Village defense")]
+        public bool attackBuildings;
+        [Min(.5f)] public float buildingContactDistance = 2.5f;
+        [Min(15f)] public float maximumLifeSeconds = 105f;
+        public BurnableBuilding BuildingTarget { get; private set; }
+        float lifetime, pathRefresh;
+        NavMeshPath buildingPath;
         public Motion State { get; private set; }
         public int Leaps { get; private set; }
         public int SuccessfulAttacks { get; private set; }
@@ -73,6 +81,7 @@ namespace GameJam.FireRescue
             jump = GetComponent<LavaCreatureAutoJump>();
             if (!actor || !jump) { enabled = false; return; }
             initialized = true;
+            buildingPath = new NavMeshPath();
             fallbackGroundY = transform.position.y;
             jump.TakeCombatControl();
             // The encounter explicitly assigns its player, even when the lava emerges far away.
@@ -99,6 +108,13 @@ namespace GameJam.FireRescue
             Initialize();
             if (!initialized || !actor || actor.IsDefeated) return;
             dt = Mathf.Min(dt, .1f);
+            lifetime += dt;
+            if (attackBuildings && lifetime >= maximumLifeSeconds)
+            {
+                // Stragglers dissipate; no infinite encounter if scenery blocks a hop.
+                actor.Dissipate(); return;
+            }
+            if (attackBuildings && !IsDescending && TickBuildingContact()) return;
             cooldown = Mathf.Max(0f, cooldown - dt);
             attackWait += dt;
             elapsed += dt;
@@ -116,22 +132,23 @@ namespace GameJam.FireRescue
                     if (elapsed >= duration) { jump.CombatGrounded(landing); Change(Motion.Searching, 0f); }
                     break;
                 case Motion.Searching:
+                    bool siege = attackBuildings && FindBuilding();
                     bool hasTarget = target && target.isActiveAndEnabled && target.Health > 0f;
                     Vector3 offset = hasTarget ? target.PursuitPosition - transform.position : Vector3.zero;
                     // A nearby player can intercept the procession, including from a vehicle.
-                    if (IsDescending && hasTarget && Mathf.Abs(offset.y) < 8f &&
+                    if (!siege && IsDescending && hasTarget && Mathf.Abs(offset.y) < 8f &&
                         new Vector2(offset.x, offset.z).sqrMagnitude < 18f * 18f)
                         descentIndex = descentPath.Length - 1;
                     downhillLeap = IsDescending;
-                    Vector3 goal = downhillLeap ? DescentGoal() : (hasTarget ? target.PursuitPosition : transform.position);
+                    Vector3 goal = downhillLeap ? DescentGoal() : siege ? BuildingApproach() : (hasTarget ? target.PursuitPosition : transform.position);
                     downhillLeap = IsDescending;
-                    if (!downhillLeap && !hasTarget) return;
+                    if (!downhillLeap && !hasTarget && !siege) return;
                     offset = goal - transform.position;
                     offset.y = 0f;
-                    if (!downhillLeap && !alerted && offset.sqrMagnitude > noticeDistance * noticeDistance) return;
+                    if (!siege && !downhillLeap && !alerted && offset.sqrMagnitude > noticeDistance * noticeDistance) return;
                     alerted = true;
-                    attacking = !downhillLeap && hasTarget && target.CanBeAttacked && offset.magnitude <= attackRange && cooldown <= 0f && ClaimAttack();
-                    if (!downhillLeap && !attacking && hasTarget)
+                    attacking = !siege && !downhillLeap && hasTarget && target.CanBeAttacked && offset.magnitude <= attackRange && cooldown <= 0f && ClaimAttack();
+                    if (!siege && !downhillLeap && !attacking && hasTarget)
                     {
                         goal = ApproachPoint(); offset = goal - transform.position; offset.y = 0f;
                     }
@@ -202,6 +219,45 @@ namespace GameJam.FireRescue
             }
         }
 
+        bool FindBuilding()
+        {
+            if (BuildingTarget && !BuildingTarget.IsBurnedOut && !BuildingTarget.IsRescued) return true;
+            BuildingTarget = null; pathRefresh = 0; buildingPath.ClearCorners(); float best = float.PositiveInfinity;
+            foreach (var house in BurnableBuilding.ActiveBuildings)
+            {
+                if (!house || house.IsBurnedOut || house.IsRescued || !house.ignitionBounds) continue;
+                float score = FlatDistance(transform.position, house.ignitionBounds.bounds.ClosestPoint(transform.position)) + (house.IsBurning ? 45 : 0);
+                foreach (var other in crowd) if (other && other != this && other.BuildingTarget == house) score += 9;
+                if (score < best) { best = score; BuildingTarget = house; }
+            }
+            return BuildingTarget;
+        }
+        bool TickBuildingContact()
+        {
+            if (!FindBuilding()) return false;
+            Vector3 contact = BuildingTarget.ignitionBounds.ClosestPoint(transform.position + Vector3.up * bodyOffset);
+            if (FlatDistance(transform.position, contact) > buildingContactDistance || Mathf.Abs(contact.y - transform.position.y) > 8) return false;
+            BuildingTarget.Ignite(); actor.ConsumeAtBuilding(); return true;
+        }
+        Vector3 BuildingApproach()
+        {
+            Vector3 goal = BuildingTarget.ignitionBounds.ClosestPoint(transform.position);
+            if (Time.time >= pathRefresh)
+            {
+                pathRefresh = Time.time + 1f;
+                if (NavMesh.SamplePosition(transform.position, out var from, 12, NavMesh.AllAreas) &&
+                    NavMesh.SamplePosition(goal, out var to, 8, NavMesh.AllAreas))
+                    NavMesh.CalculatePath(from.position, to.position, NavMesh.AllAreas, buildingPath);
+            }
+            if (buildingPath.status == NavMeshPathStatus.PathComplete)
+            {
+                var corners = buildingPath.corners;
+                // Corner zero is the old route origin, never a forward destination.
+                for (int i = 1; i < corners.Length; i++)
+                    if (FlatDistance(corners[i], transform.position) > 3f) return corners[i];
+            }
+            return goal;
+        }
         public void Stagger(Vector3 shotDirection)
         {
             Initialize();

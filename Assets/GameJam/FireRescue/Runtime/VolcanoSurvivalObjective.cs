@@ -47,8 +47,17 @@ namespace GameJam.FireRescue
             if (vitals && vitals.Health <= 0f) { Lose(); return; }
             var sequence = encounter.sequence;
             if (!sequence || !sequence.Initialized || sequence.Stage != VolcanoEruptionSequence.EruptionStage.Flowing) return;
+            if (VolcanoCinematic.IsPlayingAny) return;
             bool firesOut = true;
-            foreach (var house in BurnableBuilding.ActiveBuildings) if (house && house.IsBurning) { firesOut = false; break; }
+            int standing = 0, total = 0;
+            foreach (var house in BurnableBuilding.ActiveBuildings)
+            {
+                if (!house) continue;
+                total++; if (!house.IsBurnedOut) standing++;
+                if (house.IsBurning) firesOut = false;
+            }
+            if (total > 0 && standing == 0) { Finish(MissionState.Lost); return; }
+            if (encounter.IsCleared && firesOut && standing > 0) { Finish(MissionState.Won); return; }
             State = encounter.IsCleared && firesOut ? MissionState.ReturnToTruck : MissionState.Fighting;
             // Returning early is safe, but cannot skip the remaining enemies or the rescue.
             if ((!rescueFlow || !rescueFlow.IsConfigured) && State == MissionState.ReturnToTruck && (!sequence.evacuation || sequence.evacuation.IsComplete) &&
@@ -60,7 +69,8 @@ namespace GameJam.FireRescue
         void Finish(MissionState result)
         {
             if (IsFinished) return;
-            State = result; encounter.StopEncounter();
+            State = result; if (encounter) encounter.StopEncounter();
+            if (rescueFlow) { rescueFlow.FinishMission(result == MissionState.Won); return; }
             previousTimeScale = Time.timeScale; previousLock = Cursor.lockState; previousCursor = Cursor.visible;
             pausedWorld = true; Time.timeScale = 0f;
             if (player)
@@ -77,8 +87,8 @@ namespace GameJam.FireRescue
             controls.Add(component, component.enabled); component.enabled = false;
         }
 
-        public void RestartMission() => LoadScene(gameObject.scene.name);
-        public void ReturnToMenu() => LoadScene("MainMenu");
+        public void RestartMission() { if (rescueFlow) rescueFlow.RestartMission(); else LoadScene(gameObject.scene.name); }
+        public void ReturnToMenu() { if (rescueFlow) rescueFlow.ReturnToMainMenu(); else LoadScene("MainMenu"); }
         void LoadScene(string scene)
         {
             if (!IsFinished || !Application.CanStreamedLevelBeLoaded(scene)) return;
@@ -143,7 +153,7 @@ namespace GameJam.FireRescue
                 GUI.Label(new Rect(x + 12, y + 9, 292, 28), State == MissionState.ReturnToTruck ? "SON ADIM · ARACA DÖN" :
                     "ALEV DALGASI  " + Mathf.Max(1, encounter.WaveNumber) + " / " + encounter.WaveCount, title);
                 GUI.color = Color.white;
-                string instruction = State == MissionState.ReturnToTruck ? "Hortumu topla, sürücü kapısına git ve F ile araca bin." :
+                string instruction = State == MissionState.ReturnToTruck ? "Hortumu topla, sürücü kapısına git ve E ile araca bin." :
                     encounter.IsCleared ? "Ruhlar temizlendi. Kalan ev yangınlarını söndür!" :
                     encounter.AllWavesReleased ? "Son dalga çıktı. Kalan alev ruhlarını temizle!" :
                     encounter.SpawnedInWave >= encounter.CurrentWaveSize ? "Yeni dalga: " + Mathf.CeilToInt(encounter.NextWaveIn) + " sn" : "Lavlardan yeni alev ruhları doğuyor.";

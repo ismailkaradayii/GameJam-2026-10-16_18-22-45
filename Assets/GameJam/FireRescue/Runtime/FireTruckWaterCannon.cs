@@ -27,6 +27,7 @@ namespace GameJam.FireRescue
         public Vector3 AimPoint { get; private set; }
         public BurnableBuilding HitFire { get; private set; }
         public LavaCoolingSurface HitLava { get; private set; }
+        public Vector3 LavaImpactPoint { get; private set; }
         public BurnableBuilding PredictedTarget { get; private set; }
         public bool HasPredictedImpact { get; private set; }
         public bool HasReachableAim { get; private set; }
@@ -174,7 +175,22 @@ namespace GameJam.FireRescue
             if (lava)
             {
                 HitLava = lava;
+                LavaImpactPoint = point;
                 lava.ApplyWater(point, litres);
+                // At a junction the same visible liquid may be represented by a trunk
+                // and a branch mesh. Cool both contacting layers, so hidden hot lava
+                // cannot keep burning through the newly formed obsidian.
+                foreach (var adjacent in LavaIgnitionSource.ActiveSources)
+                {
+                    if (!adjacent || adjacent.gameObject == lava.gameObject || !adjacent.IsHotSurfaceActive) continue;
+                    Bounds bounds = adjacent.heatCollider.bounds;
+                    if (point.x < bounds.min.x || point.x > bounds.max.x || point.z < bounds.min.z || point.z > bounds.max.z) continue;
+                    if (!adjacent.heatCollider.Raycast(new Ray(point + Vector3.up * .75f, Vector3.down), out var contact, 1.5f)) continue;
+                    var connected = adjacent.GetComponent<LavaCoolingSurface>();
+                    if (!connected) continue;
+                    connected.ApplyWater(contact.point, litres);
+                    if (connected.BlocksFlow) { HitLava = connected; LavaImpactPoint = contact.point; }
+                }
             }
             LavaCreatureActor creature = surface.GetComponentInParent<LavaCreatureActor>();
             if (creature) creature.ApplyWater(litres);

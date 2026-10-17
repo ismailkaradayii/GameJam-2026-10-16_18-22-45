@@ -20,10 +20,9 @@ namespace GameJam.FireRescue
         [Min(0f)] public float groundClearance = 0.2f;
         [Tooltip("The renderer and collider advance together at this interval. Explicit SetDistance is immediate.")]
         [Min(0.02f)] public float meshUpdateInterval = 0.1f;
-        [Tooltip("Village branches can be stopped by cooling the advancing lava front.")]
+        [Tooltip("A fully cooled cross-section cuts off this village branch's supply, even after the front has passed it.")]
         public bool canBeStoppedByWater;
-        public bool StoppedByCooling => canBeStoppedByWater && IsInitialized && VisibleDistance > 0 &&
-            ignitionSource && ignitionSource.IsHotSurfaceActive && !ignitionSource.IsHotAt(FrontPosition);
+        public bool StoppedByCooling { get; private set; }
 
         public bool IsInitialized { get; private set; }
         public float DistanceTravelled { get; private set; }
@@ -56,6 +55,7 @@ namespace GameJam.FireRescue
         private int columnCount;
         private int rowCount;
         private float untilMeshUpdate;
+        private LavaCoolingSurface cooling;
         private Vector3[] fullVertices;
         private Vector3[] fullNormals;
         private Vector4[] fullTangents;
@@ -98,10 +98,24 @@ namespace GameJam.FireRescue
                 {
                     float clearance = IsFinite(groundClearance) ? Mathf.Max(0f, groundClearance) : 0.2f;
                     float terrainY = conformToTerrain.transform.position.y;
+                    Vector3[] authored = canBeStoppedByWater ? (Vector3[])fullVertices.Clone() : null;
                     for (int i = 0; i < fullVertices.Length; i++)
                     {
                         Vector3 world = source.transform.TransformPoint(fullVertices[i]);
-                        world.y = conformToTerrain.SampleHeight(world) + terrainY + clearance;
+                        float height = clearance;
+                        if (canBeStoppedByWater)
+                        {
+                            // Keep the authored route; vary only its private banks so village lava
+                            // settles into the terrain instead of floating as a rectangular sheet.
+                            int column = i % columnCount, row = i / columnCount;
+                            Vector3 left = source.transform.TransformPoint(authored[row * columnCount]);
+                            Vector3 right = source.transform.TransformPoint(authored[row * columnCount + columnCount - 1]);
+                            Vector3 centre = (left + right) * .5f;
+                            float bank = .82f + .18f * Mathf.PerlinNoise(row * .63f, 1.7f);
+                            world.x = Mathf.Lerp(centre.x, world.x, bank); world.z = Mathf.Lerp(centre.z, world.z, bank);
+                            height = Mathf.Lerp(.025f, clearance, Mathf.Sin(column / (columnCount - 1f) * Mathf.PI));
+                        }
+                        world.y = conformToTerrain.SampleHeight(world) + terrainY + height;
                         fullVertices[i] = source.transform.InverseTransformPoint(world);
                     }
                     referenceMesh.vertices = fullVertices;
@@ -176,6 +190,9 @@ namespace GameJam.FireRescue
 
         public void ResetFlow()
         {
+            if (!cooling) cooling = GetComponent<LavaCoolingSurface>();
+            if (cooling) cooling.ResetCooling();
+            StoppedByCooling = false;
             if (!IsInitialized)
             {
                 Initialize();
@@ -185,6 +202,34 @@ namespace GameJam.FireRescue
             DistanceTravelled = 0f;
             untilMeshUpdate = 0f;
             ApplyDistance(0f);
+        }
+
+        /// <summary>Run only when a patch finishes cooling, not on every simulation step.</summary>
+        public void RefreshCoolingBarrier()
+        {
+            if (StoppedByCooling || !canBeStoppedByWater || !IsInitialized || VisibleDistance <= Epsilon) return;
+            if (!cooling) cooling = GetComponent<LavaCoolingSurface>();
+            if (!cooling || cooling.CooledPatchCount == 0) return;
+            float step = Mathf.Clamp(cooling.patchRadius * .2f, .5f, 2f);
+            int samples = Mathf.CeilToInt(VisibleDistance / step);
+            for (int i = 0; i <= samples; i++)
+            {
+                float distance = Mathf.Min(i * step, VisibleDistance);
+                if (cooling.IsHotAt(PositionAtDistance(distance))) continue;
+                float arc = capturedReverse ? Length - distance : distance;
+                FindRow(arc, out int row, out float fraction);
+                bool blocked = true;
+                for (int column = 0; column < columnCount; column++)
+                {
+                    Vector3 local = Vector3.Lerp(fullVertices[row * columnCount + column],
+                        fullVertices[(row + 1) * columnCount + column], fraction);
+                    if (cooling.IsHotAt(source.transform.TransformPoint(local))) { blocked = false; break; }
+                }
+                if (!blocked) continue;
+                StoppedByCooling = true;
+                DistanceTravelled = VisibleDistance;
+                return;
+            }
         }
 
         /// <summary>Advances simulation time; the sequencer owns delays and calling cadence.</summary>
@@ -390,6 +435,7 @@ namespace GameJam.FireRescue
                 ignitionSource.surfaceRenderer = surfaceRenderer;
                 ignitionSource.heatEnabled = isActiveAndEnabled;
             }
+            if (cooling) cooling.NotifySurfaceChanged();
         }
 
         private void AddRow(int first, int second, float fraction)

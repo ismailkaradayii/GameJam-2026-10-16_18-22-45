@@ -21,7 +21,10 @@ namespace GameJam.FireRescue
         public bool IsSafe => State == ResidentState.Sheltered;
         public NavMeshAgent Agent { get; private set; }
         public bool HasNavigationProblem { get; private set; }
-        float reactionLeft, repathAt;
+        [Min(1f)] public float catchUpSpeed = 11f;
+        [Min(1f)] public float stuckRecoverySeconds = 2.5f;
+        float reactionLeft, repathAt, stuckFor;
+        Vector3 recoveryPosition;
         int entranceStep;
         Vector3 lastPosition;
         static readonly int Speed = Animator.StringToHash("Speed");
@@ -36,6 +39,7 @@ namespace GameJam.FireRescue
             if (!animator) animator = GetComponentInChildren<Animator>();
             if (animator) animator.applyRootMotion = false;
             lastPosition = transform.position;
+            recoveryPosition = transform.position;
         }
         void Start()
         {
@@ -53,7 +57,25 @@ namespace GameJam.FireRescue
         }
         void Update()
         {
-            if (!mission || !mission.PlayerTransform || !Agent) return;
+            if (!mission || !mission.PlayerTransform || !Agent || !Agent.enabled || Time.deltaTime <= 0f) return;
+            if (!Agent.isOnNavMesh)
+            {
+                // Recover a small local displacement only; never warp a resident to the shelter.
+                if (UnityEngine.AI.NavMesh.SamplePosition(transform.position, out var recovered, 2f, Agent.areaMask)) Agent.Warp(recovered.position);
+                else { HasNavigationProblem = true; return; }
+            }
+            if (IsCalled && !IsSafe && State != ResidentState.Panicking)
+            {
+                if (FlatDistance(transform.position, recoveryPosition) < .2f) stuckFor += Time.deltaTime;
+                else { stuckFor = 0; recoveryPosition = transform.position; }
+                if (stuckFor >= stuckRecoverySeconds)
+                {
+                    if (door) door.Open();
+                    Agent.ResetPath(); repathAt = 0;
+                    Agent.avoidancePriority = 10 + (formationIndex + Mathf.FloorToInt(Time.time)) % 30;
+                    stuckFor = 0;
+                }
+            }
             // Crossing the actual safe area completes rescue, even if a parking slot is occupied.
             if (IsCalled && !IsSafe && State != ResidentState.Panicking && mission.IsInsideShelter(transform.position))
             {
@@ -71,7 +93,7 @@ namespace GameJam.FireRescue
                     repathAt = 0;
                 }
             }
-            if (State == ResidentState.LeavingHouse)
+            if (State == ResidentState.LeavingHouse && houseExit)
             {
                 GoTo(houseExit.position, runningSpeed, .3f);
                 if (Arrived(houseExit.position, .8f)) { State = ResidentState.Following; repathAt = 0; }
@@ -87,12 +109,12 @@ namespace GameJam.FireRescue
                     float gap = FlatDistance(transform.position, target);
                     float speed = gap > 5f ? runningSpeed : walkingSpeed;
                     // A sprinting player must not permanently outrun the group.
-                    if (distance > 18f) speed = Mathf.Max(speed, 6.6f);
+                    if (distance > 18f) speed = Mathf.Max(speed, catchUpSpeed);
                     if (gap < 1f && distance < 8f) Stop();
                     else GoTo(target, speed, .7f);
                 }
             }
-            else if (State == ResidentState.EnteringShelter)
+            else if (State == ResidentState.EnteringShelter && mission.shelterEntrance && safePlace)
             {
                 Vector3 destination = entranceStep == 0 ? mission.shelterEntrance.position : safePlace.position;
                 GoTo(destination, walkingSpeed + 1.1f, .15f);
@@ -129,7 +151,7 @@ namespace GameJam.FireRescue
             // Project nearby targets onto walkable ground; never teleport a stuck resident.
             if (NavMesh.SamplePosition(point, out NavMeshHit hit, 3f, Agent.areaMask))
             {
-                HasNavigationProblem = !Agent.SetDestination(hit.position);
+                HasNavigationProblem = !Agent.SetDestination(hit.position) || (!Agent.pathPending && Agent.pathStatus == NavMeshPathStatus.PathInvalid);
             }
             else HasNavigationProblem = true;
         }

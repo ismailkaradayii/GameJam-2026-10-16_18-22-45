@@ -76,7 +76,7 @@ namespace GameJam.FireRescue
         void Update()
         {
             if (Time.timeScale <= 0f) return;
-            if (Application.isFocused && Cursor.lockState == CursorLockMode.Locked &&
+            if (!missionDirector && Application.isFocused && Cursor.lockState == CursorLockMode.Locked &&
                 Keyboard.current != null && Keyboard.current.vKey.wasPressedThisFrame)
                 BeginEruption();
             TickSequence(Time.deltaTime);
@@ -106,10 +106,10 @@ namespace GameJam.FireRescue
             Initialized = true;
         }
 
-        public bool BeginEruption()
+        public bool BeginEruption(bool ignorePreparation = false)
         {
             InitializeSequence();
-            if (Stage != EruptionStage.Waiting || WaitingForPreparation) return false;
+            if (Stage != EruptionStage.Waiting || (!ignorePreparation && WaitingForPreparation)) return false;
             Stage = EruptionStage.Warning;
             StageElapsed = 0f;
             if (enableCameraShake && cameraShake) cameraShake.Shake(warningSeconds, .07f);
@@ -162,7 +162,6 @@ namespace GameJam.FireRescue
                 return;
             }
             if (effects) effects.TickEffect(step);
-            if (cinematic && cinematic.IsPlaying) cinematic.TickShot(step);
             if (Stage == EruptionStage.Erupting)
             {
                 foreach (Pool pool in pools)
@@ -171,7 +170,7 @@ namespace GameJam.FireRescue
                 foreach (LavaLight glow in lavaLights)
                     if (glow?.light && effects && (glow.light.transform.position - effects.transform.position).sqrMagnitude < 40000f)
                         glow.light.enabled = glow.wasEnabled;
-                if (StageElapsed >= Mathf.Max(0f, lavaReleaseDelay) && (!cinematic || !cinematic.IsPlaying))
+                if (StageElapsed >= Mathf.Max(0f, lavaReleaseDelay))
                 {
                     Stage = EruptionStage.Flowing;
                     StageElapsed = FlowElapsed = 0f;

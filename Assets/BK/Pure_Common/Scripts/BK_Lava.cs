@@ -141,9 +141,15 @@ namespace BKPureNature
                 Vector3 tangent = (Vector3)spline.EvaluateTangent(t);
 
                 if (tangent.sqrMagnitude <= DirectionEpsilon)
-                    tangent = previousTangent;
-                else
-                    tangent.Normalize();
+                {
+                    // Linear spline knots have zero endpoint derivatives. Establish
+                    // their actual travel direction before choosing a bank orientation;
+                    // an arbitrary +Z fallback can turn the entire surface upside down.
+                    float sample = Mathf.Max(.0001f, .25f / lengthSegmentCount);
+                    tangent = (Vector3)spline.EvaluatePosition(Mathf.Min(1f, t + sample)) -
+                        (Vector3)spline.EvaluatePosition(Mathf.Max(0f, t - sample));
+                }
+                tangent = tangent.sqrMagnitude > DirectionEpsilon ? tangent.normalized : previousTangent;
 
                 Vector3 side = Vector3.Cross(Vector3.up, tangent);
                 if (side.sqrMagnitude <= DirectionEpsilon)

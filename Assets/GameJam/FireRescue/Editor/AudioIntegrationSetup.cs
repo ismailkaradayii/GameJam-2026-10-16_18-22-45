@@ -248,6 +248,12 @@ namespace GameJam.FireRescue.Editor
                 movementData.FindProperty("walkingStepInterval").floatValue = 0.48f;
                 movementData.FindProperty("runningStepInterval").floatValue = 0.32f;
                 movementData.ApplyModifiedPropertiesWithoutUndo();
+                // The authored movement loop sounds like a vehicle while sprinting.
+                // Keep it silent until a suitable footstep recording is provided.
+                movementAudio.enabled = false;
+                footstepSource.enabled = false;
+                footstepSource.playOnAwake = false;
+                footstepSource.clip = null;
                 EditorUtility.SetDirty(footstepSource);
                 EditorUtility.SetDirty(player.gameObject);
                 EditorUtility.SetDirty(movementAudio);

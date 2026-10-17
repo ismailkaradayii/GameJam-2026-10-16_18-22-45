@@ -11,9 +11,28 @@ namespace GameJam.FireRescue
         [Min(1f)] public float maxHealth = 100f;
         [Min(0f)] public float waterDamagePerLitre = 2f;
 
+        [Header("Death feedback")]
+        [Tooltip("Delay between the poff sound and its small fire cloud.")]
+        [Range(.04f, .3f)] public float deathFireDelay = .12f;
+        [Range(.4f, 1.5f)] public float deathFireSize = 1f;
+        [Range(0f, 1f)] public float deathPoffVolume = .85f;
+
         public float Health => initialized ? health : ValidMaximum;
         public float Health01 => Mathf.Clamp01(Health / ValidMaximum);
         public bool IsDefeated { get; private set; }
+        public bool ReachedBuilding { get; private set; }
+        public bool Dissipated { get; private set; }
+        public void Dissipate()
+        {
+            if (IsDefeated) return;
+            InitializeHealth(); Dissipated = true; health = 0; Defeat(transform.position, Vector3.up);
+        }
+        public void ConsumeAtBuilding()
+        {
+            if (IsDefeated) return;
+            InitializeHealth(); ReachedBuilding = true; health = 0;
+            Defeat(transform.position, Vector3.up);
+        }
 
         float health;
         bool initialized;

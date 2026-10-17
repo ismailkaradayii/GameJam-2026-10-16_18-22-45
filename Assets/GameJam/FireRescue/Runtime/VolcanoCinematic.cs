@@ -1,93 +1,179 @@
 using UnityEngine;
 using UnityEngine.Rendering.Universal;
-using UnityEngine.Rendering;
 
 namespace GameJam.FireRescue
 {
-    /// <summary>A ten-second unbroken aerial reveal; the sequence owns its clock.</summary>
+    /// <summary>One camera/input lease shared by the wake-up, eruption and spirit reveals.</summary>
     [DisallowMultipleComponent, DefaultExecutionOrder(300)]
     public sealed class VolcanoCinematic : MonoBehaviour
     {
-        public const float Duration = 10f;
+        public enum ShotKind { Intro, Eruption, Spirits }
+        public const float Duration = 10f; // Compatibility for older editor tools.
         public FireRescuePlayer player;
         public Transform crater;
         public Vector3 startOffset = new Vector3(500, 480, -900);
         public Vector3 endOffset = new Vector3(380, 420, -780);
         public AudioClip eruptionSound;
+        [Min(.5f)] public float introSeconds = 2.2f;
+        [Min(3f)] public float eruptionSeconds = 7f;
+        [Range(2f, 3f)] public float spiritSeconds = 2.6f;
+        [Range(.1f, 1f)] public float spiritTimeScale = .35f;
+        [Min(.1f)] public float transitionSeconds = 1.2f;
+        [Min(5f)] public float spiritViewingDistance = 14f;
         public bool IsPlaying { get; private set; }
         public bool HasPlayed { get; private set; }
+        public bool HasIntroPlayed { get; private set; }
+        public bool HasSpiritsPlayed { get; private set; }
+        public ShotKind Kind { get; private set; }
         public float Elapsed { get; private set; }
         public Camera ShotCamera => shot;
         public static bool IsPlayingAny { get; private set; }
         Camera shot;
-        AudioSource audioSource;
-        bool viewEnabled, handsEnabled;
+        Transform subject;
+        Vector3 returnPosition, introPosition, frozenVelocity, frozenAngularVelocity;
+        Quaternion returnRotation, introRotation;
+        float returnFov, shotDuration, previousTimeScale, previousFixedStep;
+        bool viewEnabled, handsEnabled, previousKinematic, frozenTruck, ownsSlowMotion;
         CursorLockMode savedLock;
         bool savedCursor;
         GUIStyle caption;
-        VolumeProfile grading;
+        int beginFrame;
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         static void ResetStatic() => IsPlayingAny = false;
 
+        public void BeginIntro(Transform wakePose)
+        {
+            if (HasIntroPlayed || !wakePose || !Begin(ShotKind.Intro, introSeconds)) return;
+            HasIntroPlayed = true;
+            introPosition = wakePose.position; introRotation = wakePose.rotation;
+            UpdatePose();
+        }
         public void BeginShot()
         {
-            if (IsPlaying || HasPlayed || !crater || !player || !player.viewCamera) return;
-            var go = new GameObject("Eruption cinematic camera");
-            go.transform.SetParent(transform, false);
-            shot = go.AddComponent<Camera>(); shot.CopyFrom(player.viewCamera);
-            var cameraData = shot.GetUniversalAdditionalCameraData(); cameraData.renderPostProcessing = true; cameraData.volumeLayerMask = ~0;
-            var volume = go.AddComponent<Volume>(); volume.isGlobal = true; volume.priority = 1000;
-            grading = ScriptableObject.CreateInstance<VolumeProfile>(); volume.sharedProfile = grading;
-            var color = grading.Add<ColorAdjustments>(); color.postExposure.Override(1.65f);
-            var bloom = grading.Add<Bloom>(); bloom.intensity.Override(.35f); bloom.threshold.Override(1.15f); bloom.scatter.Override(.65f);
-            var vignette = grading.Add<Vignette>(); vignette.intensity.Override(.16f); vignette.smoothness.Override(.7f);
-            shot.cullingMask = player.viewCamera.cullingMask;
-            shot.depth = player.viewCamera.depth + 20; shot.nearClipPlane = 1; shot.farClipPlane = 5000;
-            shot.fieldOfView = 54;
-            viewEnabled = player.viewCamera.enabled;
-            handsEnabled = player.firstPerson && player.firstPerson.handsCamera && player.firstPerson.handsCamera.enabled;
-            player.viewCamera.enabled = false;
-            if (player.firstPerson && player.firstPerson.handsCamera) player.firstPerson.handsCamera.enabled = false;
-            savedLock = Cursor.lockState; savedCursor = Cursor.visible;
-            player.SetCinematicLocked(true);
-            Cursor.lockState = CursorLockMode.Locked; Cursor.visible = false;
-            Elapsed = 0; HasPlayed = IsPlaying = IsPlayingAny = true;
-            audioSource = go.AddComponent<AudioSource>(); audioSource.spatialBlend = 0; audioSource.volume = .85f;
-            if (eruptionSound && !FindFirstObjectByType<WindAudioPulse>()) audioSource.PlayOneShot(eruptionSound);
+            if (HasPlayed || !crater || !Begin(ShotKind.Eruption, eruptionSeconds)) return;
+            HasPlayed = true; subject = crater;
+            if (eruptionSound && !FindFirstObjectByType<WindAudioPulse>())
+            {
+                var audio = shot.gameObject.AddComponent<AudioSource>(); audio.spatialBlend = 0; audio.volume = .85f;
+                audio.PlayOneShot(eruptionSound);
+            }
             UpdatePose();
+        }
+        public void BeginSpirits(Transform firstSpirit)
+        {
+            if (HasSpiritsPlayed || !firstSpirit || !Begin(ShotKind.Spirits, spiritSeconds)) return;
+            HasSpiritsPlayed = true; subject = firstSpirit;
+            ownsSlowMotion = true;
+            Time.timeScale = spiritTimeScale;
+            Time.fixedDeltaTime = previousFixedStep * spiritTimeScale;
+            UpdatePose();
+        }
+        bool Begin(ShotKind kind, float seconds)
+        {
+            if (IsPlaying || !player || !player.viewCamera) return false;
+            Kind = kind; shotDuration = Mathf.Max(.5f, seconds);
+            var view = player.viewCamera;
+            returnPosition = view.transform.position; returnRotation = view.transform.rotation; returnFov = view.fieldOfView;
+            viewEnabled = view.enabled;
+            handsEnabled = player.firstPerson && player.firstPerson.handsCamera && player.firstPerson.handsCamera.enabled;
+            savedLock = Cursor.lockState; savedCursor = Cursor.visible;
+            previousTimeScale = Time.timeScale; previousFixedStep = Time.fixedDeltaTime;
+            player.SetCinematicLocked(true);
+            if (player.IsDriving && player.drive && player.drive.body)
+            {
+                var body = player.drive.body;
+                previousKinematic = body.isKinematic; frozenVelocity = body.linearVelocity; frozenAngularVelocity = body.angularVelocity;
+                body.isKinematic = true; frozenTruck = true;
+            }
+            var go = new GameObject("Mission cinematic camera"); go.transform.SetParent(transform, false);
+            shot = go.AddComponent<Camera>(); shot.CopyFrom(view);
+            var data = shot.GetUniversalAdditionalCameraData();
+            data.renderPostProcessing = true; data.volumeLayerMask = view.GetUniversalAdditionalCameraData().volumeLayerMask;
+            shot.depth = view.depth + 20; shot.farClipPlane = Mathf.Max(5000, view.farClipPlane);
+            shot.transform.SetPositionAndRotation(returnPosition, returnRotation);
+            view.enabled = false;
+            if (player.firstPerson && player.firstPerson.handsCamera) player.firstPerson.handsCamera.enabled = false;
+            Cursor.lockState = CursorLockMode.Locked; Cursor.visible = false;
+            Elapsed = 0; beginFrame = Time.frameCount; IsPlaying = IsPlayingAny = true;
+            return true;
+        }
+        void Update()
+        {
+            // Scene loading can report a long first delta; keep the wake-up visible.
+            if (IsPlaying && Time.frameCount > beginFrame) TickShot(Mathf.Min(Time.unscaledDeltaTime, .2f));
         }
         public void TickShot(float dt)
         {
             if (!IsPlaying || dt <= 0 || !float.IsFinite(dt)) return;
-            Elapsed = Mathf.Min(Duration, Elapsed + dt);
+            Elapsed = Mathf.Min(shotDuration, Elapsed + dt);
             UpdatePose();
-            if (Elapsed >= Duration - .0001f) EndShot();
+            if (Elapsed >= shotDuration - .0001f) EndShot();
         }
         void LateUpdate() { if (IsPlaying) UpdatePose(); }
         void UpdatePose()
         {
-            if (!shot || !crater) return;
-            float t = Mathf.SmoothStep(0, 1, Elapsed / Duration);
-            Vector3 position = crater.position + Vector3.Lerp(startOffset, endOffset, t);
-            Vector3 focus = crater.position + Vector3.up * Mathf.Lerp(140, 180, t);
-            float tremor = Mathf.Exp(-Elapsed * .37f) * .34f + (Elapsed > 3.8f && Elapsed < 5.3f ? .12f : 0);
-            position += new Vector3(Mathf.Sin(Elapsed * 37), Mathf.Sin(Elapsed * 29), 0) * tremor;
-            shot.transform.SetPositionAndRotation(position, Quaternion.LookRotation(focus - position));
-            shot.fieldOfView = Mathf.Lerp(54, 47, t);
+            if (!shot) return;
+            if (Kind == ShotKind.Intro)
+            {
+                float t = Mathf.SmoothStep(0, 1, Elapsed / shotDuration);
+                shot.transform.SetPositionAndRotation(Vector3.Lerp(introPosition, returnPosition, t), Quaternion.Slerp(introRotation, returnRotation, t));
+                shot.fieldOfView = Mathf.Lerp(returnFov - 9, returnFov, t);
+                return;
+            }
+            Vector3 focus = subject ? subject.position : returnPosition + returnRotation * Vector3.forward * 20;
+            Vector3 from, to;
+            float zoomStart, zoomEnd;
+            if (Kind == ShotKind.Eruption)
+            {
+                from = focus + startOffset; to = focus + endOffset; focus += Vector3.up * 20;
+                zoomStart = 55; zoomEnd = 43;
+            }
+            else
+            {
+                focus += Vector3.up * 1.5f;
+                Vector3 direction = Vector3.ProjectOnPlane(returnPosition - focus, Vector3.up).normalized;
+                if (direction.sqrMagnitude < .1f) direction = Vector3.back;
+                from = focus + direction * spiritViewingDistance + Vector3.up * 5;
+                to = focus + direction * (spiritViewingDistance * .75f) + Vector3.up * 3.5f;
+                zoomStart = 52; zoomEnd = 39;
+            }
+            float blendSeconds = Mathf.Min(transitionSeconds, shotDuration * .27f);
+            float progress = Mathf.SmoothStep(0, 1, Mathf.InverseLerp(blendSeconds, shotDuration - blendSeconds, Elapsed));
+            Vector3 position = Vector3.Lerp(from, to, progress);
+            Quaternion rotation = Quaternion.LookRotation(focus - position);
+            float fov = Mathf.Lerp(zoomStart, zoomEnd, progress);
+            float enter = Mathf.SmoothStep(0, 1, Elapsed / blendSeconds);
+            float leave = Mathf.SmoothStep(0, 1, (Elapsed - shotDuration + blendSeconds) / blendSeconds);
+            position = Vector3.Lerp(Vector3.Lerp(returnPosition, position, enter), returnPosition, leave);
+            rotation = Quaternion.Slerp(Quaternion.Slerp(returnRotation, rotation, enter), returnRotation, leave);
+            fov = Mathf.Lerp(Mathf.Lerp(returnFov, fov, enter), returnFov, leave);
+            if (Kind == ShotKind.Eruption)
+                position += new Vector3(Mathf.Sin(Elapsed * 37), Mathf.Sin(Elapsed * 29), 0) * (.22f * enter * (1 - leave));
+            shot.transform.SetPositionAndRotation(position, rotation); shot.fieldOfView = fov;
         }
         public void EndShot()
         {
             if (!IsPlaying) return;
             IsPlaying = IsPlayingAny = false;
+            if (ownsSlowMotion) { Time.timeScale = previousTimeScale; Time.fixedDeltaTime = previousFixedStep; ownsSlowMotion = false; }
             if (player)
             {
-                if (player.viewCamera) player.viewCamera.enabled = viewEnabled;
+                if (frozenTruck && player.drive && player.drive.body)
+                {
+                    var body = player.drive.body; body.isKinematic = previousKinematic;
+                    if (!previousKinematic) { body.linearVelocity = frozenVelocity; body.angularVelocity = frozenAngularVelocity; }
+                }
+                if (player.viewCamera)
+                {
+                    player.viewCamera.transform.SetPositionAndRotation(returnPosition, returnRotation);
+                    player.viewCamera.fieldOfView = returnFov; player.viewCamera.enabled = viewEnabled;
+                }
                 player.SetCinematicLocked(false);
                 if (player.firstPerson && player.firstPerson.handsCamera) player.firstPerson.handsCamera.enabled = handsEnabled;
             }
+            frozenTruck = false;
             Cursor.lockState = savedLock; Cursor.visible = savedCursor;
             if (shot) { shot.enabled = false; Destroy(shot.gameObject); }
-            if (grading) Destroy(grading);
         }
         void OnDisable() => EndShot();
         void OnGUI()
@@ -95,12 +181,16 @@ namespace GameJam.FireRescue
             if (!IsPlaying) return;
             int depth = GUI.depth; Color color = GUI.color;
             GUI.depth = -100; GUI.color = Color.black;
-            float bar = Screen.height * .10f;
+            float bar = Screen.height * .085f;
             GUI.DrawTexture(new Rect(0, 0, Screen.width, bar), Texture2D.whiteTexture);
             GUI.DrawTexture(new Rect(0, Screen.height - bar, Screen.width, bar), Texture2D.whiteTexture);
-            if (caption == null) { caption = new GUIStyle(GUI.skin.label) { alignment = TextAnchor.MiddleCenter, fontSize = 21, fontStyle = FontStyle.Bold }; caption.normal.textColor = new Color(1, .82f, .59f); }
-            GUI.color = new Color(1, 1, 1, Mathf.Clamp01((Elapsed - 1.8f) / 1.5f));
-            GUI.Label(new Rect(0, Screen.height - bar, Screen.width, bar), Elapsed < 6.5f ? "KÜL VE ATEŞ" : "Halk güvende. Şimdi kasabayı koru.", caption);
+            if (caption == null) caption = new GUIStyle(GUI.skin.label) { alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Bold };
+            caption.fontSize = Mathf.RoundToInt(Mathf.Clamp(Screen.height / 40f, 14, 30));
+            caption.normal.textColor = new Color(1, .83f, .6f);
+            GUI.color = Color.white;
+            string message = Kind == ShotKind.Intro ? "ASHFALL  |  EVERY SECOND COUNTS" : Kind == ShotKind.Spirits ?
+                "DEFEND THE VILLAGE! SHOOT THE FIRE SPIRITS!" : "VOLCANO ERUPTION IN: 00:00  |  THE VOLCANO HAS AWAKENED";
+            GUI.Label(new Rect(0, Screen.height - bar, Screen.width, bar), message, caption);
             GUI.color = color; GUI.depth = depth;
         }
     }

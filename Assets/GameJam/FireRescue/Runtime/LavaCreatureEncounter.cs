@@ -135,7 +135,7 @@ namespace GameJam.FireRescue
             Spawn selected = spawns[index];
             LavaCreatureActor actor = selected.spawned
                 ? Instantiate(templates[index], transform) : selected.creature;
-            actor.name = "Lava Spirit · Wave " + WaveNumber + " · " + (spawnedInWave + 1);
+            actor.name = "Lava Spirit Â· Wave " + WaveNumber + " Â· " + (spawnedInWave + 1);
             Release(selected, actor);
             spawnedInWave++; nextSpawnIndex = (index + 1) % spawns.Length;
             // Never accumulate a burst while the living limit or lava gate is holding a wave.
@@ -159,6 +159,9 @@ namespace GameJam.FireRescue
         void Release(Spawn spawn, LavaCreatureActor actor)
         {
             spawn.spawned = true; SpawnedCount++; living.Add(actor);
+            var siege = actor.GetComponent<LavaCreatureCombat>();
+            if (!siege) siege = actor.gameObject.AddComponent<LavaCreatureCombat>();
+            siege.attackBuildings = true;
             if (spawn.descendFromLava)
             {
                 var path = DescentPath(spawn);
@@ -190,7 +193,7 @@ namespace GameJam.FireRescue
                 if (actor && !actor.IsDefeated) continue;
                 living.RemoveAt(i);
                 if (!actor) continue;
-                DefeatedCount++;
+                if (!actor.ReachedBuilding && !actor.Dissipated) DefeatedCount++;
                 bool authored = Array.Exists(spawns, s => s != null && s.creature == actor);
                 if (!authored) Destroy(actor.gameObject, 2f);
             }

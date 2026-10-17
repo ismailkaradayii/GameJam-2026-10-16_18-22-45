@@ -95,8 +95,9 @@ public static class VolcanoMissionSetup
             Undo.RecordObject(source, "Local lava cooling");
             var cooling = source.GetComponent<LavaCoolingSurface>(); if (!cooling) cooling = source.gameObject.AddComponent<LavaCoolingSurface>();
             cooling.steamMaterial = AssetDatabase.LoadAssetAtPath<Material>("Assets/GameJam/FireRescue/Resources/LavaCombat/Smoke.mat");
-            cooling.crustMaterial = AssetDatabase.LoadAssetAtPath<Material>("Assets/GameJam/FireRescue/Resources/LavaCombat/Shard.mat");
-            var flow = source.GetComponent<ProgressiveLavaFlow>(); if (flow && flow.conformToTerrain) flow.groundClearance = .65f;
+            cooling.crustMaterial = AssetDatabase.LoadAssetAtPath<Material>(ObsidianReloadSetup.CrustPath);
+            cooling.litresPerPatch = 90f;
+            var flow = source.GetComponent<ProgressiveLavaFlow>(); if (flow && flow.conformToTerrain) flow.groundClearance = flow.name.StartsWith("Town Branch") ? .24f : .65f;
             if (flow) flow.canBeStoppedByWater = flow.name.StartsWith("Town Branch");
             EditorUtility.SetDirty(source); EditorUtility.SetDirty(cooling); if (flow) EditorUtility.SetDirty(flow);
         }

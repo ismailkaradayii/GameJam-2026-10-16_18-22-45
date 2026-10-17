@@ -22,6 +22,9 @@ namespace GameJam.FireRescue
         [Tooltip("Optional additional local rotation for each visual, in degrees.")]
         public Vector3[] wheelVisualEulerOffsets = new Vector3[4];
 
+        [Tooltip("Animate wheel spin from distance travelled, including when traction assistance supplies the acceleration.")]
+        public bool wheelSpinFromTravel = true;
+
         [Header("Power and brakes")]
         [Min(0f)] public float motorTorque = 1700f;
         [Min(1f)] public float maxForwardSpeedKph = 70f;
@@ -38,11 +41,19 @@ namespace GameJam.FireRescue
         [Min(.1f)] public float throttleReleasePerSecond = 6f;
         [Tooltip("Hold a nearly stopped truck when the pedals are released; never change its velocity.")]
         public bool hillHoldAssist;
+        [Tooltip("Extra low-speed acceleration on grounded wheels. Zero preserves unassisted vehicle physics.")]
+        [Min(0f)] public float groundAccelerationAssist;
+        [Min(1f)] public float accelerationAssistFadeSpeedKph = 45f;
 
         [Header("Steering")]
         [Range(1f, 50f)] public float maxSteerAngle = 30f;
         [Range(1f, 30f)] public float highSpeedSteerAngle = 10f;
+        [Tooltip("Speed at which steering reaches its high-speed angle, independent of the top speed.")]
+        [Min(1f)] public float steeringFadeSpeedKph = 70f;
         [Min(1f)] public float steeringSpeed = 80f;
+        [Tooltip("Opposite rear-axle steering for low-speed maneuvering. Zero keeps conventional front steering.")]
+        [Range(0f, .75f)] public float lowSpeedRearSteerRatio;
+        [Min(15f)] public float rearSteerFadeSpeedKph = 45f;
 
         [Header("Stability")]
         [Min(1f)] public float vehicleMass = 3500f;
@@ -50,8 +61,25 @@ namespace GameJam.FireRescue
         [Min(0f)] public float antiRollForce = 6500f;
         [Min(0f)] public float speedLimiterStrength = 6f;
 
+        [Header("Arcade driving assistance")]
+        public bool arcadeHandling;
+        [Tooltip("Full-lock turning radius at low speed, independent of the long truck wheelbase.")]
+        [Min(3f)] public float arcadeTurnRadius = 8f;
+        [Range(20f, 160f)] public float arcadeLowSpeedYawRate = 110f;
+        [Range(15f, 100f)] public float arcadeHighSpeedYawRate = 55f;
+        [Min(1f)] public float arcadeSteeringResponse = 12f;
+        [Min(0f)] public float arcadeLateralGrip = 10f;
+        [Min(0f)] public float arcadeBrakeAcceleration = 24f;
+        [Tooltip("Automatically slow for full-lock turns, even while the accelerator is held.")]
+        [Min(10f)] public float arcadeCornerSpeedKph = 42f;
+        [Min(0f)] public float arcadeUprightStrength = 45f;
+        [Tooltip("Lift the powered truck over low curbs and rocks. Buildings and tall obstacles remain solid.")]
+        [Min(0f)] public float obstacleStepHeight = 2.4f;
+        [Min(1f)] public float obstacleLiftAcceleration = 65f;
+
         public bool IsDriven { get; private set; }
         public float SpeedKph => body != null ? body.linearVelocity.magnitude * 3.6f : 0f;
+        public float RearSteerFactor => lowSpeedRearSteerRatio * (1f - Mathf.InverseLerp(10f, rearSteerFadeSpeedKph, SpeedKph));
 
         private float throttleInput;
         private float steeringInput;
@@ -63,6 +91,17 @@ namespace GameJam.FireRescue
         private readonly Quaternion[] authoredVisualOffsets = new Quaternion[4];
         private readonly Transform[] cachedVisuals = new Transform[4];
         private readonly WheelCollider[] cachedColliders = new WheelCollider[4];
+        private readonly float[] visualSpin = new float[4];
+        private readonly RaycastHit[] obstacleHits = new RaycastHit[16];
+        private float arcadeSteer;
+
+        // Degrees/second at full steering input; useful for tuning and repeatable route checks.
+        public float FullSteeringYawRate(float speedKph)
+        {
+            float cap = Mathf.Lerp(arcadeLowSpeedYawRate, arcadeHighSpeedYawRate,
+                Mathf.Clamp01(Mathf.Abs(speedKph) / Mathf.Max(1f, maxForwardSpeedKph)));
+            return Mathf.Min(Mathf.Abs(speedKph) / 3.6f / Mathf.Max(3f, arcadeTurnRadius) * Mathf.Rad2Deg, cap);
+        }
 
         private void Awake()
         {
@@ -101,6 +140,7 @@ namespace GameJam.FireRescue
             steeringInput = 0f;
             brakeInput = false;
             appliedThrottle = 0f;
+            arcadeSteer = 0f;
             if (!driven)
                 ApplyParkingBrake();
             else if (body != null)
@@ -123,6 +163,7 @@ namespace GameJam.FireRescue
             body.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
             body.linearDamping = 0.04f;
             body.angularDamping = 0.75f;
+            body.maxAngularVelocity = 3f;
             if (wheels != null)
                 foreach (WheelCollider wheel in wheels)
                     if (wheel != null) wheel.ConfigureVehicleSubsteps(5f, 8, 4);
@@ -140,12 +181,14 @@ namespace GameJam.FireRescue
             }
 
             float signedSpeed = Vector3.Dot(body.linearVelocity, body.transform.forward);
-            float speedFraction = Mathf.Clamp01(Mathf.Abs(signedSpeed) * 3.6f / maxForwardSpeedKph);
+            float speedFraction = Mathf.Clamp01(Mathf.Abs(signedSpeed) * 3.6f / Mathf.Max(1f, steeringFadeSpeedKph));
             float steeringLimit = Mathf.Lerp(maxSteerAngle,
                 Mathf.Min(highSpeedSteerAngle, maxSteerAngle), speedFraction);
             float targetSteer = IsDriven ? steeringInput * steeringLimit : 0f;
             currentSteerAngle = Mathf.MoveTowards(currentSteerAngle, targetSteer,
                 steeringSpeed * Time.fixedDeltaTime);
+            arcadeSteer = Mathf.MoveTowards(arcadeSteer, IsDriven ? steeringInput : 0f,
+                8f * Time.fixedDeltaTime);
 
             float requestedThrottle = IsDriven ? throttleInput : 0f;
             int requestedDirection = requestedThrottle < 0f ? -1 : 1;
@@ -164,10 +207,13 @@ namespace GameJam.FireRescue
             bool holdingHill = hillHoldAssist && IsDriven && Mathf.Abs(requestedThrottle) < .05f && Mathf.Abs(signedSpeed) < .4f;
             float appliedBrake = !IsDriven ? parkingBrakeTorque :
                 braking ? brakeTorque : holdingHill ? parkingBrakeTorque * .5f : Mathf.Abs(throttle) < 0.05f ? coastBrakeTorque : 0f;
-            smoothedBrakeTorque = smoothPedals && IsDriven ? Mathf.MoveTowards(smoothedBrakeTorque, appliedBrake,
+            // Release the parking/hill brake immediately when the accelerator is pressed.
+            // Otherwise the motor spends its first frames fighting residual brake torque.
+            smoothedBrakeTorque = smoothPedals && IsDriven && appliedBrake >= smoothedBrakeTorque ? Mathf.MoveTowards(smoothedBrakeTorque, appliedBrake,
                 Mathf.Max(brakeTorque, parkingBrakeTorque) * 5f * Time.fixedDeltaTime) : appliedBrake;
 
             float targetTopSpeed = throttle < 0f ? maxReverseSpeedKph : maxForwardSpeedKph;
+            if (arcadeHandling) targetTopSpeed = CornerSpeedLimit(targetTopSpeed);
             float speedInRequestedDirection = Mathf.Max(0f, signedSpeed * Mathf.Sign(throttle)) * 3.6f;
             float powerFactor = 1f - Mathf.InverseLerp(targetTopSpeed * 0.8f,
                 targetTopSpeed, speedInRequestedDirection);
@@ -175,24 +221,123 @@ namespace GameJam.FireRescue
                 Mathf.Clamp01(Mathf.Abs(signedSpeed) * 3.6f / Mathf.Max(1f, torqueBoostFadeSpeedKph)));
             float requestedTorque = braking ? 0f : throttle * motorTorque * powerFactor * lowGear;
             bool anyGrounded = false;
+            int groundedCount = 0;
+            Vector3 supportNormal = Vector3.zero;
 
             for (int index = 0; index < wheels.Length; index++)
             {
                 WheelCollider wheel = wheels[index];
                 if (wheel == null)
                     continue;
-                bool grounded = wheel.isGrounded;
+                bool grounded = wheel.GetGroundHit(out WheelHit contact);
                 anyGrounded |= grounded;
-                wheel.steerAngle = index < 2 ? currentSteerAngle : 0f;
+                if (grounded) { groundedCount++; supportNormal += contact.normal; }
+                wheel.steerAngle = index < 2 ? currentSteerAngle : -currentSteerAngle * RearSteerFactor;
                 wheel.brakeTorque = smoothedBrakeTorque;
                 // Keep power on contact patches. Airborne wheels receive no powered free spin.
                 wheel.motorTorque = (allWheelDrive || index >= 2) && grounded ? requestedTorque : 0f;
+                if (wheelSpinFromTravel)
+                {
+                    Vector3 rollingDirection = Quaternion.AngleAxis(wheel.steerAngle, wheel.transform.up) * wheel.transform.forward;
+                    float rollingSpeed = Vector3.Dot(body.GetPointVelocity(wheel.transform.position), rollingDirection);
+                    float degrees = grounded ? rollingSpeed / Mathf.Max(.05f, wheel.radius) * Mathf.Rad2Deg : wheel.rpm * 6f;
+                    visualSpin[index] = Mathf.Repeat(visualSpin[index] + degrees * Time.fixedDeltaTime, 360f);
+                }
             }
 
             ApplyAntiRoll(wheels[0], wheels[1]);
             ApplyAntiRoll(wheels[2], wheels[3]);
             if (anyGrounded)
+            {
+                if (!braking && groundAccelerationAssist > 0 && Mathf.Abs(throttle) > .05f)
+                {
+                    float assist = 1f - Mathf.Clamp01(Mathf.Abs(signedSpeed) * 3.6f / Mathf.Max(1f, accelerationAssistFadeSpeedKph));
+                    Vector3 direction = Vector3.ProjectOnPlane(body.transform.forward, supportNormal.normalized).normalized;
+                    body.AddForce(direction * (throttle * groundAccelerationAssist * assist * powerFactor * groundedCount / wheels.Length), ForceMode.Acceleration);
+                }
                 ApplySpeedLimiter(signedSpeed);
+                if (arcadeHandling && IsDriven)
+                    ApplyArcadeHandling(signedSpeed, supportNormal.normalized, throttle, braking, holdingHill);
+            }
+        }
+
+        private void ApplyArcadeHandling(float signedSpeed, Vector3 groundNormal, float throttle, bool braking, bool holdingHill)
+        {
+            // Keep real suspension and collision response, but remove the wheelbase penalty
+            // and sideways sliding that make this oversized rescue truck hard to place.
+            Vector3 normal = Vector3.RotateTowards(Vector3.up, groundNormal, 40f * Mathf.Deg2Rad, 0f);
+            Vector3 forward = Vector3.ProjectOnPlane(transform.forward, normal).normalized;
+            Vector3 right = Vector3.Cross(normal, forward);
+            float turnSpeed = Mathf.Abs(signedSpeed);
+            float direction = Mathf.Abs(signedSpeed) > .4f ? Mathf.Sign(signedSpeed) : Mathf.Sign(throttle);
+            if (!braking && Mathf.Abs(throttle) > .05f) turnSpeed = Mathf.Max(turnSpeed, 1.5f);
+            float targetYaw = arcadeSteer * direction * FullSteeringYawRate(turnSpeed * 3.6f) * Mathf.Deg2Rad;
+            float yaw = Vector3.Dot(body.angularVelocity, normal);
+            body.AddTorque(normal * Mathf.Clamp((targetYaw - yaw) * arcadeSteeringResponse, -7f, 7f), ForceMode.Acceleration);
+            body.AddForce(-right * Mathf.Clamp(Vector3.Dot(body.linearVelocity, right) * arcadeLateralGrip, -55f, 55f), ForceMode.Acceleration);
+            float cornerLimit = CornerSpeedLimit(signedSpeed < -.1f ? maxReverseSpeedKph : maxForwardSpeedKph) / 3.6f;
+            float cornerExcess = Mathf.Abs(signedSpeed) - cornerLimit;
+            if (cornerExcess > 0f)
+                body.AddForce(-forward * Mathf.Sign(signedSpeed) * Mathf.Min(cornerExcess * 6f, arcadeBrakeAcceleration), ForceMode.Acceleration);
+
+            Vector3 tiltVelocity = Vector3.ProjectOnPlane(body.angularVelocity, normal);
+            body.AddTorque(Vector3.Cross(transform.up, normal) * arcadeUprightStrength - tiltVelocity * 9f, ForceMode.Acceleration);
+            if (Mathf.Abs(throttle) > .05f || braking || holdingHill)
+                body.AddForce(-Vector3.ProjectOnPlane(Physics.gravity, normal), ForceMode.Acceleration);
+            if (braking || holdingHill)
+            {
+                Vector3 planar = Vector3.ProjectOnPlane(body.linearVelocity, normal);
+                body.AddForce(-Vector3.ClampMagnitude(planar * 8f, arcadeBrakeAcceleration), ForceMode.Acceleration);
+            }
+            else if (Mathf.Abs(throttle) > .15f)
+                AssistLowObstacles(Mathf.Sign(throttle), forward);
+        }
+
+        private float CornerSpeedLimit(float topSpeed)
+        {
+            // A small correction keeps straight-line speed; a held A/D turn is safe without
+            // requiring the player to feather W and the brake at the same time.
+            float corner = Mathf.InverseLerp(.15f, 1f, Mathf.Abs(arcadeSteer));
+            return Mathf.Lerp(topSpeed, Mathf.Min(topSpeed, arcadeCornerSpeedKph), corner);
+        }
+
+        private void AssistLowObstacles(float direction, Vector3 forward)
+        {
+            if (obstacleStepHeight <= 0f) return;
+            forward *= direction;
+            int first = direction > 0 ? 0 : 2;
+            float lift = 0f;
+            for (int i = first; i < first + 2; i++)
+            {
+                WheelCollider wheel = wheels[i];
+                if (!wheel || !wheel.GetGroundHit(out WheelHit ground)) continue;
+                Vector3 origin = ground.point + Vector3.up * .35f;
+                float reach = wheel.radius + Mathf.Clamp(SpeedKph / 3.6f * .2f, .8f, 3f);
+                if (!StaticGroundRay(origin, forward, reach, out RaycastHit face) || face.normal.y > .6f) continue;
+                Vector3 above = face.point + forward * .6f;
+                above.y = ground.point.y + obstacleStepHeight + .5f;
+                if (!StaticGroundRay(above, Vector3.down, obstacleStepHeight + .7f, out RaycastHit top) || top.normal.y < .65f) continue;
+                float height = top.point.y - ground.point.y;
+                if (height > .15f && height <= obstacleStepHeight)
+                    lift = Mathf.Max(lift, Mathf.Sqrt(2f * Physics.gravity.magnitude * (height + .25f)));
+            }
+            if (lift > 0f)
+                body.AddForce(Vector3.up * Mathf.Clamp((lift - body.linearVelocity.y) * 14f, 0f, obstacleLiftAcceleration), ForceMode.Acceleration);
+        }
+
+        private bool StaticGroundRay(Vector3 origin, Vector3 direction, float distance, out RaycastHit nearest)
+        {
+            nearest = default;
+            int count = Physics.RaycastNonAlloc(origin, direction, obstacleHits, distance, ~0, QueryTriggerInteraction.Ignore);
+            float closest = float.PositiveInfinity;
+            for (int i = 0; i < count; i++)
+            {
+                var hit = obstacleHits[i];
+                if (hit.rigidbody != null || hit.collider is CharacterController || hit.collider.transform.IsChildOf(transform)) continue;
+                if (hit.distance >= closest) continue;
+                closest = hit.distance; nearest = hit;
+            }
+            return closest < float.PositiveInfinity;
         }
 
         private void ApplySpeedLimiter(float signedSpeed)
@@ -239,6 +384,7 @@ namespace GameJam.FireRescue
                 if (wheel != null && visual != null && preserveAuthoredWheelRotations)
                 {
                     wheel.GetWorldPose(out _, out Quaternion rotation);
+                    if (wheelSpinFromTravel) rotation = wheel.transform.rotation * Quaternion.Euler(0f, wheel.steerAngle, 0f) * Quaternion.Euler(visualSpin[index], 0f, 0f);
                     authoredVisualOffsets[index] = Quaternion.Inverse(rotation) * visual.rotation;
                 }
             }
@@ -255,6 +401,8 @@ namespace GameJam.FireRescue
                 if (cachedColliders[index] != wheel || cachedVisuals[index] != visual)
                     CaptureVisualOffsets();
                 wheel.GetWorldPose(out Vector3 position, out Quaternion rotation);
+                if (wheelSpinFromTravel)
+                    rotation = wheel.transform.rotation * Quaternion.Euler(0f, wheel.steerAngle, 0f) * Quaternion.Euler(visualSpin[index], 0f, 0f);
                 Quaternion manualOffset = wheelVisualEulerOffsets != null && index < wheelVisualEulerOffsets.Length
                     ? Quaternion.Euler(wheelVisualEulerOffsets[index]) : Quaternion.identity;
                 visual.SetPositionAndRotation(position, rotation * authoredVisualOffsets[index] * manualOffset);

@@ -41,7 +41,7 @@ AnimatorState:
   - {fileID: 3200220486004569970}
   m_StateMachineBehaviours: []
   m_Position: {x: 50, y: 50, z: 0}
-  m_IKOnFeet: 0
+  m_IKOnFeet: 1
   m_WriteDefaultValues: 1
   m_Mirror: 0
   m_SpeedParameterActive: 0
@@ -741,7 +741,7 @@ BlendTree:
     m_Motion: {fileID: -203655887218126122, guid: 5528ac5ab882d444f922d95364a938ca, type: 3}
     m_Threshold: 4.57
     m_Position: {x: 0, y: 0}
-    m_TimeScale: 1
+    m_TimeScale: 1.15
     m_CycleOffset: 0
     m_DirectBlendParameter: Blend
     m_Mirror: 0

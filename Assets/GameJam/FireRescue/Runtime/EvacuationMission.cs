@@ -14,8 +14,6 @@ namespace GameJam.FireRescue
         public Transform shelterApproach;
         public BoxCollider shelterSafeArea;
         public bool ShelterOpened { get; private set; }
-        public AudioSource voice;
-        public AudioClip shoutClip;
         public bool startAutomatically = true;
         public float dispatchDelay = 3f;
         public float shoutRadius = 45f;
@@ -24,7 +22,7 @@ namespace GameJam.FireRescue
         public bool IsActive { get; private set; }
         public bool IsComplete { get; private set; }
         public int RescuedCount { get; private set; }
-        public int TotalCount => residents == null ? 0 : residents.Length;
+        public int TotalCount { get { int count = 0; if (residents != null) foreach (var r in residents) if (r) count++; return count; } }
         public int CalledCount { get { int n = 0; if (residents != null) foreach (var r in residents) if (r && r.IsCalled) n++; return n; } }
         public Transform PlayerTransform => player ? (player.playerBody ? player.playerBody.transform : player.transform) : null;
         public float CooldownRemaining => Mathf.Max(0, nextShout - Time.time);
@@ -37,6 +35,8 @@ namespace GameJam.FireRescue
         void Awake()
         {
             started = Time.time;
+            if (residents == null || residents.Length == 0) residents = GetComponentsInChildren<EvacuationResident>(true);
+            foreach (var resident in residents) if (resident) resident.mission = this;
             if (!player) player = FindFirstObjectByType<FireRescuePlayer>();
             if (!eruption) eruption = FindFirstObjectByType<VolcanoEruptionSequence>();
             if (eruption) eruption.evacuation = this;
@@ -68,7 +68,6 @@ namespace GameJam.FireRescue
             if (!IsActive || IsComplete || !PlayerTransform || Time.timeScale <= 0f || (player && player.GameplaySuspended) || Time.time < nextShout) return false;
             if (player.IsDriving) { Say("Seslenmek için F ile araçtan in.", 3f); return false; }
             nextShout = Time.time + Mathf.Max(1f, shoutCooldown);
-            if (voice && shoutClip) voice.PlayOneShot(shoutClip);
             int count = 0;
             foreach (var resident in residents)
                 if (resident && resident.houseExit && EvacuationResident.FlatDistance(PlayerTransform.position, resident.houseExit.position) <= shoutRadius && resident.CallOutside()) count++;
@@ -81,7 +80,7 @@ namespace GameJam.FireRescue
         {
             if (!PlayerTransform) return transform.position;
             // Each larger resident gets a distinct place along the walked route.
-            float behind = 4f + index * 2.65f;
+            float behind = 3f + index * 1.9f;
             Vector3 point = PlayerTransform.position;
             for (int i = trail.Count - 1; i >= 0; i--)
             {

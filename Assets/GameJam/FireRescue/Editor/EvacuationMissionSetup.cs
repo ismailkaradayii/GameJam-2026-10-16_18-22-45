@@ -38,9 +38,6 @@ public static class EvacuationMissionSetup
         if (!mission.player || !mission.eruption) throw new InvalidOperationException("Player or volcano sequence missing.");
         mission.eruption.evacuation = mission;
         mission.eruption.autoEruptAfter = 15f;
-        mission.voice = root.AddComponent<AudioSource>();
-        mission.voice.playOnAwake = false; mission.voice.spatialBlend = 0; mission.voice.volume = .9f;
-        mission.shoutClip = AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/GameJam/FireRescue/Audio/EveryoneOutside.wav");
         var shelter = new GameObject("Shelter Arrival Points").transform; shelter.SetParent(root.transform);
         mission.shelterApproach = Point(shelter,"Shelter approach",Ground(new Vector3(-100,0,-561.4f)));
         mission.shelterEntrance = Point(shelter,"Shelter threshold",Ground(new Vector3(-111,0,-562f)));
@@ -54,7 +51,7 @@ public static class EvacuationMissionSetup
         if(houses.Length!=5) throw new InvalidOperationException("Expected the five authored village houses, found "+houses.Length);
         string[] names={"Deniz","Elif","Murat","Zeynep","Can","Aylin","Kemal"};
         string[] prefabs={"01m_01","01f_01","01m_02","01f_02","02m_01","02f_02","01m_03"};
-        int[] counts={2,1,1,2,1};
+        int[] counts={0,2,2,2,1};
         var residents = new List<EvacuationResident>();
         for(int h=0;h<houses.Length;h++)
         {

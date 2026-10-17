@@ -35,7 +35,10 @@ namespace Itfaiye
         public float CurrentSpeed { get; private set; }
         public float Pitch => pitch;
         public bool InputCaptured { get; private set; }
-        public bool IsGrounded => motor != null && motor.isGrounded;
+        // Keep presentation stable across a single missed contact on steps or
+        // slopes. Jump impulses still leave the grounded pose immediately.
+        public bool IsGrounded => motor != null && motor.enabled && (motor.isGrounded ||
+            (verticalVelocity <= 0f && Time.time - lastGroundedAt <= .12f));
         public bool IsKneeling { get; private set; }
         public float KneelAmount { get; private set; }
         public Vector2 LocalVelocity { get; private set; }
@@ -51,6 +54,7 @@ namespace Itfaiye
         Vector3 spawnPosition;
         Quaternion spawnRotation;
         float verticalVelocity;
+        float lastGroundedAt = float.NegativeInfinity;
         float pitch;
         int ignoreLookFrames;
         float pendingJump = -1f;
@@ -187,7 +191,8 @@ namespace Itfaiye
             if (constrainTravel != null) travel = constrainTravel(travel);
             var collisions = motor.Move(travel + Vector3.up * verticalVelocity * dt);
             if ((collisions & CollisionFlags.Above) != 0 && verticalVelocity > 0f) verticalVelocity = 0f;
-            if ((collisions & CollisionFlags.Below) != 0) verticalVelocity = -2f;
+            if ((collisions & CollisionFlags.Below) != 0)
+            { verticalVelocity = -2f; lastGroundedAt = Time.time; }
             CurrentSpeed = Vector3.ProjectOnPlane(transform.position - previous, Vector3.up).magnitude / dt;
             var local = transform.InverseTransformDirection((transform.position - previous) / dt);
             LocalVelocity = new Vector2(local.x, local.z);
@@ -234,6 +239,7 @@ namespace Itfaiye
             CurrentSpeed = 0f;
             LocalVelocity = LookAngularVelocity = Vector2.zero;
             IsSprinting = IsKneeling = false;
+            lastGroundedAt = float.NegativeInfinity;
             KneelAmount = 0f;
             if (motor != null)
             {
@@ -257,12 +263,14 @@ namespace Itfaiye
             if (pistol != null && pistol.Feedback != null)
                 playerCamera.transform.localRotation *= pistol.Feedback.CameraRotation;
             playerCamera.transform.localPosition = cameraRest + Vector3.down * (.52f * Mathf.SmoothStep(0f, 1f, KneelAmount));
+            if (pistol != null && pistol.Feedback != null) playerCamera.transform.localPosition += pistol.Feedback.CameraOffset;
             float hipFov = fieldOfView;
             if (pistol != null && pistol.Hands != null)
                 hipFov = Mathf.Max(40f, fieldOfView - pistol.Hands.pistolViewZoom * Mathf.SmoothStep(0f, 1f, pistol.DrawAmount));
             // Keep both projections identical so the muzzle, world hit and crosshair
             // agree. Zoom only the hip view; the existing ADS alignment stays intact.
             float targetFov = pistol != null ? Mathf.Lerp(hipFov, 62f, pistol.AimAmount) : fieldOfView;
+            if (pistol != null && pistol.Feedback != null) targetFov += pistol.Feedback.FieldOfViewKick;
             playerCamera.fieldOfView = targetFov;
             if (handsCamera != null) handsCamera.fieldOfView = targetFov;
         }
@@ -275,7 +283,7 @@ namespace Itfaiye
             animator.SetFloat("MoveY", LocalVelocity.y * factor, .10f, dt);
             animator.SetBool("Equipped", pistol.Equipped);
             animator.SetBool("Kneeling", IsKneeling);
-            animator.SetBool("Grounded", motor.isGrounded && pendingJump < 0f && Time.time - lastJump > .25f);
+            animator.SetBool("Grounded", IsGrounded && pendingJump < 0f && Time.time - lastJump > .25f);
         }
 
         // The directional clips are authored at 1.87/4.57 m/s. Gameplay speed

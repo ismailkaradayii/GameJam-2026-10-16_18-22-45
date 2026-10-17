@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Rendering;
+using UnityEngine.InputSystem;
 
 namespace Itfaiye
 {
@@ -22,6 +23,15 @@ namespace Itfaiye
         [Range(0f, 3f)] public float cameraKick = .9f;
         [Range(0f, 1f)] public float aimedKickMultiplier = .55f;
         [Range(.1f, .5f)] public float kickRecovery = .23f;
+        [Range(0f, .04f)] public float cameraTravel = .012f;
+        [Range(0f, .8f)] public float shotShake = .24f;
+        [Range(0f, 2f)] public float shotFovKick = .65f;
+        [Header("Brief shot grading and optional controller rumble")]
+        public VolumeProfile shotPostProfile;
+        [Range(0f, 1f)] public float shotPostIntensity = .65f;
+        public bool gamepadRumble = true;
+        [Range(0f, 1f)] public float rumbleStrength = .3f;
+        [Range(.02f, .2f)] public float rumbleSeconds = .065f;
         [Header("Audio")]
         public AudioClip[] shotClips;
         public AudioClip concreteImpact, metalImpact, woodImpact, dirtImpact;
@@ -40,15 +50,25 @@ namespace Itfaiye
         {
             get
             {
-                if (!isActiveAndEnabled) return Quaternion.identity;
+                if (!CanPresent) return Quaternion.identity;
                 float age = Time.time - lastShotTime;
-                float envelope = pistol != null ? pistol.SampleRecoil(kickRecovery / .23f) : ItfaiyePistol.ShotImpulse(age);
+                // ADS attenuation is applied once here; the weapon's own recoil has
+                // a separate aimed multiplier and must not attenuate the camera twice.
+                float envelope = ItfaiyePistol.ShotImpulse(age / Mathf.Max(.1f, kickRecovery / .23f));
                 float impactAge = Mathf.Max(0f, Time.time - confirmTime);
                 float impact = Mathf.Sin(impactAge * 62f) * Mathf.Exp(-impactAge * 24f) * creatureImpactKick * (killingHit ? 1.35f : 1f);
-                return Quaternion.Euler(-kickStrength * envelope - impact, kickSide * kickStrength * .12f * envelope,
-                    kickSide * kickStrength * .09f * envelope + impact * .32f);
+                float shudder = Mathf.Sin(age * 155f) * Mathf.Exp(-Mathf.Max(0, age) * 32f) * shotShake * shotWeight;
+                return Quaternion.Euler(-kickStrength * envelope - impact + shudder * .3f, kickSide * (kickStrength * .12f * envelope + shudder),
+                    kickSide * kickStrength * .14f * envelope + impact * .32f + shudder * .7f);
             }
         }
+        bool CanPresent => isActiveAndEnabled && pistol && pistol.Available && pistol.Equipped &&
+            pistol.player && pistol.player.InputCaptured && Time.timeScale > 0f;
+        float ViewImpulse => CanPresent && lastShotTime > -99f ? ItfaiyePistol.ShotImpulse(Time.time - lastShotTime) * shotWeight : 0f;
+        public Vector3 CameraOffset => new Vector3(kickSide * cameraTravel * .12f, cameraTravel * .18f, -cameraTravel) * ViewImpulse;
+        public float FieldOfViewKick => shotFovKick * ViewImpulse;
+        public float ShotPostWeight => shotPost ? shotPost.weight : 0f;
+        public bool RumbleActive => rumblePad != null;
 
         sealed class Mark
         {
@@ -91,6 +111,9 @@ namespace Itfaiye
         Transform hitTransform;
         Vector3 localHitPoint;
         bool creatureHit, killingHit;
+        float shotWeight = 1f, rumbleUntil;
+        Volume shotPost;
+        Gamepad rumblePad;
 
         void Awake()
         {
@@ -105,12 +128,21 @@ namespace Itfaiye
             confirmAudio.playOnAwake = false; confirmAudio.spatialBlend = 0f;
             hitConfirm = Resources.Load<AudioClip>("LavaCombat/SpiritConfirm");
             killConfirm = Resources.Load<AudioClip>("LavaCombat/SpiritKillConfirm");
+            if (shotPostProfile)
+            {
+                var volumeObject = new GameObject("Pistol Shot Grading");
+                volumeObject.transform.SetParent(transform, false);
+                shotPost = volumeObject.AddComponent<Volume>();
+                shotPost.isGlobal = true; shotPost.priority = 100f; shotPost.weight = 0f;
+                shotPost.sharedProfile = shotPostProfile;
+            }
         }
 
         public void PlayShot(Ray ray, Vector3 end, RaycastHit hit, float aimAmount, bool obstructed)
         {
             if (!isActiveAndEnabled) return;
             lastShotTime=Time.time;
+            shotWeight=Mathf.Lerp(1f,aimedKickMultiplier,aimAmount);
             kickStrength=cameraKick*Mathf.Lerp(1f,aimedKickMultiplier,aimAmount);
             kickSide=(shotIndex%2==0?1f:-.6f);
             if (shotVolume>0f && shotClips != null && shotClips.Length>0)
@@ -119,6 +151,12 @@ namespace Itfaiye
                 if (clip != null) { shotAudio.pitch=Random.Range(.97f,1.03f); shotAudio.PlayOneShot(clip,shotVolume); }
             }
             shotIndex++;
+            if (gamepadRumble && Gamepad.current != null && Application.isFocused)
+            {
+                StopRumble(); rumblePad = Gamepad.current;
+                rumblePad.SetMotorSpeeds(rumbleStrength * .5f, rumbleStrength);
+                rumbleUntil = Time.unscaledTime + rumbleSeconds;
+            }
             if (showTracer && !obstructed && tracerMaterial != null && Vector3.Distance(ray.origin,end)>.8f) SpawnTracer(ray.origin,end);
             if (hit.collider == null) return;
             TotalImpacts++;
@@ -287,6 +325,8 @@ namespace Itfaiye
         }
         void Update()
         {
+            if (shotPost) shotPost.weight = ViewImpulse * shotPostIntensity;
+            if (rumblePad != null && (!CanPresent || Time.unscaledTime >= rumbleUntil)) StopRumble();
             foreach(var mark in marks)
             {
                 if(mark==null||mark.root==null||!mark.root.activeSelf) continue;
@@ -327,7 +367,7 @@ namespace Itfaiye
         }
         void OnDisable()
         {
-            lastShotTime=hitTime=confirmTime=-100f;
+            ClearViewEffects();
             if(shotAudio!=null) shotAudio.Stop();
             if(confirmAudio!=null) confirmAudio.Stop();
             if(effects!=null) foreach(var e in effects) if(e!=null)
@@ -340,10 +380,25 @@ namespace Itfaiye
         }
         void OnDestroy()
         {
+            StopRumble();
+            if (shotPost) Destroy(shotPost.gameObject);
             if(marks!=null) foreach(var m in marks) if(m!=null) { if(m.root!=null) Destroy(m.root); if(m.mesh!=null) Destroy(m.mesh); }
             if(effectRoot!=null) Destroy(effectRoot.gameObject);
             if(shotAudio!=null) Destroy(shotAudio);
             if(confirmAudio!=null) Destroy(confirmAudio);
         }
+        public void ClearViewEffects()
+        {
+            lastShotTime=hitTime=confirmTime=-100f; kickStrength=0f;
+            if (shotPost) shotPost.weight=0f;
+            StopRumble();
+        }
+        void StopRumble()
+        {
+            if (rumblePad != null && rumblePad.added) rumblePad.SetMotorSpeeds(0f, 0f);
+            rumblePad = null;
+        }
+        void OnApplicationFocus(bool focused) { if (!focused) ClearViewEffects(); }
+        void OnApplicationPause(bool paused) { if (paused) ClearViewEffects(); }
     }
 }

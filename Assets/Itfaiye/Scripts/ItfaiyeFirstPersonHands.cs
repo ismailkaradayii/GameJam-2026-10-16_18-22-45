@@ -11,6 +11,11 @@ namespace Itfaiye
         public Vector3 leftRestPosition = new Vector3(-.28f, -.26f, .43f);
         public Vector3 rightRestPosition = new Vector3(.28f, -.26f, .43f);
         public ItfaiyePistol pistol;
+        [Header("Unarmed sprint")]
+        [Tooltip("Camera-space arm swing, synchronized to the existing running clip.")]
+        public Vector3 unarmedSprintSwing = new Vector3(.04f, .09f, .17f);
+        [Range(.05f, .3f)] public float unarmedSprintBlendSeconds = .12f;
+        public float UnarmedSprintWeight { get; private set; }
         public static readonly Vector3 DefaultPistolHipPosition = new Vector3(0f, -.15f, .58f);
         [Header("Normal Tutus - Kamera")]
         [Tooltip("Kameraya gore metre: X sag/sol, Y yukari/asagi, Z uzaklik.")]
@@ -18,6 +23,8 @@ namespace Itfaiye
         [Tooltip("Derece: X yukari/asagi, Y namlunun yonu, Z yana yatis. Duz tutus: 0, 0, 0.")]
         public Vector3 pistolHipEuler = Vector3.zero;
         public float pistolAimDistance = .50f;
+        [Tooltip("Optional optic lens centre. ADS uses this instead of the iron rear sight.")]
+        public Transform pistolSight;
 
         [Header("Silah - Kamera Yakinligi")]
         [Tooltip("Silah eldeyken gorus acisini bu kadar daraltir. 0 eski goruntu; 5 hafif yakin. Tutus konumunu ve nisan mesafesini degistirmez.")]
@@ -213,7 +220,8 @@ namespace Itfaiye
             if (fingerPoseDirty) CacheGrip();
             float aim = Mathf.SmoothStep(0f, 1f, pistol.AimAmount);
             float scale = pistol.weapon.transform.localScale.x;
-            var aimPosition = new Vector3(-RearSight.x * scale, -RearSight.y * scale, pistolAimDistance);
+            var sight = pistolSight ? pistol.weapon.transform.InverseTransformPoint(pistolSight.position) : RearSight;
+            var aimPosition = new Vector3(-sight.x * scale, -sight.y * scale, pistolAimDistance);
             UpdateInertia();
             breathPhase += Mathf.Min(Time.deltaTime, .05f) * 1.65f;
             float breathing = (1f - aim) * (1f - gaitWeight) * (pistol.IsReloading ? 0f : 1f) * pistol.DrawAmount;
@@ -287,6 +295,10 @@ namespace Itfaiye
             var player = pistol != null ? pistol.player : null;
             float dt = Time.deltaTime;
             if (player == null || animator == null || dt <= 0f) return;
+            bool unarmedSprint = !pistol.Equipped && player.InputCaptured && player.IsSprinting &&
+                player.IsGrounded && player.CurrentSpeed > player.walkSpeed * .65f;
+            UnarmedSprintWeight = Mathf.MoveTowards(UnarmedSprintWeight, unarmedSprint ? 1f : 0f,
+                dt / Mathf.Max(.05f, unarmedSprintBlendSeconds));
             bool moving = weaponSway && player.InputCaptured && pistol.Equipped && !pistol.IsReloading
                 && player.IsGrounded && !player.IsKneeling && player.CurrentSpeed > .08f;
             float speed = player.CurrentSpeed;
@@ -395,6 +407,12 @@ namespace Itfaiye
                 Mathf.Clamp(animated.x - Mathf.Sign(rest.x) * .28f, -.12f, .12f) * .3f,
                 Mathf.Clamp(animated.y - .93f, -.22f, .28f) * .45f,
                 Mathf.Clamp(animated.z, -.3f, .5f) * .3f);
+            float side = Mathf.Sign(rest.x);
+            float cycle = animator.GetCurrentAnimatorStateInfo(0).normalizedTime * Mathf.PI * 2f;
+            float swing = Mathf.Sin(cycle + (side < 0 ? 0 : Mathf.PI));
+            var sprintMotion = new Vector3(-side * unarmedSprintSwing.x * swing,
+                unarmedSprintSwing.y * swing, unarmedSprintSwing.z * swing);
+            motion = Vector3.Lerp(motion, sprintMotion, UnarmedSprintWeight);
             animator.SetIKPositionWeight(goal, presentationWeight);
             animator.SetIKPosition(goal, view.TransformPoint(rest + motion));
             animator.SetIKRotationWeight(goal, 0f);

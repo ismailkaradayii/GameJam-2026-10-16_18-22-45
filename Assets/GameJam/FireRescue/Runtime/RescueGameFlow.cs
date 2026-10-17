@@ -10,7 +10,7 @@ namespace GameJam.FireRescue
     [DisallowMultipleComponent, DefaultExecutionOrder(-200)]
     public sealed class RescueGameFlow : MonoBehaviour
     {
-        public enum GameState { Playing, Paused, Won }
+        public enum GameState { Playing, Paused, Won, Lost }
         public BurnableBuilding[] targetBuildings = Array.Empty<BurnableBuilding>();
         public FireRescuePlayer player;
         public string mainMenuSceneName = "MainMenu";
@@ -18,8 +18,8 @@ namespace GameJam.FireRescue
         public GameState State { get; private set; } = GameState.Playing;
         public int RescuedCount => rescued.Count;
         public int TargetCount => targets.Count;
-        public bool BlocksGameplay => State != GameState.Playing || returningToMenu || (survival && survival.IsFinished);
-        public bool IsConfigured => targets.Count == RequiredHouses;
+        public bool BlocksGameplay => State != GameState.Playing || returningToMenu;
+        public bool IsConfigured => targets.Count > 0;
         public bool ReturningToMenu => returningToMenu;
         public event Action<int, int> ProgressChanged;
         public event Action<GameState> StateChanged;
@@ -37,7 +37,7 @@ namespace GameJam.FireRescue
             completionPending = returningToMenu = ownsPause = false;
             if (player) player.gameFlow = this;
             foreach (var house in targetBuildings) if (house) targets.Add(house);
-            if (!IsConfigured) Debug.LogError("Rescue objective requires exactly five distinct authored town houses.", this);
+            if (!IsConfigured) Debug.LogError("Rescue objective needs authored town houses.", this);
         }
         void OnEnable()
         {
@@ -57,7 +57,8 @@ namespace GameJam.FireRescue
         {
             if (!IsConfigured || !house || !house.IsRescued || !targets.Contains(house) || !rescued.Add(house)) return;
             ProgressChanged?.Invoke(RescuedCount, TargetCount);
-            if (RescuedCount == RequiredHouses) completionPending = true;
+            // The finite defense objective owns victory; extinguishing five houses cannot skip enemies.
+            if (!FindFirstObjectByType<VolcanoMissionDirector>() && RescuedCount == TargetCount) completionPending = true;
         }
         void Update()
         {
@@ -75,7 +76,7 @@ namespace GameJam.FireRescue
         }
         public void Pause()
         {
-            if (BlocksGameplay || completionPending) return;
+            if (BlocksGameplay || completionPending || (player && player.CinematicLocked)) return;
             Suspend(GameState.Paused);
         }
         void Suspend(GameState nextState)
@@ -89,11 +90,30 @@ namespace GameJam.FireRescue
         }
         public void Resume()
         {
-            if (State != GameState.Paused || returningToMenu || completionPending || (survival && survival.IsFinished)) return;
+            if (State != GameState.Paused || returningToMenu || completionPending) return;
             State = GameState.Playing;
             ReleasePause();
             if (player) player.SetGameplaySuspended(false);
             StateChanged?.Invoke(State);
+        }
+        public void FinishMission(bool success)
+        {
+            if (State == GameState.Won || State == GameState.Lost || returningToMenu) return;
+            var cinematic = FindFirstObjectByType<VolcanoCinematic>();
+            if (cinematic) cinematic.EndShot();
+            var encounter = FindFirstObjectByType<LavaCreatureEncounter>();
+            if (encounter) encounter.StopEncounter();
+            completionPending = false;
+            Suspend(success ? GameState.Won : GameState.Lost);
+        }
+        public void RestartMission()
+        {
+            if (returningToMenu) return;
+            returningToMenu = true; ownsPause = false; Time.timeScale = 1f;
+            var cinematic = FindFirstObjectByType<VolcanoCinematic>();
+            if (cinematic) cinematic.EndShot();
+            Cursor.lockState = CursorLockMode.None; Cursor.visible = true;
+            SceneManager.LoadScene(gameObject.scene.name, LoadSceneMode.Single);
         }
         public void ReturnToMainMenu()
         {

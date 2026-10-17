@@ -11,7 +11,7 @@ namespace GameJam.FireRescue
         static LavaCombatEffects instance;
         Material flameMaterial, smokeMaterial, shardMaterial, flashMaterial, ringMaterial;
         AudioClip[] hits;
-        AudioClip deathClip, landingClip, playerHitClip;
+        AudioClip deathClip, poffClip, landingClip, playerHitClip;
         Mesh chipMesh;
         readonly List<Burst> pool = new List<Burst>();
 
@@ -32,9 +32,10 @@ namespace GameJam.FireRescue
             public AudioSource audio;
             public readonly List<Fragment> fragments = new List<Fragment>();
             public Vector3 center, ringNormal;
-            public float ringDuration, ringRadius;
+            public float ringDuration, ringRadius, ringStarted;
+            public float fireDelay, fireSize;
             public float started, lifetime, nextTrail;
-            public bool death, active, priority, aftershock;
+            public bool death, active, priority, aftershock, smallDeath;
         }
 
         public static int ActiveFragments
@@ -43,9 +44,10 @@ namespace GameJam.FireRescue
         }
         public static int ShattersPlayed { get; private set; }
         public static int HitsPlayed { get; private set; }
+        public static int DeathPuffsPlayed { get; private set; }
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-        static void ResetStatics() { instance = null; ShattersPlayed = HitsPlayed = 0; }
+        static void ResetStatics() { instance = null; ShattersPlayed = HitsPlayed = DeathPuffsPlayed = 0; }
 
         static LavaCombatEffects Get()
         {
@@ -58,6 +60,7 @@ namespace GameJam.FireRescue
             instance.ringMaterial = Resources.Load<Material>("LavaCombat/ImpactRing");
             instance.hits = new[] { Resources.Load<AudioClip>("LavaCombat/SpiritHit1"), Resources.Load<AudioClip>("LavaCombat/SpiritHit2"), Resources.Load<AudioClip>("LavaCombat/SpiritHit3") };
             instance.deathClip = Resources.Load<AudioClip>("LavaCombat/SpiritBreak");
+            instance.poffClip = Resources.Load<AudioClip>("LavaCombat/SpiritPoff");
             instance.landingClip = Resources.Load<AudioClip>("LavaCombat/Land");
             instance.playerHitClip = Resources.Load<AudioClip>("LavaCombat/PlayerHit");
             instance.chipMesh = MakeChip();
@@ -124,6 +127,9 @@ namespace GameJam.FireRescue
                 foreach (var solid in solids) bounds.Encapsulate(solid.bounds);
             }
             var b = fx.Rent(bounds.center, true);
+            b.smallDeath = !actor.ReachedBuilding && !actor.Dissipated;
+            b.fireDelay = Mathf.Clamp(actor.deathFireDelay, .04f, .3f);
+            b.fireSize = Mathf.Clamp(actor.deathFireSize, .4f, 1.5f);
             ShattersPlayed++;
             // Prefer the large, recognisable pieces of the actual model over tiny facial details.
             solids.Sort((a, c) => c.bounds.size.sqrMagnitude.CompareTo(a.bounds.size.sqrMagnitude));
@@ -164,12 +170,20 @@ namespace GameJam.FireRescue
                 fx.AddFragment(b, fx.chipMesh, new[] { fx.shardMaterial }, position, Random.rotation,
                     Vector3.one * Random.Range(.07f, .19f), false, direction);
             }
-            fx.EmitBurst(b, 38, 95, 12, direction.normalized * .6f + Vector3.up * .4f, 1.75f);
-            Emit(b.flash, bounds.center, Vector3.zero, 2.1f, .10f, new Color(4.2f, 3.3f, 1.7f));
-            b.light.intensity = 8f; b.light.range = 8f;
-            b.ringDuration = .28f; b.ringRadius = 3f;
-            b.ring.enabled = true;
-            fx.Play(b, fx.deathClip, .95f);
+            if (b.smallDeath)
+            {
+                // Audio leads the flame cloud. The pooled effect outlives the defeated actor.
+                fx.Play(b, fx.poffClip ? fx.poffClip : fx.deathClip, actor.deathPoffVolume);
+            }
+            else
+            {
+                fx.EmitBurst(b, 38, 95, 12, direction.normalized * .6f + Vector3.up * .4f, 1.75f);
+                Emit(b.flash, bounds.center, Vector3.zero, 2.1f, .10f, new Color(4.2f, 3.3f, 1.7f));
+                b.light.intensity = 8f; b.light.range = 8f;
+                b.ringDuration = .28f; b.ringRadius = 3f;
+                b.ring.enabled = true;
+                fx.Play(b, fx.deathClip, .95f);
+            }
         }
 
         Burst Rent(Vector3 point, bool death)
@@ -187,9 +201,10 @@ namespace GameJam.FireRescue
             Clear(result);
             result.root.SetActive(true); result.root.transform.position = point;
             result.center = point; result.started = Time.time; result.lifetime = death ? 4.8f : 1.3f;
-            result.ringNormal = Vector3.up; result.ringDuration = .32f; result.ringRadius = 2.5f;
+            result.ringNormal = Vector3.up; result.ringDuration = .32f; result.ringRadius = 2.5f; result.ringStarted = Time.time;
             result.nextTrail = 0f; result.death = death; result.active = true;
-            result.priority = death; result.aftershock = false;
+            result.priority = death; result.aftershock = false; result.smallDeath = false;
+            result.fireDelay = .16f; result.fireSize = 1f;
             result.light.enabled = true; result.light.range = 3f; result.light.intensity = 0f;
             result.light.color = new Color(1f, .27f, .035f);
             result.flames.Play(); result.sparks.Play(); result.smoke.Play(); result.flash.Play();
@@ -214,6 +229,27 @@ namespace GameJam.FireRescue
             b.audio = b.root.AddComponent<AudioSource>(); b.audio.playOnAwake = false; b.audio.spatialBlend = 1f;
             b.audio.minDistance = 3f; b.audio.maxDistance = 55f; b.audio.rolloffMode = AudioRolloffMode.Logarithmic;
             return b;
+        }
+
+        void SmallDeathPuff(Burst b)
+        {
+            DeathPuffsPlayed++;
+            float size = b.fireSize;
+            // A compact warm core, a few embers and a short smoky tail, using the existing materials.
+            for (int i = 0; i < 22; i++)
+                Emit(b.flames, b.center + Random.insideUnitSphere * (.12f * size),
+                    (Random.onUnitSphere * Random.Range(.4f, 1.6f) + Vector3.up * .65f) * size,
+                    Random.Range(.32f, .58f) * size, Random.Range(.28f, .5f), new Color(2.4f, .95f, .15f));
+            for (int i = 0; i < 16; i++)
+                Emit(b.sparks, b.center, (Random.onUnitSphere + Vector3.up * .3f) * Random.Range(1.3f, 2.5f) * size,
+                    Random.Range(.025f, .045f) * size, Random.Range(.25f, .55f), new Color(2.7f, 1.35f, .3f));
+            for (int i = 0; i < 5; i++)
+                Emit(b.smoke, b.center, (Random.insideUnitSphere * .3f + Vector3.up * .65f) * size,
+                    Random.Range(.3f, .5f) * size, Random.Range(.45f, .8f), new Color(.19f, .15f, .12f, .4f));
+            Emit(b.flash, b.center, Vector3.zero, .8f * size, .065f, new Color(2.7f, 1.55f, .45f));
+            b.light.enabled = true; b.light.intensity = 2.4f; b.light.range = 3f * size;
+            b.ringStarted = Time.time; b.ringDuration = .16f; b.ringRadius = .65f * size;
+            b.ring.enabled = true;
         }
 
         static ParticleSystem Particles(Transform parent, string name, Material material, int maximum, float gravity, bool streak)
@@ -269,8 +305,8 @@ namespace GameJam.FireRescue
             Vector3 outward = (center - b.center).normalized;
             if (outward.sqrMagnitude < .1f) outward = Random.onUnitSphere;
             b.fragments.Add(new Fragment { transform = pivot, ownedMesh = owned ? mesh : null, renderer = renderer,
-                scale = scale, velocity = (outward + Random.insideUnitSphere * .45f + Vector3.up * .6f) * Random.Range(2.4f, 4.8f)
-                    + shotDirection.normalized * 1.8f,
+                scale = scale, velocity = ((outward + Random.insideUnitSphere * .45f + Vector3.up * .6f) * Random.Range(2.4f, 4.8f)
+                    + shotDirection.normalized * 1.8f) * (b.smallDeath ? .55f : 1f),
                 spin = Random.onUnitSphere * Random.Range(170f, 520f) });
         }
 
@@ -282,23 +318,26 @@ namespace GameJam.FireRescue
                 if (!b.active) continue;
                 float age = Time.time - b.started;
                 if (age >= b.lifetime) { Clear(b); continue; }
-                if (b.death && !b.aftershock && age > .16f)
+                if (b.death && !b.aftershock && age >= b.fireDelay)
                 {
                     b.aftershock = true;
-                    // Follow the initial crack with a lower ember bloom; leave the flying shell readable.
-                    EmitBurst(b, 16, 18, 5, Vector3.up, .65f);
-                    b.light.enabled = true; b.light.intensity = 1.7f;
+                    if (b.smallDeath) SmallDeathPuff(b);
+                    else
+                    {
+                        EmitBurst(b, 16, 18, 5, Vector3.up, .65f);
+                        b.light.enabled = true; b.light.intensity = 1.7f;
+                    }
                 }
                 b.light.intensity *= Mathf.Exp(-18f * dt);
                 if (b.light.intensity < .025f) b.light.enabled = false;
                 if (b.ring.enabled)
                 {
-                    float p = age / b.ringDuration;
+                    float p = (Time.time - b.ringStarted) / b.ringDuration;
                     if (p >= 1f) b.ring.enabled = false;
                     else
                     {
                         float radius = Mathf.Lerp(.06f, b.ringRadius, 1f - Mathf.Pow(1f - p, 2f));
-                        b.ring.widthMultiplier = (b.death ? .12f : .045f) * (1f - p);
+                        b.ring.widthMultiplier = (b.death && !b.smallDeath ? .12f : .045f) * (1f - p);
                         b.ring.startColor = b.ring.endColor = new Color(2f, 1.1f, .3f, 1f - p);
                         Vector3 axis = Vector3.Cross(b.ringNormal, Mathf.Abs(b.ringNormal.y) > .9f ? Vector3.right : Vector3.up).normalized;
                         Vector3 other = Vector3.Cross(b.ringNormal, axis);
@@ -309,7 +348,8 @@ namespace GameJam.FireRescue
                         }
                     }
                 }
-                bool trail = b.death && age < 1.45f && age >= b.nextTrail;
+                bool trail = b.death && (!b.smallDeath || age >= b.fireDelay) &&
+                    age < (b.smallDeath ? .45f : 1.45f) && age >= b.nextTrail;
                 if (trail) b.nextTrail = age + .045f;
                 foreach (var fragment in b.fragments)
                 {
@@ -339,6 +379,7 @@ namespace GameJam.FireRescue
         void Play(Burst b, AudioClip clip, float volume)
         {
             if (!clip) return;
+            b.audio.dopplerLevel = 0f;
             b.audio.clip = clip; b.audio.volume = volume; b.audio.pitch = Random.Range(.93f, 1.07f); b.audio.Play();
         }
 

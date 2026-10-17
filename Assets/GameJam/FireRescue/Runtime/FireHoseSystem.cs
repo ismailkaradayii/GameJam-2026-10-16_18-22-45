@@ -14,6 +14,8 @@ namespace GameJam.FireRescue
         [Min(1f)] public float maxHoseLength = 45f;
         [Min(0f)] public float startingTankLitres;
         [Range(12, 64)] public int hoseSegments = 36;
+        [Tooltip("Fixed world-space hose diameter; independent of deployed length and truck transform scale.")]
+        [Min(.02f)] public float hoseDiameter = .16f;
         public LayerMask hoseCollisionMask = ~0;
         [Tooltip("Usually the truck root; its colliders are excluded from hose ground sampling.")]
         public Transform ignoredCollisionRoot;
@@ -42,6 +44,7 @@ namespace GameJam.FireRescue
             tankLitres = Mathf.Clamp(startingTankLitres, 0f, Mathf.Max(1f, tankCapacityLitres));
             if (ignoredCollisionRoot == null)
                 ignoredCollisionRoot = transform;
+            ConfigureHoseWidth();
         }
 
         private void Update()
@@ -238,13 +241,22 @@ namespace GameJam.FireRescue
                     3f * u * t * t * controlB + t * t * t * end;
                 point.y -= Mathf.Sin(t * Mathf.PI) * sag;
                 if (i > 0 && i < count - 1 && TryGetGroundHeight(point, out float groundY))
-                    point.y = Mathf.Max(point.y, groundY + hoseGroundClearance);
+                    point.y = Mathf.Max(point.y, groundY + Mathf.Max(hoseGroundClearance, hoseDiameter * .5f));
                 hosePoints[i] = point;
             }
 
             hoseLine.useWorldSpace = true;
             hoseLine.positionCount = count;
             hoseLine.SetPositions(hosePoints);
+        }
+
+        void ConfigureHoseWidth()
+        {
+            if (!hoseLine) return;
+            // A .12 width curve multiplied by a .16 multiplier made the old hose only .0192m thick.
+            hoseLine.widthCurve = AnimationCurve.Constant(0, 1, 1);
+            hoseLine.widthMultiplier = Mathf.Max(.02f, hoseDiameter);
+            hoseLine.textureMode = LineTextureMode.Tile;
         }
 
         private bool TryGetGroundHeight(Vector3 point, out float height)

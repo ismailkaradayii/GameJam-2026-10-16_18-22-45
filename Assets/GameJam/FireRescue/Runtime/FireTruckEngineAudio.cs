@@ -45,6 +45,14 @@ namespace GameJam.FireRescue
         {
             if (engineSource == null || engineSource.clip == null || drive == null) return;
 
+            // An unattended truck can still roll or settle on its suspension.
+            // Only the occupied vehicle should produce the driving loop.
+            if (!drive.IsDriven)
+            {
+                StopEngine();
+                return;
+            }
+
             float speedKph = drive.SpeedKph;
             float movement = speedKph <= minimumSpeedKph ? 0f :
                 Mathf.InverseLerp(minimumSpeedKph, Mathf.Max(minimumSpeedKph + 0.1f, fullIntensitySpeedKph), speedKph);
@@ -62,7 +70,9 @@ namespace GameJam.FireRescue
                 engineSource.Stop();
         }
 
-        private void OnDisable()
+        private void OnDisable() => StopEngine();
+
+        private void StopEngine()
         {
             if (engineSource != null)
             {

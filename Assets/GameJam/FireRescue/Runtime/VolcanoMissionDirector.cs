@@ -1,82 +1,186 @@
+using System;
 using UnityEngine;
 
 namespace GameJam.FireRescue
 {
+    /// <summary>The authored mission order and the independent preparation deadline.</summary>
     [DisallowMultipleComponent, DefaultExecutionOrder(-60)]
     public sealed class VolcanoMissionDirector : MonoBehaviour
     {
-        public enum MissionPhase { Evacuate, Refill, Warning, Cinematic, Defend }
+        public enum MissionPhase { Evacuate, Refill, Warning, Cinematic, Defend, Intro, Weapon, WarnVillage, Truck, Ready }
+        public enum FlowState { Intro, Preparation, VolcanoCinematic, LavaApproaching, FireSpiritCinematic, VillageDefense, Victory, Defeat }
         public EvacuationMission evacuation;
         public VolcanoEruptionSequence sequence;
         public FireRescuePlayer player;
         public FireHoseSystem tank;
         public VolcanoCinematic cinematic;
-        public MissionPhase Phase { get; private set; }
-        public bool PreparationComplete => evacuation && evacuation.IsComplete && Phase >= MissionPhase.Warning;
-        GUIStyle title, body;
-        RescueHUD rescueHud;
+        public LavaCreatureEncounter encounter;
+        public RescueGameFlow gameFlow;
+        [Header("Authored starting room and destinations")]
+        public Transform wakePose;
+        public Transform standingSpawn;
+        public Transform houseExit;
+        public BoxCollider startingHouse;
+        public WeaponPickup weaponPickup;
+        public LakeFillStation fillStation;
+        [Header("Jam timing")]
+        [Min(1f)] public float preparationSeconds = 120f;
+        [Min(0f)] public float spiritRevealDelay = 1f;
+        [Min(1f)] public float exitRadius = 9f;
+        [Tooltip("Leave enabled until the church and bell are authored.")]
+        public bool skipVillageWarning = true;
+        public MissionPhase Phase { get; private set; } = MissionPhase.Intro;
+        public FlowState State { get; private set; } = FlowState.Intro;
+        public float PreparationRemaining { get; private set; }
+        public bool EruptionTriggered { get; private set; }
+        public bool LeftStartingHouse { get; private set; }
+        public bool PreparationComplete { get; private set; }
+        public bool WarningCompleted { get; private set; }
+        public int SavedAtEruption { get; private set; }
+        public float WaterAtEruption { get; private set; }
+        public event Action ObjectiveChanged;
+        bool spiritRevealPlayed, began;
+        float firstSpiritSeenAt = -1f;
 
         void Awake()
         {
-            rescueHud = FindFirstObjectByType<RescueHUD>();
             if (!evacuation) evacuation = FindFirstObjectByType<EvacuationMission>();
             if (!sequence) sequence = FindFirstObjectByType<VolcanoEruptionSequence>();
             if (!player) player = FindFirstObjectByType<FireRescuePlayer>();
+            if (!gameFlow) gameFlow = FindFirstObjectByType<RescueGameFlow>();
+            if (!encounter) encounter = FindFirstObjectByType<LavaCreatureEncounter>();
             if (!tank && player) tank = player.hose;
+            PreparationRemaining = Mathf.Max(1f, preparationSeconds);
             if (sequence) { sequence.missionDirector = this; sequence.autoErupt = false; sequence.showHud = false; }
-            if (tank) tank.fillingUnlocked = false;
+            if (evacuation) { evacuation.startAutomatically = false; evacuation.showHud = false; }
+            if (tank) tank.fillingUnlocked = true;
+            if (player) player.mission = this;
+        }
+        void Start()
+        {
+            began = true;
+            if (player && standingSpawn) player.PlaceOnFoot(standingSpawn.position, standingSpawn.eulerAngles.y);
+            if (cinematic && wakePose) cinematic.BeginIntro(wakePose);
+            else StartPreparation();
         }
         void Update() => TickMission();
         public void TickMission()
         {
-            if (!evacuation || !sequence || !tank || Time.timeScale <= 0f || (player && player.GameplaySuspended)) return;
-            if (Phase == MissionPhase.Evacuate && evacuation.IsComplete)
+            if (!began || !player || !sequence || !tank) return;
+            if (gameFlow && (gameFlow.State == RescueGameFlow.GameState.Won || gameFlow.State == RescueGameFlow.GameState.Lost))
+            { State = gameFlow.State == RescueGameFlow.GameState.Won ? FlowState.Victory : FlowState.Defeat; return; }
+            if (Time.timeScale <= 0f || (gameFlow && gameFlow.BlocksGameplay)) return;
+            if (State == FlowState.Intro)
             {
-                Phase = MissionPhase.Refill;
-                tank.fillingUnlocked = true;
-                evacuation.showHud = false;
+                if (!cinematic || !cinematic.IsPlaying) StartPreparation();
+                return;
             }
-            if (Phase == MissionPhase.Refill && tank.Tank01 >= .999f)
+            if (!EruptionTriggered)
             {
-                Phase = MissionPhase.Warning;
-                sequence.BeginEruption();
+                PreparationRemaining = Mathf.Max(0f, PreparationRemaining - Time.deltaTime);
+                if (PreparationRemaining <= 0f) TriggerDeadline();
+                else TickPreparation();
+                return;
             }
-            if (sequence.Stage == VolcanoEruptionSequence.EruptionStage.Erupting) Phase = MissionPhase.Cinematic;
-            if (sequence.Stage == VolcanoEruptionSequence.EruptionStage.Flowing) Phase = MissionPhase.Defend;
+            if (cinematic && cinematic.IsPlaying)
+            {
+                State = cinematic.Kind == VolcanoCinematic.ShotKind.Spirits ? FlowState.FireSpiritCinematic : FlowState.VolcanoCinematic;
+                return;
+            }
+            State = FlowState.LavaApproaching;
+            if (encounter && encounter.SpawnedCount > 0)
+            {
+                if (!spiritRevealPlayed && encounter.LivingCreatures.Count > 0)
+                {
+                    if (firstSpiritSeenAt < 0) firstSpiritSeenAt = Time.time;
+                    // Let the first spirit rise clear of the lava before applying slow motion.
+                    if (Time.time - firstSpiritSeenAt < spiritRevealDelay) { SetPhase(MissionPhase.Defend); return; }
+                    spiritRevealPlayed = true;
+                    var spirit = encounter.LivingCreatures[0];
+                    if (cinematic && spirit) cinematic.BeginSpirits(spirit.transform);
+                    State = FlowState.FireSpiritCinematic;
+                }
+                else State = FlowState.VillageDefense;
+            }
+            SetPhase(MissionPhase.Defend);
         }
-        void OnGUI()
+        void StartPreparation() { State = FlowState.Preparation; SetPhase(MissionPhase.Weapon); }
+        void TickPreparation()
         {
-            if (VolcanoCinematic.IsPlayingAny || !tank || !evacuation || (rescueHud && rescueHud.enabled)) return;
-            if (title == null)
+            if (Phase == MissionPhase.Weapon)
             {
-                title = new GUIStyle(GUI.skin.label) { fontSize = 16, fontStyle = FontStyle.Bold };
-                body = new GUIStyle(GUI.skin.label) { fontSize = 13, wordWrap = true };
-                title.normal.textColor = body.normal.textColor = Color.white;
+                if (houseExit && player.HasPistol)
+                {
+                    Vector3 feet = player.transform.position;
+                    bool outside = !startingHouse || !startingHouse.bounds.Contains(feet + Vector3.up * 2f);
+                    if (outside || EvacuationResident.FlatDistance(feet, houseExit.position) <= exitRadius &&
+                        Mathf.Abs(feet.y - houseExit.position.y) < 3f && Vector3.Dot(feet - houseExit.position, houseExit.forward) >= -.5f) LeftStartingHouse = true;
+                }
+                if (!player.HasPistol || !LeftStartingHouse) return;
+                SetPhase(MissionPhase.WarnVillage);
+                if (skipVillageWarning) CompleteVillageWarning();
             }
-            float scale = Mathf.Clamp(Screen.height / 900f, .75f, 1.5f);
-            var matrix = GUI.matrix; var color = GUI.color;
-            GUI.matrix = Matrix4x4.Scale(Vector3.one * scale);
-            float w = Screen.width / scale, x = w >= 720 ? w - 334 : 18, y = w >= 720 ? 18 : 210;
-            string heading, detail;
-            if (Phase == MissionPhase.Evacuate)
-            { heading = "1 / 4 · HALKI KURTAR"; detail = "Q ile evlerdeki insanlara seslen.\nYedi kişiyi sığınağa götür."; }
-            else if (Phase == MissionPhase.Refill)
-            { heading = "2 / 4 · SU DEPOSUNU DOLDUR"; detail = "Tahliye: 7 / 7 ✓   Su: %" + Mathf.FloorToInt(tank.Tank01 * 100) + "\nE: Arka hortumu göle bırak · P: Pompa\nDepo dolunca hortumu R ile topla."; }
-            else if (Phase == MissionPhase.Warning || Phase == MissionPhase.Cinematic)
-            { heading = "3 / 4 · VOLKAN UYANDI"; detail = "Yer sarsılıyor…\nPatlama başlamak üzere!"; }
-            else
+            if (Phase == MissionPhase.Evacuate && evacuation && evacuation.IsComplete) SetPhase(MissionPhase.Truck);
+            if (Phase == MissionPhase.Truck && player.IsDriving) SetPhase(MissionPhase.Refill);
+            if (Phase == MissionPhase.Refill && tank.Tank01 >= .999f)
+            { PreparationComplete = true; SetPhase(MissionPhase.Ready); }
+        }
+        // Future bell interaction calls this method; no church destination is displayed while skipped.
+        public void CompleteVillageWarning()
+        {
+            if (WarningCompleted || Phase != MissionPhase.WarnVillage) return;
+            WarningCompleted = true;
+            if (evacuation) evacuation.BeginMission();
+            SetPhase(MissionPhase.Evacuate);
+        }
+        public void TriggerDeadline()
+        {
+            if (EruptionTriggered) return;
+            EruptionTriggered = true; PreparationRemaining = 0f;
+            SavedAtEruption = evacuation ? evacuation.RescuedCount : 0;
+            WaterAtEruption = tank ? tank.TankLitres : 0;
+            // Unfinished preparations remain usable. The deadline never waits on a mission.
+            if (evacuation && !evacuation.IsActive && !evacuation.IsComplete) evacuation.BeginMission();
+            State = FlowState.VolcanoCinematic; SetPhase(MissionPhase.Cinematic);
+            sequence.BeginEruption(true);
+            if (cinematic) cinematic.BeginShot();
+        }
+        void SetPhase(MissionPhase next)
+        {
+            if (Phase == next) return;
+            Phase = next; ObjectiveChanged?.Invoke();
+        }
+        public string ObjectiveTitle => EruptionTriggered ? "DEFEND THE VILLAGE" : Phase switch
+        {
+            MissionPhase.Intro => "ASHFALL",
+            MissionPhase.Weapon => "TAKE YOUR WEAPON AND LEAVE THE HOUSE",
+            MissionPhase.WarnVillage => "WARN THE VILLAGE",
+            MissionPhase.Evacuate => "EVACUATE THE VILLAGERS",
+            MissionPhase.Truck => "PREPARE THE FIRE TRUCK",
+            MissionPhase.Refill => "DRIVE TO THE LAKE",
+            _ => "READY FOR THE ERUPTION"
+        };
+        public string ObjectiveDetail
+        {
+            get
             {
-                int burning = 0, lost = 0; float remaining = float.PositiveInfinity;
-                foreach (var house in BurnableBuilding.ActiveBuildings)
-                    if (house) { if (house.IsBurnedOut) lost++; else if (house.IsBurning) { burning++; remaining = Mathf.Min(remaining, house.SecondsUntilCollapse); } }
-                heading = "4 / 4 · KASABAYI SAVUN";
-                detail = "Yanan ev: " + burning + "   Kül olan: " + lost + "\n" +
-                    (burning > 0 ? "En acil ev: " + Mathf.CeilToInt(remaining) + " sn!\n" : "Evleri ve yaklaşan lavları suyla soğut.\n") + "F: İtfaiye · Sağ tık: Su · Sol tık: Ateş";
+                if (EruptionTriggered)
+                {
+                    if (!player.HasPistol) return "Collect the pistol from your bedroom. The village needs you!";
+                    if (tank.Tank01 < .05f) return "Shoot the fire spirits. Refill the truck at the BLUE lake marker to fight fires.";
+                    return "Shoot the fire spirits. Use the truck's water cannon on burning houses.";
+                }
+                return Phase switch
+                {
+                    MissionPhase.Weapon => player.HasPistol ? "Pistol in slot 1. Follow the marker to the front door. E opens doors." : "Pick up the pistol on the bedside cabinet. Press E when nearby.",
+                    MissionPhase.WarnVillage => "Warn the village to begin the evacuation.",
+                    MissionPhase.Evacuate => "Q calls nearby villagers. Lead them to the GREEN shelter ring.",
+                    MissionPhase.Truck => "Find the truck behind your house. Approach the driver's door and press F.",
+                    MissionPhase.Refill => "Park in the BLUE lake ring. Press E to connect the intake and fill the tank.",
+                    MissionPhase.Ready => "Return to the village. Keep the pistol and water tank ready.",
+                    _ => "Wake up. The volcano is stirring."
+                };
             }
-            GUI.color = new Color(.035f, .055f, .07f, .94f); GUI.DrawTexture(new Rect(x, y, 316, 108), Texture2D.whiteTexture);
-            GUI.color = new Color(1, .76f, .36f); GUI.Label(new Rect(x + 12, y + 8, 292, 25), heading, title);
-            GUI.color = Color.white; GUI.Label(new Rect(x + 12, y + 36, 292, 66), detail, body);
-            GUI.matrix = matrix; GUI.color = color;
         }
     }
 }

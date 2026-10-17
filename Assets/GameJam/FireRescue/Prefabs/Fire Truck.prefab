@@ -88,22 +88,22 @@ LineRenderer:
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: 0.12
+        value: 1
         inSlope: 0
         outSlope: 0
         tangentMode: 0
         weightedMode: 0
-        inWeight: 0.33333334
-        outWeight: 0.33333334
+        inWeight: 0
+        outWeight: 0
       - serializedVersion: 3
         time: 1
-        value: 0.12
+        value: 1
         inSlope: 0
         outSlope: 0
         tangentMode: 0
         weightedMode: 0
-        inWeight: 0.33333334
-        outWeight: 0.33333334
+        inWeight: 0
+        outWeight: 0
       m_PreInfinity: 2
       m_PostInfinity: 2
       m_RotationOrder: 4
@@ -140,7 +140,7 @@ LineRenderer:
     numCornerVertices: 4
     numCapVertices: 4
     alignment: 0
-    textureMode: 0
+    textureMode: 1
     textureScale: {x: 1, y: 1}
     shadowBias: 0.5
     generateLightingData: 1
@@ -5495,7 +5495,7 @@ BoxCollider:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 3982989680251876926}
-  m_Material: {fileID: 0}
+  m_Material: {fileID: 13400000, guid: 67d9f9c76572ee043a00a85293e8f055, type: 2}
   m_IncludeLayers:
     serializedVersion: 2
     m_Bits: 0
@@ -5538,26 +5538,43 @@ MonoBehaviour:
   - {x: 0, y: 0, z: 0}
   - {x: 0, y: 0, z: 0}
   - {x: 0, y: 0, z: 0}
-  motorTorque: 4000
-  maxForwardSpeedKph: 55
-  maxReverseSpeedKph: 14
-  brakeTorque: 22000
-  parkingBrakeTorque: 28000
-  coastBrakeTorque: 100
+  wheelSpinFromTravel: 1
+  motorTorque: 20800
+  maxForwardSpeedKph: 156
+  maxReverseSpeedKph: 58.5
+  brakeTorque: 46800
+  parkingBrakeTorque: 40000
+  coastBrakeTorque: 140
   allWheelDrive: 1
-  lowSpeedTorqueMultiplier: 1.5
-  torqueBoostFadeSpeedKph: 20
+  lowSpeedTorqueMultiplier: 2
+  torqueBoostFadeSpeedKph: 45.5
   smoothPedals: 1
-  throttleResponsePerSecond: 3
-  throttleReleasePerSecond: 6
+  throttleResponsePerSecond: 18
+  throttleReleasePerSecond: 20
   hillHoldAssist: 1
-  maxSteerAngle: 32
-  highSpeedSteerAngle: 9
-  steeringSpeed: 70
+  groundAccelerationAssist: 18.2
+  accelerationAssistFadeSpeedKph: 104
+  maxSteerAngle: 46
+  highSpeedSteerAngle: 22
+  steeringFadeSpeedKph: 130
+  steeringSpeed: 240
+  lowSpeedRearSteerRatio: 0.6
+  rearSteerFadeSpeedKph: 58.5
   vehicleMass: 6800
   centerOfMassOffset: {x: 0, y: -1.2, z: 0}
   antiRollForce: 12000
   speedLimiterStrength: 6
+  arcadeHandling: 1
+  arcadeTurnRadius: 8
+  arcadeLowSpeedYawRate: 143
+  arcadeHighSpeedYawRate: 71.5
+  arcadeSteeringResponse: 12
+  arcadeLateralGrip: 13
+  arcadeBrakeAcceleration: 31.2
+  arcadeCornerSpeedKph: 54.6
+  arcadeUprightStrength: 45
+  obstacleStepHeight: 2.4
+  obstacleLiftAcceleration: 65
 --- !u!114 &7915165097456723516
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -5578,6 +5595,7 @@ MonoBehaviour:
   maxHoseLength: 45
   startingTankLitres: 250
   hoseSegments: 36
+  hoseDiameter: 0.16
   hoseCollisionMask:
     serializedVersion: 2
     m_Bits: 4294967295

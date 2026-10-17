@@ -23,8 +23,12 @@ namespace Itfaiye
         [Tooltip("Kosarken atistan sonra silahin dogrulmus kaldigi sure. Sonra kosu pozuna doner.")]
         [Range(.15f, .6f)] public float sprintShotHoldDuration = .32f;
         public float reloadDuration = 3.2f;
+        public bool autoReloadWhenEmpty = true;
+        [Tooltip("Let the final shot and slide lock finish before the existing reload animation begins.")]
+        [Min(0f)] public float autoReloadDelay = .22f;
         public float range = 100f;
         public bool showHud = true;
+        public bool showAmmoHud = true;
         [Tooltip("Read commands from the gameplay coordinator instead of polling keyboard and mouse.")]
         public bool externalControl;
         [Min(0f)] public float creatureDamage = 34f;
@@ -157,6 +161,11 @@ namespace Itfaiye
             }
             DrawAmount = Mathf.MoveTowards(DrawAmount, Equipped ? 1f : 0f, Time.deltaTime / .28f);
             if (weapon != null) weapon.SetActive(DrawAmount > .05f);
+            // LateUpdate must resolve the last bullet before reload changes the hand pose.
+            // Re-check on redraw/resume too; entering a vehicle may cancel an empty reload.
+            if (autoReloadWhenEmpty && captured && previouslyCaptured && Time.timeScale > 0f &&
+                Ready && Ammo == 0 && reserveAmmo > 0 && !pendingShot && !sprintShotQueued &&
+                ShotAge >= Mathf.Max(0f, autoReloadDelay)) Reload();
             if (!captured || !Ready) CancelSprintShot();
             IsAiming = captured && Ready && aim && !player.IsSprinting;
             AimAmount = Mathf.MoveTowards(AimAmount, IsAiming ? 1f : 0f, Time.deltaTime / .18f);
@@ -278,6 +287,7 @@ namespace Itfaiye
             externalReload = externalCaptured && reload;
             if (!externalCaptured)
             {
+                if (lostCapture && Feedback != null) Feedback.ClearViewEffects();
                 CancelSprintShot();
                 if (lostCapture) pendingShot = false;
                 IsAiming = false;
@@ -305,13 +315,14 @@ namespace Itfaiye
         public void Holster()
         {
             if (!Equipped) return;
+            if (Feedback != null) Feedback.ClearViewEffects();
             CancelSprintShot();
             player.SetKneeling(false);
             holsterRequested = true;
         }
         public bool Reload()
         {
-            if (!Ready || pendingShot || reserveAmmo <= 0) return false;
+            if (!Ready || pendingShot || reserveAmmo <= 0 || Ammo >= magazineSize) return false;
             CancelSprintShot();
             IsReloading = true;
             ReloadCommitted = false;
@@ -374,6 +385,7 @@ namespace Itfaiye
 
         void ClearActionsAndEffects()
         {
+            if (Feedback != null) Feedback.ClearViewEffects();
             CancelSprintShot();
             IsAiming = false; IsReloading = false; pendingShot = false;
             Recoil = 0f;
@@ -397,9 +409,9 @@ namespace Itfaiye
             if (!Available || !showHud || !Equipped) return;
             if (label == null) label = new GUIStyle(GUI.skin.label) { fontSize = 17, alignment = TextAnchor.LowerRight };
             GUI.color = new Color(1f, 1f, 1f, .85f);
-            GUI.Label(new Rect(Screen.width - 230, Screen.height - 58, 204, 32),
+            if (showAmmoHud) GUI.Label(new Rect(Screen.width - 230, Screen.height - 58, 204, 32),
                 IsReloading ? "DOLDURULUYOR" : $"A3500X   {Ammo:00} / {reserveAmmo:00}", label);
-            if (Ready && player.InputCaptured && (!player.IsSprinting
+            if (Ready && player.InputCaptured && !(Hands != null && Hands.pistolSight && AimAmount > .65f) && (!player.IsSprinting
                 || (KeepRaisedForShot && (Hands == null || Hands.IsMovementPoseRaised))))
             {
                 Vector3 point = CrosshairScreenPosition;

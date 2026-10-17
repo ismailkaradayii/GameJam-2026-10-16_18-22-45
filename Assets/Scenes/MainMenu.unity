@@ -5599,13 +5599,13 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 0
     m_LineSpacing: 1
-  m_Text: "\xD6nce evlere yakla\u015F, Q ile seslen ve 7 sivili SHELTER tabelal\u0131
-    s\u0131\u011F\u0131na\u011Fa g\xF6t\xFCr. Sonra itfaiyenin deposunu g\xF6lden
-    doldur. 10 saniyelik patlama sahnesinden sonra alev ruhlar\u0131n\u0131 durdur.
-    250 litre suyla ba\u015Flars\u0131n. Be\u015F evi tamamen s\xF6nd\xFCr\xFCnce
-    kazan\u0131rs\u0131n; kurtar\u0131lan ev tekrar yanmaz. Yanan evleri 90 saniye
-    i\xE7inde s\xF6nd\xFCr; yakla\u015Fan lavlar\u0131 suyla so\u011Fut. S\u0131cak
-    lava girersen can\u0131n azal\u0131r."
+  m_Text: "Yatak odas\u0131ndaki tabancay\u0131 E ile al ve evden \xE7\u0131k. Q
+    ile k\xF6yl\xFCleri \xE7a\u011F\u0131r; YE\u015E\u0130L halkal\u0131 s\u0131\u011F\u0131na\u011Fa
+    g\xF6t\xFCr. Evin arkas\u0131ndaki itfaiyeye bin, MAV\u0130 g\xF6l i\u015Faretinde
+    E ile depoyu doldur. 120 saniye dolunca haz\u0131rl\u0131\u011F\u0131n bitmese
+    de volkan patlar. \xDC\xE7 alev ruhu dalgas\u0131n\u0131 durdur, yanan evleri
+    s\xF6nd\xFCr. En az bir ev ayakta kal\u0131rsa kazan\u0131rs\u0131n; b\xFCt\xFCn
+    evler y\u0131k\u0131l\u0131rsa kaybedersin. S\u0131cak lavdan uzak dur."
 --- !u!222 &464836128
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -8758,7 +8758,8 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 0
     m_LineSpacing: 1
-  m_Text: "Arac\u0131n arkas\u0131ndan hortumu al; g\xF6le bak\u0131p ucunu b\u0131rak."
+  m_Text: "Ara\xE7la MAV\u0130 g\xF6l halkas\u0131nda dur. E ba\u011Flant\u0131y\u0131
+    kurar; depo dolunca hortum otomatik toplan\u0131r."
 --- !u!222 &689347753
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -13729,7 +13730,8 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 0
     m_LineSpacing: 1
-  m_Text: "Hortum ucu g\xF6ldeyken depoyu doldurmak i\xE7in pompay\u0131 a\xE7."
+  m_Text: "\u0130stersen yaya halde arac\u0131n arkas\u0131ndan hortumu al, ucunu
+    g\xF6le b\u0131rak ve P ile pompay\u0131 a\xE7."
 --- !u!222 &1018076001
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -19445,8 +19447,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 0
     m_LineSpacing: 1
-  m_Text: "\xD6nce halk\u0131 s\u0131\u011F\u0131na\u011Fa g\xF6t\xFCr; ard\u0131ndan
-    kasabay\u0131 yang\u0131ndan koru."
+  m_Text: "Haz\u0131rlanmak i\xE7in 120 saniyen var. Ard\u0131ndan k\xF6y\xFC savun."
 --- !u!222 &1464198607
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -23701,8 +23702,8 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 0
     m_LineSpacing: 1
-  m_Text: "1 silah\u0131 \xE7ek/kald\u0131r, 0 silah\u0131 kald\u0131r. Hortum ta\u015F\u0131rken
-    silah kapan\u0131r."
+  m_Text: "Komodindeki tabancay\u0131 E ile al. 1 silah\u0131 \xE7ek/kald\u0131r,
+    0 silah\u0131 kald\u0131r. Ara\xE7tan inince silah geri gelir."
 --- !u!222 &1901123889
 CanvasRenderer:
   m_ObjectHideFlags: 0

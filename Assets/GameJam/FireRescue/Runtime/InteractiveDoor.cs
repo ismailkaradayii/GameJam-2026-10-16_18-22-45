@@ -22,7 +22,7 @@ namespace GameJam.FireRescue
         public float LastBlockingAngle { get; private set; }
         public float OpenAmount => openness;
         public Quaternion ClosedLocalRotation => closedLocalRotation;
-        public string Prompt => (LastBlocked ? "Kapının önünde engel var.  ·  " : "") + (targetOpen ? "E  Kapıyı kapat" : "E  Kapıyı aç");
+        public string Prompt => (LastBlocked ? "Door blocked. Step back.  |  " : "") + (targetOpen ? "E: Close door" : "E: Open door");
         readonly Collider[] overlaps = new Collider[64];
         bool targetOpen;
         float openness;
