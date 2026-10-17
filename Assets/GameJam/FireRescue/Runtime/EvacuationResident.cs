@@ -6,7 +6,7 @@ namespace GameJam.FireRescue
     [DisallowMultipleComponent, RequireComponent(typeof(NavMeshAgent))]
     public sealed class EvacuationResident : MonoBehaviour
     {
-        public enum ResidentState { Waiting, Panicking, LeavingHouse, Following, EnteringShelter, Sheltered, Burning, Dead }
+        public enum ResidentState { Waiting, Panicking, LeavingHouse, Following, EnteringShelter, Sheltered, Burning, Dead, Scattering }
         public EvacuationMission mission;
         public Animator animator;
         public EvacuationDoor door;
@@ -16,6 +16,10 @@ namespace GameJam.FireRescue
         public float reactionSeconds = 1.5f;
         public float walkingSpeed = 2f;
         public float runningSpeed = 5.8f;
+        [Header("Alarm response")]
+        [Min(3f)] public float panicRoamRadius = 17f;
+        public bool HasHeardAlarm { get; private set; }
+        public int PanicRuns { get; private set; }
         [Header("Shelter rest")]
         [Min(.1f)] public float shelterSlotRadius = .45f;
         [Min(0f)] public float shelterRestDelay = .4f;
@@ -44,6 +48,10 @@ namespace GameJam.FireRescue
         int entranceStep;
         float settledFor;
         bool supportsShelterRest;
+        Vector3 panicGoal;
+        bool hasPanicGoal;
+        float panicPauseUntil;
+        NavMeshPath panicPath;
         Vector3 lastPosition;
         static readonly int Speed = Animator.StringToHash("Speed");
         static readonly int Panic = Animator.StringToHash("Panic");
@@ -51,6 +59,7 @@ namespace GameJam.FireRescue
 
         void Awake()
         {
+            panicPath = new NavMeshPath();
             Agent = GetComponent<NavMeshAgent>();
             Agent.acceleration = 14f;
             Agent.angularSpeed = 360f;
@@ -76,8 +85,27 @@ namespace GameJam.FireRescue
         {
             if (IsCalled || IsDead || IsBurning || !mission || !mission.IsActive) return false;
             called = true;
+            if (HasHeardAlarm && State == ResidentState.Scattering)
+            {
+                State = ResidentState.Following; hasPanicGoal = false; repathAt = 0; stuckFor = 0;
+                if (animator) animator.SetBool(Panic, false);
+                return true;
+            }
+            // A call while somebody is still inside never skips the physical doorway.
+            if (HasHeardAlarm && (State == ResidentState.LeavingHouse || State == ResidentState.Panicking)) return true;
+            HasHeardAlarm = true;
             State = ResidentState.Panicking;
             reactionLeft = reactionSeconds + (formationIndex % 3) * .16f;
+            if (door) door.Open();
+            if (animator) animator.SetBool(Panic, true);
+            return true;
+        }
+        public bool HearAlarm()
+        {
+            if (HasHeardAlarm || IsSafe || IsDead || IsBurning || !mission || !mission.IsActive) return false;
+            HasHeardAlarm = true;
+            State = ResidentState.Panicking;
+            reactionLeft = reactionSeconds + (formationIndex % 4) * .22f;
             if (door) door.Open();
             if (animator) animator.SetBool(Panic, true);
             return true;
@@ -92,7 +120,7 @@ namespace GameJam.FireRescue
                 if (UnityEngine.AI.NavMesh.SamplePosition(transform.position, out var recovered, 2f, Agent.areaMask)) Agent.Warp(recovered.position);
                 else { HasNavigationProblem = true; return; }
             }
-            if (IsCalled && (!IsSafe || (safePlace && !IsResting)) && State != ResidentState.Panicking)
+            if ((IsCalled || HasHeardAlarm) && (!IsSafe || (safePlace && !IsResting)) && State != ResidentState.Panicking)
             {
                 if (FlatDistance(transform.position, recoveryPosition) < .2f) stuckFor += Time.deltaTime;
                 else { stuckFor = 0; recoveryPosition = transform.position; }
@@ -101,6 +129,7 @@ namespace GameJam.FireRescue
                     if (door) door.Open();
                     Agent.ResetPath(); repathAt = 0;
                     Agent.avoidancePriority = 10 + (formationIndex + Mathf.FloorToInt(Time.time)) % 30;
+                    if (State == ResidentState.Scattering) hasPanicGoal = false;
                     stuckFor = 0;
                 }
             }
@@ -124,8 +153,10 @@ namespace GameJam.FireRescue
             if (State == ResidentState.LeavingHouse && houseExit)
             {
                 GoTo(houseExit.position, runningSpeed, .3f);
-                if (Arrived(houseExit.position, .8f)) { State = ResidentState.Following; repathAt = 0; }
+                if (Arrived(houseExit.position, .8f))
+                { State = IsCalled ? ResidentState.Following : ResidentState.Scattering; repathAt = 0; hasPanicGoal = false; }
             }
+            else if (State == ResidentState.Scattering) ScatterOutside();
             else if (State == ResidentState.Following)
             {
                 float distance = FlatDistance(transform.position, mission.PlayerTransform.position);
@@ -163,6 +194,37 @@ namespace GameJam.FireRescue
             float actualSpeed = Time.deltaTime > .0001f ? FlatDistance(transform.position, lastPosition) / Time.deltaTime : 0;
             lastPosition = transform.position;
             if (animator) animator.SetFloat(Speed, Mathf.Min(actualSpeed / Mathf.Max(.1f, transform.lossyScale.y), 7f), .18f, Time.deltaTime);
+        }
+        void ScatterOutside()
+        {
+            if (!houseExit) return;
+            if (Time.time < panicPauseUntil) { Stop(); return; }
+            if (!hasPanicGoal)
+            {
+                if (!ChoosePanicGoal()) { Stop(); panicPauseUntil = Time.time + .45f; return; }
+                if (animator) animator.SetBool(Panic, false);
+            }
+            GoTo(panicGoal, runningSpeed * (.85f + formationIndex % 3 * .08f), .5f);
+            if (!Arrived(panicGoal, 1f)) return;
+            hasPanicGoal = false; Stop();
+            panicPauseUntil = Time.time + .25f + (formationIndex + PanicRuns) % 3 * .22f;
+            if (animator) animator.SetBool(Panic, true);
+        }
+        bool ChoosePanicGoal()
+        {
+            for (int attempt = 0; attempt < 14; attempt++)
+            {
+                float angle = (formationIndex * 79 + (PanicRuns + attempt) * 137) * Mathf.Deg2Rad;
+                float radius = Mathf.Lerp(5f, panicRoamRadius, ((formationIndex + PanicRuns + attempt) % 5) / 4f);
+                Vector3 desired = houseExit.position + new Vector3(Mathf.Cos(angle), 0, Mathf.Sin(angle)) * radius;
+                if (!NavMesh.SamplePosition(desired, out var hit, 3f, Agent.areaMask) || FlatDistance(hit.position, transform.position) < 3.5f) continue;
+                bool indoors = false;
+                foreach (var building in BurnableBuilding.ActiveBuildings)
+                    if (building && building.ignitionBounds && building.ignitionBounds.bounds.Contains(hit.position + Vector3.up * 2f)) { indoors = true; break; }
+                if (indoors || !Agent.CalculatePath(hit.position, panicPath) || panicPath.status != NavMeshPathStatus.PathComplete) continue;
+                panicGoal = hit.position; hasPanicGoal = true; PanicRuns++; repathAt = 0; return true;
+            }
+            return false;
         }
         void RestAtShelterPlace()
         {

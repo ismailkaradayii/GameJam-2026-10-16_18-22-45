@@ -244,6 +244,7 @@ namespace GameJam.FireRescue
                     CallOffer(ref offer, evacuation); return true;
                 case ContextualInteractionKind.CallHouse:
                     if (player.IsDriving || !evacuation || !evacuation.IsActive || !target.anchor) return false;
+                    if (evacuation.alarmTriggersPanic) return false;
                     bool waiting = false;
                     foreach (var resident in evacuation.residents)
                         if (resident && resident.houseExit == target.anchor && !resident.IsCalled && CanCall(resident)) { waiting = true; break; }
@@ -291,8 +292,9 @@ namespace GameJam.FireRescue
             }
             return false;
         }
-        bool CanCall(EvacuationResident resident) => resident && resident.houseExit && mission.evacuation.PlayerTransform &&
-            EvacuationResident.FlatDistance(mission.evacuation.PlayerTransform.position, resident.houseExit.position) <= mission.evacuation.shoutRadius;
+        bool CanCall(EvacuationResident resident) => resident && !resident.IsDead && !resident.IsBurning && mission.evacuation.PlayerTransform &&
+            (mission.evacuation.callAllAlarmedVillagers && resident.HasHeardAlarm ||
+             EvacuationResident.FlatDistance(mission.evacuation.PlayerTransform.position, resident.transform.position) <= mission.evacuation.shoutRadius);
         void CallOffer(ref InteractionOffer offer, EvacuationMission evacuation)
         {
             offer.title = words.callVillagers; offer.input = InteractionInput.CallVillagers;

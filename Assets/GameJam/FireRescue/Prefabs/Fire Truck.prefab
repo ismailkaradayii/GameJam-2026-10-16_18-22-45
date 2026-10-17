@@ -5426,6 +5426,7 @@ GameObject:
   - component: {fileID: 7661674359977875427}
   - component: {fileID: 45011469052894866}
   - component: {fileID: 4865318999240101847}
+  - component: {fileID: 8896686709481957503}
   m_Layer: 0
   m_Name: Fire Truck
   m_TagString: Untagged
@@ -5775,6 +5776,28 @@ MonoBehaviour:
   volume: 0.65
   fadeInSpeed: 8
   fadeOutSpeed: 18
+--- !u!114 &8896686709481957503
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3982989680251876926}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c0039121e44ea8d4dbed7acb144ad9d9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  resident: {fileID: 0}
+  truck: {fileID: 7123928594576945424}
+  maximumHealth: 240
+  fireDamagePerSecond: 1.2
+  lavaDamagePerSecond: 6
+  waterToExtinguish: 40
+  truckFireGraceSeconds: 3
+  automaticSuppressionDelay: 2
+  automaticSuppressionLitresPerSecond: 18
+  truckWetProtectionSeconds: 10
 --- !u!1 &4190309344186504088
 GameObject:
   m_ObjectHideFlags: 0

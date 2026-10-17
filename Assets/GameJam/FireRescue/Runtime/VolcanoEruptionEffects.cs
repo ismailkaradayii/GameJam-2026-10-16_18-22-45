@@ -6,6 +6,16 @@ namespace GameJam.FireRescue
     [DisallowMultipleComponent]
     public sealed class VolcanoEruptionEffects : MonoBehaviour
     {
+        [System.Serializable] public sealed class DriftingAshCloud
+        {
+            public ParticleSystem particles;
+            public Vector3 eruptionPosition, villagePosition;
+            [Min(0)] public float delay = 5;
+            [Min(1)] public float travelSeconds = 75;
+            [System.NonSerialized] internal bool started;
+            [System.NonSerialized] internal float emissionRate;
+        }
+
         public ParticleSystem eruptionBurst;
         public ParticleSystem lavaBombs;
         public ParticleSystem smokePlume;
@@ -19,9 +29,12 @@ namespace GameJam.FireRescue
         [Min(0.1f)] public float bombFadeSeconds = 5f;
         [Range(0f, 1f)] public float sustainedBombFraction = 0.08f;
         [Min(0.05f)] public float flashSeconds = 1.4f;
+        [Header("Existing asset clouds drifting down to the village")]
+        public DriftingAshCloud[] driftingAshClouds = System.Array.Empty<DriftingAshCloud>();
 
         public bool IsErupting { get; private set; }
         public float Elapsed { get; private set; }
+        public float AshArrival01 { get; private set; }
 
         private ParticleSystem cachedBombs;
         private ParticleSystem cachedSmoke;
@@ -56,6 +69,7 @@ namespace GameJam.FireRescue
                 return;
             float before = Elapsed;
             Elapsed += deltaTime;
+            TickAshClouds();
             if (ashCrownDelay > 0f && before < ashCrownDelay && Elapsed >= ashCrownDelay) PlayFromStart(ashCrown);
             // Two smaller pressure pulses give the rising column a rolling, uneven source.
             if (eruptionBurst && ((before < .75f && Elapsed >= .75f) || (before < 1.8f && Elapsed >= 1.8f)))
@@ -68,6 +82,16 @@ namespace GameJam.FireRescue
             CacheSettings();
             IsErupting = false;
             Elapsed = 0f;
+            AshArrival01 = 0;
+            foreach (var cloud in driftingAshClouds)
+            {
+                if (cloud == null || !cloud.particles) continue;
+                if (!cloud.started) cloud.emissionRate = cloud.particles.emission.rateOverTimeMultiplier;
+                cloud.started = false;
+                StopAndClear(cloud.particles);
+                cloud.particles.transform.position = cloud.eruptionPosition;
+                SetEmission(cloud.particles, cloud.emissionRate);
+            }
             StopAndClear(eruptionBurst);
             StopAndClear(lavaBombs);
             StopAndClear(smokePlume);
@@ -102,6 +126,26 @@ namespace GameJam.FireRescue
                 float glow = eruptionGlowFraction * fountainFraction * (.85f + .15f * Mathf.Sin(Elapsed * 17f));
                 eruptionLight.intensity = lightIntensity * Mathf.Max(remaining * remaining, glow);
                 eruptionLight.enabled = eruptionLight.intensity > .01f;
+            }
+        }
+
+        void TickAshClouds()
+        {
+            AshArrival01 = 0;
+            foreach (var cloud in driftingAshClouds)
+            {
+                if (cloud == null || !cloud.particles || Elapsed < cloud.delay) continue;
+                if (!cloud.started)
+                {
+                    cloud.emissionRate = cloud.particles.emission.rateOverTimeMultiplier;
+                    cloud.started = true;
+                    PlayFromStart(cloud.particles);
+                }
+                float progress = Mathf.Clamp01((Elapsed - cloud.delay) / Mathf.Max(1, cloud.travelSeconds));
+                // Local-space particles travel with their emitter as the whole cloud bank descends.
+                cloud.particles.transform.position = Vector3.Lerp(cloud.eruptionPosition, cloud.villagePosition, Mathf.SmoothStep(0, 1, progress));
+                SetEmission(cloud.particles, cloud.emissionRate * Mathf.SmoothStep(0, 1, (Elapsed - cloud.delay) / 8f));
+                AshArrival01 = Mathf.Max(AshArrival01, Mathf.SmoothStep(0, 1, Mathf.InverseLerp(.42f, .9f, progress)));
             }
         }
 

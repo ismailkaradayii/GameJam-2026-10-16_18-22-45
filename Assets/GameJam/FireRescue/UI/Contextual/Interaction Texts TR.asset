@@ -26,9 +26,9 @@ MonoBehaviour:
   stopBeforeExit: "\u0130nmek i\xE7in \xF6nce arac\u0131 durdur"
   drivingHint: "WASD ile s\xFCr \xB7 {0} su s\u0131k"
   clearExit: "\xC7\u0131k\u0131\u015F engellendi. A\xE7\u0131k bir yere park et."
-  callVillagers: "K\xF6yl\xFCleri \xC7a\u011F\u0131r"
+  callVillagers: Buraya Gelin!
   leadVillager: "K\xF6yl\xFCy\xFC S\u0131\u011F\u0131na\u011Fa G\xF6t\xFCr"
-  leadToShelter: "S\u0131\u011F\u0131na\u011Fa g\xF6t\xFCr"
+  leadToShelter: "K\xF6yl\xFCleri topla, s\u0131\u011F\u0131na\u011Fa g\xF6t\xFCr"
   following: Seni takip ediyor
   callCoolingDown: "Sesini dinlendir. Birazdan tekrar \xE7a\u011F\u0131rabilirsin."
   shelter: "S\u0131\u011F\u0131nak"
@@ -57,4 +57,4 @@ MonoBehaviour:
   alarmNeedsPistol: "\xD6nce tabancay\u0131 al"
   alarmGetCloser: "Butona biraz daha yakla\u015F"
   alarmReloading: "\u015Earj\xF6r de\u011Fi\u015Fimi bitsin"
-  alarmActivated: "K\xF6y Uyar\u0131ld\u0131!"
+  alarmActivated: "Alarm \xE7ald\u0131! K\xF6yl\xFCler d\u0131\u015Far\u0131 \xE7\u0131k\u0131yor."

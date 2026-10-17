@@ -13,6 +13,11 @@ namespace GameJam.FireRescue
         [Min(0f)] public float fireDamagePerSecond = 16f;
         [Min(0f)] public float lavaDamagePerSecond = 48f;
         [Min(1f)] public float waterToExtinguish = 12f;
+        [Header("Rescue truck protection")]
+        [Min(0f)] public float truckFireGraceSeconds = 3f;
+        [Min(0f)] public float automaticSuppressionDelay = 2f;
+        [Min(0f)] public float automaticSuppressionLitresPerSecond = 18f;
+        [Min(0f)] public float truckWetProtectionSeconds = 10f;
         public float Health { get; private set; } = 100f;
         public float Integrity01 => Mathf.Clamp01(Health / Mathf.Max(1f, maximumHealth));
         public float Heat { get; private set; }
@@ -20,15 +25,17 @@ namespace GameJam.FireRescue
         public bool IsDestroyed => Health <= 0f;
         public bool InHotLava { get; private set; }
         public bool CanIgnite => isActiveAndEnabled && !IsDestroyed && (!resident || (!resident.IsDead && !resident.IsSafe));
-        public float MotorEfficiency => IsDestroyed ? 0f : Mathf.Lerp(.2f, 1f, Integrity01);
-        public float PumpEfficiency => IsDestroyed ? 0f : Mathf.Lerp(.15f, 1f, Integrity01);
+        public float MotorEfficiency => IsDestroyed ? 0f : truck ? Mathf.Lerp(.55f, 1f, Mathf.InverseLerp(0f, .6f, Integrity01)) : Mathf.Lerp(.2f, 1f, Integrity01);
+        public float PumpEfficiency => IsDestroyed ? 0f : truck ? Mathf.Lerp(.6f, 1f, Mathf.InverseLerp(0f, .6f, Integrity01)) : Mathf.Lerp(.15f, 1f, Integrity01);
+        public bool AutomaticSuppressionActive { get; private set; }
         public int Ignitions { get; private set; }
         public event System.Action<ThermalDamage> Destroyed;
         static readonly List<ThermalDamage> targets = new List<ThermalDamage>();
         public static IReadOnlyList<ThermalDamage> ActiveTargets => targets;
         Collider[] contacts;
         ThermalBurnVisual visual;
-        float wetSeconds, corpseFireSeconds, spiritCooldown;
+        float wetSeconds, corpseFireSeconds, spiritCooldown, burningSeconds;
+        FireHoseSystem onboardTank;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         static void ResetTargets() => targets.Clear();
@@ -41,13 +48,23 @@ namespace GameJam.FireRescue
         void Awake()
         {
             resident = GetComponent<EvacuationResident>(); truck = GetComponent<FireTruckDrive>();
-            if (truck) { fireDamagePerSecond = 3.2f; lavaDamagePerSecond = 16f; waterToExtinguish = 65f; }
+            // Migrate old scenes and dynamically spawned trucks; authored tuning remains editable.
+            if (truck && maximumHealth <= 100f && fireDamagePerSecond >= 3.2f) ConfigureRescueTruck();
+            onboardTank = truck ? GetComponent<FireHoseSystem>() : null;
             Health = Mathf.Max(1f, maximumHealth);
             contacts = GetComponentsInChildren<Collider>(true);
         }
         void OnEnable() { if (!targets.Contains(this)) targets.Add(this); }
         void OnDisable() { targets.Remove(this); InHotLava = false; }
         void Update() => TickHeat(Time.deltaTime);
+
+        public void ConfigureRescueTruck()
+        {
+            truck = GetComponent<FireTruckDrive>();
+            maximumHealth = 240f; fireDamagePerSecond = 1.2f; lavaDamagePerSecond = 6f; waterToExtinguish = 40f;
+            truckFireGraceSeconds = 3f; automaticSuppressionDelay = 2f;
+            automaticSuppressionLitresPerSecond = 18f; truckWetProtectionSeconds = 10f;
+        }
 
         public Vector3 ClosestPoint(Vector3 from)
         {
@@ -106,15 +123,15 @@ namespace GameJam.FireRescue
             bool first = !IsBurning;
             Heat = Mathf.Max(Heat, Mathf.Clamp01(intensity));
             if (!visual) visual = gameObject.GetComponent<ThermalBurnVisual>() ?? gameObject.AddComponent<ThermalBurnVisual>();
-            if (first) { Ignitions++; if (resident) resident.BeginBurning(); visual.OnIgnited(); }
+            if (first) { burningSeconds = 0f; Ignitions++; if (resident) resident.BeginBurning(); visual.OnIgnited(); }
             return true;
         }
         public bool IgniteFromSpirit(float impactDamage = 12f)
         {
             if (!CanIgnite || wetSeconds > 0f || spiritCooldown > 0f) return false;
-            spiritCooldown = .8f;
+            spiritCooldown = truck ? 4f : .8f;
             if (!Ignite()) return false;
-            Damage(impactDamage);
+            Damage(impactDamage * (truck ? .5f : 1f));
             return true;
         }
         public void ApplyWater(float litres)
@@ -123,7 +140,8 @@ namespace GameJam.FireRescue
             Heat = Mathf.Max(0f, Heat - litres / Mathf.Max(1f, waterToExtinguish));
             if (!IsBurning)
             {
-                Heat = 0f; wetSeconds = 2f;
+                Heat = 0f; burningSeconds = 0f; wetSeconds = truck ? truckWetProtectionSeconds : 2f;
+                AutomaticSuppressionActive = false;
                 if (resident && !resident.IsDead) resident.StopBurning();
             }
         }
@@ -138,6 +156,7 @@ namespace GameJam.FireRescue
         {
             if (!isActiveAndEnabled || !float.IsFinite(dt) || dt <= 0f || Time.timeScale <= 0f) return;
             dt = Mathf.Min(dt, .25f);
+            AutomaticSuppressionActive = false;
             spiritCooldown = Mathf.Max(0f, spiritCooldown - dt);
             wetSeconds = Mathf.Max(0f, wetSeconds - dt);
             if (resident && resident.IsSafe) { Heat = 0f; InHotLava = false; return; }
@@ -165,7 +184,17 @@ namespace GameJam.FireRescue
                 if (corpseFireSeconds <= 0f) Heat = 0f;
                 return;
             }
-            Damage((fireDamagePerSecond * Heat + (InHotLava ? lavaDamagePerSecond : 0f)) * dt);
+            float previousBurningSeconds = burningSeconds;
+            burningSeconds += dt;
+            // Short lava crossings leave time to escape. Staying in lava still destroys the vehicle.
+            float damageSeconds = truck ? Mathf.Clamp(burningSeconds - truckFireGraceSeconds, 0f, dt) : dt;
+            Damage((fireDamagePerSecond * Heat + (InHotLava ? lavaDamagePerSecond : 0f)) * damageSeconds);
+            if (truck && !IsDestroyed && !InHotLava && onboardTank && burningSeconds > automaticSuppressionDelay)
+            {
+                float suppressionSeconds = Mathf.Clamp(burningSeconds - Mathf.Max(previousBurningSeconds, automaticSuppressionDelay), 0f, dt);
+                float litres = onboardTank.ConsumeWater(automaticSuppressionLitresPerSecond * suppressionSeconds);
+                if (litres > 0f) { ApplyWater(litres); AutomaticSuppressionActive = IsBurning; }
+            }
         }
         void Damage(float amount)
         {

@@ -110,7 +110,7 @@ public static class ThermalHazardSetup
         foreach (var truck in Object.FindObjectsByType<FireTruckDrive>(FindObjectsInactive.Include, FindObjectsSortMode.None))
         {
             var damage = truck.GetComponent<ThermalDamage>() ?? truck.gameObject.AddComponent<ThermalDamage>();
-            damage.truck = truck; damage.fireDamagePerSecond = 3.2f; damage.lavaDamagePerSecond = 16; damage.waterToExtinguish = 65;
+            damage.ConfigureRescueTruck();
             EditorUtility.SetDirty(damage);
         }
         EditorUtility.SetDirty(controller); AssetDatabase.SaveAssets();

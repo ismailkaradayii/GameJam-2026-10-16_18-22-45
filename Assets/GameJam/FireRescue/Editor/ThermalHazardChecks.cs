@@ -217,10 +217,11 @@ public static class ThermalHazardChecks
             if ((!truck.Thermal.IsBurning || !spirit.SelfDetonated) && Time.time - phaseAt < 12) return;
             Verify("A spirit actively pounces on the occupied fire truck", truck.Thermal.IsBurning && spirit.SelfDetonated,
                 "state=" + spirit.GetComponent<LavaCreatureCombat>().State + " destroyedSpirit=" + spirit.SelfDetonated);
-            Verify("The cab shields the driver while the vehicle takes fire damage", driver.Health == driver.maximumHealth && truck.Thermal.Health < 100);
+            Verify("The cab shields the driver while the vehicle takes fire damage", driver.Health == driver.maximumHealth && truck.Thermal.Health < truck.Thermal.maximumHealth);
             truckCannon.SetSpraying(true); truckCannon.TickSpray(1); firstLitres = 1000 - truckTank.TankLitres;
             truckSpeed = truckCannon.LaunchVelocity.magnitude; truckFlow = firstLitres;
-            for (int i = 0; i < 48; i++) truck.Thermal.TickHeat(.25f);
+            Verify("Minor vehicle damage preserves full motor and pump output", truck.MotorEfficiency == 1f && truck.Thermal.PumpEfficiency == 1f);
+            for (int i = 0; i < 560; i++) truck.Thermal.TickHeat(.25f);
             truckTank.SetTankLitres(1000); truckCannon.TickSpray(1);
             float damagedFlow = 1000 - truckTank.TankLitres;
             Verify("Engine output and vehicle top speed fall with permanent damage", truck.MotorEfficiency < .8f && truck.EffectiveForwardSpeedKph < truck.maxForwardSpeedKph * .8f);
@@ -236,7 +237,7 @@ public static class ThermalHazardChecks
             truckTank.SetTankLitres(1000);
             for (int i = 0; i < 10; i++) truck.Thermal.SuppressFromTank(truckTank, .25f);
             truck.Thermal.TickHeat(.2f);
-            Verify("Onboard suppression spends real tank water without repairing damage", !truck.Thermal.IsBurning && truckTank.TankLitres < 940 && Mathf.Abs(truck.Thermal.Health - damagedHealth) < .01f);
+            Verify("Onboard suppression spends real tank water without repairing damage", !truck.Thermal.IsBurning && truckTank.TankLitres < 1000 && truckTank.TankLitres >= 950 && Mathf.Abs(truck.Thermal.Health - damagedHealth) < .01f);
             // Test actual wheel contact rather than an oversized chassis heat volume.
             var wheel = truck.wheels.First(w => w); wheel.GetWorldPose(out var p, out _);
             float radius = wheel.radius * Mathf.Max(.01f, wheel.transform.lossyScale.y);
@@ -264,6 +265,8 @@ public static class ThermalHazardChecks
         var root = Object.Instantiate(truckTemplate); root.name = "Actual fire truck under spirit attack";
         root.transform.rotation = Quaternion.identity; root.transform.position = Vector3.zero;
         truck = root.GetComponent<FireTruckDrive>(); truck.body.constraints = RigidbodyConstraints.FreezeAll;
+        // Exercise prolonged damage and manual suppression here; the automatic system has its own rescue regression.
+        truck.Thermal.automaticSuppressionLitresPerSecond = 0;
         truck.SetDriven(true); truckTank = root.GetComponent<FireHoseSystem>(); truckTank.SetTankLitres(1000);
         truckCannon = root.GetComponent<FireTruckWaterCannon>(); truckCannon.enabled = false; truckCannon.aimCamera = null;
         var human = new GameObject("Driver inside cab");

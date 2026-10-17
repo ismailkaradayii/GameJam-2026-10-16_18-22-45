@@ -25,8 +25,9 @@ namespace GameJam.FireRescue
         public Transform[] lakeRoad = System.Array.Empty<Transform>();
         public Transform[] lakeTurnaround = System.Array.Empty<Transform>();
         [Min(10f)] public float drivingMarkerLookAhead = 32f;
-        int turnWaypoint;
-        bool followingTurn, completedTurn;
+        [Tooltip("Away from the road, point to the destination so shortcuts remain optional.")]
+        [Min(5f)] public float roadGuidanceDistance = 38f;
+        Transform drivingGuide;
         public Transform CurrentTarget { get; private set; }
         public string CurrentLabel { get; private set; }
         readonly Vector3[] points = new Vector3[65];
@@ -106,7 +107,6 @@ namespace GameJam.FireRescue
         Transform SelectTarget(ref Color color, ref float radius)
         {
             var player = mission.player;
-            if (mission.tank && mission.tank.Tank01 < .05f) { followingTurn = completedTurn = false; turnWaypoint = 0; }
             if (mission.State == VolcanoMissionDirector.FlowState.Intro) return null;
             if (!player.HasPistol && mission.weaponPickup && !mission.weaponPickup.IsCollected)
             { CurrentLabel = "PISTOL | SLOT 1"; radius = .75f; return mission.weaponPickup.transform; }
@@ -120,10 +120,10 @@ namespace GameJam.FireRescue
                 foreach (var resident in mission.evacuation.residents)
                 {
                     if (!resident || resident.IsCalled || !resident.houseExit) continue;
-                    float d = (resident.houseExit.position - player.transform.position).sqrMagnitude;
-                    if (d < distance) { distance = d; next = resident.houseExit; }
+                    float d = (resident.transform.position - player.transform.position).sqrMagnitude;
+                    if (d < distance) { distance = d; next = resident.transform; }
                 }
-                if (next) { CurrentLabel = "VILLAGERS | Q: CALL"; return next; }
+                if (next) { CurrentLabel = "KÖYLÜLER | Q: BURAYA GELİN"; return next; }
                 CurrentLabel = "SHELTER | LEAD THE VILLAGERS"; color = shelterColor; radius = shelterRadius;
                 return mission.evacuation.ShelterOpened ? mission.evacuation.shelterEntrance : mission.evacuation.shelterApproach;
             }
@@ -133,36 +133,23 @@ namespace GameJam.FireRescue
             {
                 if (!player.IsDriving) { CurrentLabel = "FIRE TRUCK | E: ENTER"; radius = 5; return player.driverDoor; }
                 CurrentLabel = "LAKE | REFILL WATER"; radius = mission.fillStation.parkingRadius;
-                if (player.IsDriving && lakeRoad.Length > 1 && !mission.fillStation.InRange)
+                if (player.drive && !mission.fillStation.InRange &&
+                    EvacuationResident.FlatDistance(player.drive.transform.position, mission.fillStation.transform.position) > drivingMarkerLookAhead * 1.4f &&
+                    TryGetRoadGuidance(player.drive.transform.position, -1, out var lakeGuide))
                 {
-                    int nearest = 0; float distance = float.PositiveInfinity;
-                    for (int i = 0; i < lakeRoad.Length; i++) if (lakeRoad[i])
-                    { float d = (lakeRoad[i].position - player.drive.transform.position).sqrMagnitude; if (d < distance) { nearest = i; distance = d; } }
-                    // Road is stored from the lake toward the village.
-                    if (nearest > 1) { CurrentLabel = "LAKE | FOLLOW THE ROAD"; radius = 5; return RoadAhead(nearest, -1); }
+                    CurrentLabel = "LAKE | REFILL WATER"; radius = 4;
+                    return PlaceDrivingGuide(lakeGuide);
                 }
                 return mission.fillStation.transform;
-            }
-            if (player.IsDriving && mission.fillStation && lakeTurnaround.Length > 0)
-            {
-                if (!followingTurn && !completedTurn && mission.fillStation.InRange && mission.tank && mission.tank.Tank01 >= .999f)
-                { followingTurn = true; turnWaypoint = 0; }
-                while (followingTurn && turnWaypoint < lakeTurnaround.Length && (!lakeTurnaround[turnWaypoint] ||
-                    EvacuationResident.FlatDistance(player.drive.transform.position, lakeTurnaround[turnWaypoint].position) < 12)) turnWaypoint++;
-                if (followingTurn && turnWaypoint >= lakeTurnaround.Length) { followingTurn = false; completedTurn = true; }
-                if (followingTurn)
-                { CurrentLabel = "TURNING AREA | RETURN TO VILLAGE"; radius = 6; return lakeTurnaround[turnWaypoint]; }
             }
             if (player.IsDriving && mission.houseExit && lakeRoad.Length > 1 &&
                 (EvacuationResident.FlatDistance(player.drive.transform.position, mission.houseExit.position) > 140 ||
                  !mission.EruptionTriggered && mission.PreparationComplete && lakeRoad[lakeRoad.Length - 1] &&
                  EvacuationResident.FlatDistance(player.drive.transform.position, lakeRoad[lakeRoad.Length - 1].position) > 25))
             {
-                int nearest = 0; float distance = float.PositiveInfinity;
-                for (int i = 0; i < lakeRoad.Length; i++) if (lakeRoad[i])
-                { float d = (lakeRoad[i].position - player.drive.transform.position).sqrMagnitude; if (d < distance) { nearest = i; distance = d; } }
-                if (nearest < lakeRoad.Length - 1)
-                { CurrentLabel = "VILLAGE | FOLLOW THE ROAD"; radius = 5; return RoadAhead(nearest, 1); }
+                CurrentLabel = "VILLAGE | RETURN TO VILLAGE"; radius = 4;
+                if (TryGetRoadGuidance(player.drive.transform.position, 1, out var villageGuide)) return PlaceDrivingGuide(villageGuide);
+                return mission.houseExit;
             }
             BurnableBuilding urgent = null; float priority = float.PositiveInfinity;
             foreach (var house in BurnableBuilding.ActiveBuildings)
@@ -178,18 +165,49 @@ namespace GameJam.FireRescue
             CurrentLabel = "VILLAGE | GET READY";
             return mission.houseExit;
         }
-        Transform RoadAhead(int index, int direction)
+        /// <summary>Project onto the road each frame, then advance along it. No checkpoint has to be visited.</summary>
+        public bool TryGetRoadGuidance(Vector3 position, int direction, out Vector3 target)
         {
-            float distance = 0;
-            Transform target = lakeRoad[index];
-            for (int next = index + direction; next >= 0 && next < lakeRoad.Length; next += direction)
+            target = position;
+            if (lakeRoad == null || lakeRoad.Length < 2 || direction == 0) return false;
+            float nearest = float.PositiveInfinity;
+            int segment = -1;
+            Vector3 projection = position;
+            for (int i = 0; i < lakeRoad.Length - 1; i++)
             {
-                if (!lakeRoad[next]) continue;
-                if (target) distance += EvacuationResident.FlatDistance(target.position, lakeRoad[next].position);
-                target = lakeRoad[next];
-                if (distance >= drivingMarkerLookAhead) break;
+                if (!lakeRoad[i] || !lakeRoad[i + 1]) continue;
+                Vector3 a = lakeRoad[i].position, b = lakeRoad[i + 1].position;
+                Vector2 ab = new Vector2(b.x - a.x, b.z - a.z);
+                float t = Mathf.Clamp01(Vector2.Dot(new Vector2(position.x - a.x, position.z - a.z), ab) / Mathf.Max(.001f, ab.sqrMagnitude));
+                Vector3 p = Vector3.Lerp(a, b, t);
+                float distance = new Vector2(position.x - p.x, position.z - p.z).sqrMagnitude;
+                if (distance < nearest) { nearest = distance; segment = i; projection = p; }
             }
-            return target;
+            if (segment < 0 || nearest > roadGuidanceDistance * roadGuidanceDistance) return false;
+            float ahead = drivingMarkerLookAhead;
+            Vector3 current = projection;
+            int step = direction > 0 ? 1 : -1;
+            for (int i = step > 0 ? segment + 1 : segment; i >= 0 && i < lakeRoad.Length; i += step)
+            {
+                if (!lakeRoad[i]) continue;
+                Vector3 next = lakeRoad[i].position;
+                float length = EvacuationResident.FlatDistance(current, next);
+                if (length >= ahead) { target = Vector3.Lerp(current, next, ahead / Mathf.Max(.001f, length)); return true; }
+                ahead -= length; current = next;
+            }
+            target = current;
+            return EvacuationResident.FlatDistance(position, target) > 6f;
+        }
+        Transform PlaceDrivingGuide(Vector3 position)
+        {
+            if (!drivingGuide)
+                drivingGuide = new GameObject("Live driving guidance") { hideFlags = HideFlags.HideAndDontSave }.transform;
+            drivingGuide.position = position;
+            return drivingGuide;
+        }
+        void OnDestroy()
+        {
+            if (drivingGuide) Destroy(drivingGuide.gameObject);
         }
     }
 }

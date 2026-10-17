@@ -278,7 +278,9 @@ namespace GameJam.FireRescue
                     "  ·  Durum %" + Mathf.CeilToInt(drive.Thermal.Integrity01 * 100f) +
                     "  ·  Pompa %" + Mathf.RoundToInt(drive.Thermal.PumpEfficiency * 100f);
             if (pumpText && player.IsDriving && drive && drive.Thermal && drive.Thermal.IsBurning && !drive.IsWrecked)
-                pumpText.text += drive.Thermal.InHotLava ? "  ·  LAVDAN ÇIK!" : "  ·  X basılı tut: söndür";
+                pumpText.text += drive.Thermal.InHotLava ? "  ·  LAVDAN ÇIK!" :
+                    drive.Thermal.AutomaticSuppressionActive ? "  ·  Otomatik söndürme devrede" :
+                    hose && hose.TankLitres > 0f ? "  ·  X basılı tut: söndür" : "  ·  Söndürme için su gerekli";
             if (speedText) speedText.text = player.IsDriving && drive ? Mathf.RoundToInt(drive.SpeedKph) + " km/h" : "On foot";
             bool showHealth = playing && vitals && vitals.Health < vitals.maximumHealth - .1f;
             if (healthPanel && healthPanel.activeSelf != showHealth) healthPanel.SetActive(showHealth);
@@ -466,8 +468,8 @@ namespace GameJam.FireRescue
                 questTitleText.text = "Evacuate the villagers";
                 questBodyText.text = "Sheltered  " + evacuation.RescuedCount + " / " + evacuation.TotalCount +
                     "     Called  " + evacuation.CalledCount + " / " + evacuation.TotalCount + "\n" +
-                    (evacuation.CalledCount < evacuation.TotalCount ? "Go to the houses and call out with Q." : "Lead the group to the shelter.");
-                questHintText.text = player.IsDriving ? "F  Exit vehicle" : evacuation.CooldownRemaining > 0f ? "Q  Call again  ·  " + Mathf.CeilToInt(evacuation.CooldownRemaining) + " sec" : "Q  Call villagers  ·  " + evacuation.DestinationHintForHud;
+                    (evacuation.CalledCount < evacuation.TotalCount ? "Alarm çaldı. Q ile 'Buraya gelin!' diye seslen." : "Köylüleri sığınağa götür.");
+                questHintText.text = player.IsDriving ? "F  Exit vehicle" : evacuation.CooldownRemaining > 0f ? "Q  Call again  ·  " + Mathf.CeilToInt(evacuation.CooldownRemaining) + " sec" : "Q  Buraya gelin!  ·  " + evacuation.DestinationHintForHud;
                 questFill.fillAmount = evacuation.TotalCount > 0 ? (float)evacuation.RescuedCount / evacuation.TotalCount : 0f;
                 return;
             }

@@ -180,7 +180,7 @@ namespace GameJam.FireRescue
                     MissionPhase.Weapon => player.HasPistol ? "Pistol in slot 1. Follow the marker to the front door. E opens doors." : "Pick up the pistol on the bedside cabinet. Press E when nearby.",
                     MissionPhase.WarnVillage => villageAlarm ? "İlk evde kırmızı ışığın altındaki alarm butonuna yaklaş. " +
                         (player.contextualInteractions ? player.contextualInteractions.Label(InteractionInput.Interact) : "E") + " ile bas ve köyü uyar." : "Warn the village to begin the evacuation.",
-                    MissionPhase.Evacuate => "Q calls nearby villagers. Lead them to the GREEN shelter ring.",
+                    MissionPhase.Evacuate => "Alarmı duyan köylüler dışarı çıkıyor. Q ile 'Buraya gelin!' diye seslen, ardından sığınağa götür.",
                     MissionPhase.Truck => "Find the truck behind your house. Approach the driver's door and press " +
                         (player.contextualInteractions ? player.contextualInteractions.Label(InteractionInput.Interact) : "E") + ".",
                     MissionPhase.Refill => "Park in the BLUE lake ring. Press E to connect the intake and fill the tank.",

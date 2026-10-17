@@ -13,6 +13,8 @@ namespace GameJam.FireRescue
         public Volume atmosphereVolume, cinematicVolume;
         public ParticleSystem fallingAsh;
         public ParticleSystem[] groundHaze = System.Array.Empty<ParticleSystem>();
+        public bool anchorAshToVillage;
+        public Vector3 villageAshOrigin;
         [Header("Distance haze")]
         public Color clearFogColor = new Color(.20f, .15f, .12f);
         public Color ashFogColor = new Color(.27f, .23f, .20f);
@@ -49,15 +51,18 @@ namespace GameJam.FireRescue
             }
             if (cinematicVolume) { runtimeCinematic = cinematicVolume.profile; runtimeCinematic.TryGet(out depth); cinematicVolume.weight = 0; }
             if (player) vitals = player.GetComponent<CreatureCombatPlayer>();
+            if (fallingAsh) fallingAsh.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
         }
-        void LateUpdate()
+        void LateUpdate() => TickAtmosphere(Time.deltaTime);
+        public void TickAtmosphere(float deltaTime)
         {
-            if (!player || !sequence) return;
+            if (!player || !sequence || !float.IsFinite(deltaTime)) return;
             // A cinematic locks input while the eruption/weather must keep evolving.
             bool paused = Time.timeScale <= 0 || (player.gameFlow && player.gameFlow.BlocksGameplay);
-            float dt = paused ? 0 : Mathf.Min(Time.deltaTime, .1f);
+            float dt = paused ? 0 : Mathf.Clamp(deltaTime, 0, .1f);
             bool erupted = sequence.Stage == VolcanoEruptionSequence.EruptionStage.Erupting || sequence.Stage == VolcanoEruptionSequence.EruptionStage.Flowing;
-            AshBlend = Mathf.MoveTowards(AshBlend, erupted ? 1 : 0, dt / Mathf.Max(1, atmosphereChangeSeconds));
+            float ashTarget = erupted ? sequence.effects && sequence.effects.driftingAshClouds.Length > 0 ? sequence.effects.AshArrival01 : 1 : 0;
+            AshBlend = Mathf.MoveTowards(AshBlend, ashTarget, dt / Mathf.Max(1, atmosphereChangeSeconds));
             RenderSettings.fog = true; RenderSettings.fogMode = FogMode.Linear;
             RenderSettings.fogColor = Color.Lerp(clearFogColor, ashFogColor, AshBlend);
             RenderSettings.fogStartDistance = Mathf.Lerp(clearFogStart, ashFogStart, AshBlend);
@@ -85,9 +90,10 @@ namespace GameJam.FireRescue
             }
             if (fallingAsh)
             {
-                fallingAsh.transform.position = player.transform.position + Vector3.up * 17;
+                fallingAsh.transform.position = anchorAshToVillage ? villageAshOrigin : player.transform.position + Vector3.up * 17;
                 var emission = fallingAsh.emission; emission.rateOverTime = ashParticlesPerSecond * AshBlend;
-                if (erupted && !fallingAsh.isPlaying) fallingAsh.Play();
+                if (erupted && AshBlend > 0 && !fallingAsh.isPlaying) fallingAsh.Play();
+                if (!erupted && fallingAsh.isPlaying) fallingAsh.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
             }
             foreach (var haze in groundHaze) if (haze) { var emission = haze.emission; emission.rateOverTime = Mathf.Lerp(.35f, .65f, AshBlend); }
             if (player.gameFlow && (player.gameFlow.State == RescueGameFlow.GameState.Won || player.gameFlow.State == RescueGameFlow.GameState.Lost) && sequence.cameraShake)

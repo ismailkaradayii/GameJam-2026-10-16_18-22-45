@@ -25,6 +25,8 @@ namespace GameJam.FireRescue
         public float dispatchDelay = 3f;
         public float shoutRadius = 45f;
         public float shoutCooldown = 5f;
+        public bool alarmTriggersPanic = true;
+        public bool callAllAlarmedVillagers = true;
         public Key callKey = Key.Q;
         public event System.Action<EvacuationResident> ResidentRescued;
         public event System.Action<EvacuationResident> ResidentLost;
@@ -107,7 +109,7 @@ namespace GameJam.FireRescue
             Vector3 center = Vector3.zero;
             if (IsActive && residents != null)
                 foreach (var resident in residents)
-                    if (resident && resident.isActiveAndEnabled && resident.IsCalled && !resident.IsSafe && !resident.IsDead)
+                    if (resident && resident.isActiveAndEnabled && resident.HasHeardAlarm && !resident.IsSafe && !resident.IsDead)
                     { center += resident.transform.position; activeCount++; }
             bool shouldPlay = IsActive && activeCount > 0;
             if (shouldPlay)
@@ -123,7 +125,8 @@ namespace GameJam.FireRescue
         {
             if (IsActive || IsComplete || IsResolved) return;
             IsActive = true;
-            Say("DISPATCH: The volcano is active! Lead the " + TotalCount + " villagers to shelter.", 7f);
+            if (alarmTriggersPanic) foreach (var resident in residents) if (resident) resident.HearAlarm();
+            Say("ALARM! Köylüler evlerinden çıkıyor.\nQ ile 'Buraya gelin!' diye seslen; seni takip etsinler.", 7f);
         }
         public bool Shout()
         {
@@ -132,9 +135,10 @@ namespace GameJam.FireRescue
             nextShout = Time.time + Mathf.Max(1f, shoutCooldown);
             int count = 0;
             foreach (var resident in residents)
-                if (resident && resident.houseExit && EvacuationResident.FlatDistance(PlayerTransform.position, resident.houseExit.position) <= shoutRadius && resident.CallOutside()) count++;
-            Say(count > 0 ? "YOU: Everyone outside! Follow me!\n" + count + " villagers heard your call." :
-                System.Array.Exists(residents, r => r && !r.IsDead && !r.IsCalled) ? "YOU: Everyone outside!\nMove closer to the other houses and call again." : "YOU: Follow me to the shelter!", 4.5f);
+                if (resident && (callAllAlarmedVillagers && resident.HasHeardAlarm ||
+                    EvacuationResident.FlatDistance(PlayerTransform.position, resident.transform.position) <= shoutRadius) && resident.CallOutside()) count++;
+            Say(count > 0 ? "BURAYA GELİN! BENİ TAKİP EDİN!\n" + count + " köylü çağrını duydu." :
+                System.Array.Exists(residents, r => r && !r.IsDead && !r.IsCalled) ? "BURAYA GELİN!\nKöylülere yaklaşarak tekrar seslen." : "BENİ TAKİP EDİN! SIĞINAĞA GİDİYORUZ!", 4.5f);
             return true;
         }
         void Say(string text, float seconds) { subtitle = text; subtitleUntil = Time.time + seconds; }
@@ -220,7 +224,7 @@ namespace GameJam.FireRescue
                 GUI.Label(new Rect(x+12,y+8,292,24),IsComplete ? "EVACUATION COMPLETE" : "OBJECTIVE · EVACUATE",titleStyle);
                 GUI.color=Color.white;
                 GUI.Label(new Rect(x+12,y+38,292,44),"Sheltered: "+RescuedCount+" / "+TotalCount+"    Called: "+CalledCount+" / "+TotalCount+"\n"+
-                    (IsComplete ? "Everyone is safe. Fill the water tank." : CalledCount<TotalCount ? "Go to the houses and call out." : "Lead the group to the shelter."),bodyStyle);
+                    (IsComplete ? "Everyone is safe. Fill the water tank." : CalledCount<TotalCount ? "Q: Buraya gelin! Köylüleri topla." : "Lead the group to the shelter."),bodyStyle);
                 GUI.color=new Color(.15f,.23f,.24f);GUI.DrawTexture(new Rect(x+12,y+87,292,6),Texture2D.whiteTexture);
                 GUI.color=new Color(.2f,.85f,.6f);GUI.DrawTexture(new Rect(x+12,y+87,292*RescuedCount/Mathf.Max(1,TotalCount),6),Texture2D.whiteTexture);
                 GUI.color=Color.white;
@@ -238,8 +242,8 @@ namespace GameJam.FireRescue
                 placedMarkerRects.Clear();
                 if(shelterApproach) Marker(shelterApproach.position+Vector3.up*3,"SHELTER",new Color(.35f,1,.7f),scale,w,h);
                 var seen=new HashSet<Transform>();
-                foreach(var r in residents) if(r && !r.IsDead && !r.IsCalled && r.houseExit && seen.Add(r.houseExit))
-                    Marker(r.houseExit.position+Vector3.up*4,"EVACUATE",new Color(1,.8f,.35f),scale,w,h);
+                foreach(var r in residents) if(r && !r.IsDead && !r.IsCalled && seen.Add(r.transform))
+                    Marker(r.transform.position+Vector3.up*4,"BURAYA GELİN · Q",new Color(1,.8f,.35f),scale,w,h);
             }
             GUI.matrix=oldMatrix;GUI.color=oldColor;
         }
@@ -278,15 +282,15 @@ namespace GameJam.FireRescue
             Transform target=shelterApproach;float nearest=float.PositiveInfinity;bool house=false;
             foreach(var r in residents)if(r&&!r.IsDead&&!r.IsCalled&&r.houseExit)
             {
-                float distance=EvacuationResident.FlatDistance(PlayerTransform.position,r.houseExit.position);
-                if(distance<nearest){nearest=distance;target=r.houseExit;house=true;}
+                float distance=EvacuationResident.FlatDistance(PlayerTransform.position,r.transform.position);
+                if(distance<nearest){nearest=distance;target=r.transform;house=true;}
             }
             if(!target)return "";
             Vector3 delta=Vector3.ProjectOnPlane(target.position-PlayerTransform.position,Vector3.up);
             Vector3 forward=player.viewCamera?player.viewCamera.transform.forward:PlayerTransform.forward;
             float angle=Vector3.SignedAngle(Vector3.ProjectOnPlane(forward,Vector3.up),delta,Vector3.up);
             string direction=Mathf.Abs(angle)>135?"Behind":angle>25?"Right":angle< -25?"Left":"Ahead";
-            return (house?"Nearest house: ":"Shelter: ")+Mathf.RoundToInt(delta.magnitude)+" m · "+direction;
+            return (house?"Köylüler: ":"Shelter: ")+Mathf.RoundToInt(delta.magnitude)+" m · "+direction;
         }
     }
 }
