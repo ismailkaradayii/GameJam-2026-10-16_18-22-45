@@ -1,0 +1,43 @@
+18 Ekim 2026 — arayuz ve tipografi yenilemesi
+
+Var olan ana menu, oyun HUD'i ve etkilesim prefabi duzenlendi.
+Gorev/sayac panellerinin eski lav cerceveleri ve ic ObsidianCore katmanlari
+yerine koyu yari saydam yuzeyler, ince kenarlar ve turuncu vurgu kullanildi.
+Gorev karti 440, ortadaki sayac 480 birim genislikte. Baslik/aciklama
+boyutlari 32/24; sayac 30, altyazi 26. Metin yuksekligi icerige gore hesaplanir.
+Bos eski etkilesim ve ekipman kutulari acilista gizlidir.
+
+Baslik/dugme/sayilar: Chakra Petch SemiBold.
+Aciklama ve altyazi: Barlow Medium; kucuk etiketler: Barlow SemiBold.
+Canvas Text, TMP etkilesim yazilari, menu/ayarlar, duraklatma/sonuc panelleri,
+sinematik ve alternatif IMGUI metinleri ayni font duzenini kullanir.
+Sahne yuklenince fontlar ortak servisle atanir. TMP atlaslari Turkce harfleri,
+sapkalari ve kullanilan noktalama isaretlerini icerir.
+
+Yeni fontlarin kaynaklari:
+https://github.com/google/fonts/tree/main/ofl/chakrapetch
+https://github.com/google/fonts/tree/main/ofl/barlow
+SIL OFL lisans ve telif metinleri fontlarla birlikte Fonts/ klasorundedir.
+Chakra Petch: Cadson Demak / The Chakra Petch Project Authors.
+Barlow: Jeremy Tribby / The Barlow Project Authors.
+
+Unity 6000.0.58f2, kayitli sahnede gercek-frame UI kontrolu:
+- 1920x1080, 1138x722, 1280x720, 1366x768, 1024x768 ve 2560x1080.
+- Gorev metninin karta sigmasi, sayacin ortalanmasi, kartlarin cakismamasi.
+- Turkce altyazi, savunma gostergesi, gizlenen bos kartlar, pause/resume,
+  sonuc istatistikleri, ana menu ve ayarlar. 27 farkli kontrol gecti.
+- Oda, pause, ana menu ve ayarlar PNG'leri gorulecek sekilde incelendi.
+
+Rapor: Logs/CleanHUD/checks.txt
+Goruntuler: Logs/CleanHUD/00-refreshed-bedroom-1138.png,
+04-clean-pause.png, 06-refreshed-main-menu.png, 07-refreshed-settings.png.
+Sahne denetimi: Library/UIRefreshReview/scene-audit.json.
+
+Testte gorev asamasi ve kamera acisi gorsel fixture ile ayarlanir.
+Sonuc paneli kontrolunde kapanis sinematigi yalniz Play Mode fixture'inda
+atlanir. Kayitli sahnedeki giris/kapanis baglantilari, siren, Q ile tahliye,
+arac/su/silah mekanikleri ve asil basari kosullari korunur.
+Dagitilabilir oyuncu build'i veya bastan sona manuel oyun turu yapilmadi.
+
+Yeniden uygulamak: GameJam > Final Loop > Refresh interface and project typography.
+Kontrol: GameJam > Final Loop > Check clean HUD.

@@ -6,6 +6,8 @@ using System.Reflection;
 using GameJam.FireRescue;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.SceneManagement;
+using UnityEngine.UI;
 using Object = UnityEngine.Object;
 
 [InitializeOnLoad]
@@ -14,7 +16,7 @@ public static class CleanHudChecks
     const string Pending = "CleanHUD.Check";
     static readonly List<string> lines = new List<string>();
     static readonly List<int> sizes = new List<int>();
-    static readonly Vector2Int[] resolutions = { new Vector2Int(1920,1080), new Vector2Int(1280,720), new Vector2Int(1024,768), new Vector2Int(2560,1080) };
+    static readonly Vector2Int[] resolutions = { new Vector2Int(1920,1080), new Vector2Int(1138,722), new Vector2Int(1280,720), new Vector2Int(1366,768), new Vector2Int(1024,768), new Vector2Int(2560,1080) };
     static RescueHUD hud; static VolcanoMissionDirector mission; static FireRescuePlayer player;
     static EditorWindow game; static bool maximized, background; static int originalSize, phase=-1, frame, resolution;
     static object sizeGroup; static float began; static double deadline; static string error;
@@ -56,15 +58,26 @@ public static class CleanHudChecks
         switch(phase)
         {
             case 0:
-                if(mission.cinematic.IsPlaying || mission.State!=VolcanoMissionDirector.FlowState.Preparation) return;
-                mission.enabled=false; mission.encounter.enabled=false; player.AcquirePistol();
+                if(mission.cinematic.IsPlaying || mission.State!=VolcanoMissionDirector.FlowState.Preparation || !mission.story.OpeningComplete) return;
+                mission.enabled=false; mission.encounter.enabled=false;
+                mission.story.enabled=false;
+                player.PlaceOnFoot(mission.standingSpawn.position,mission.standingSpawn.eulerAngles.y);
+                player.enabled=false; player.firstPerson.SetInputCaptured(true);
+                var bedroom=player.gameObject.AddComponent<ContextualInteractionReviewCamera>(); bedroom.viewCamera=player.viewCamera;
+                bedroom.Look(player.viewCamera.transform.position,mission.story.windowStop.position+Vector3.up*3);
+                SetResolution(new Vector2Int(1138,722)); Next(90); return;
+            case 90:
+                if(age<.8f) return;
+                if(!Photo("00-refreshed-bedroom-1138.png")) return;
+                player.AcquirePistol();
+                Check("shared fonts retain Turkish characters", Ashfall.UI.AshfallTypography.Regular.HasCharacter('ğ') && Ashfall.UI.AshfallTypography.Semibold.HasCharacter('ı') && hud.questBodyText.font==Ashfall.UI.AshfallTypography.Regular);
                 typeof(VolcanoMissionDirector).GetProperty("Phase").SetValue(mission,VolcanoMissionDirector.MissionPhase.Truck);
                 typeof(VolcanoMissionDirector).GetProperty("PreparationRemaining").SetValue(mission,35f);
                 var evac=mission.evacuation; var forward=Vector3.ProjectOnPlane(evac.shelterEntrance.position-evac.shelterApproach.position,Vector3.up).normalized;
                 player.PlaceOnFoot(evac.shelterApproach.position-forward*9,Quaternion.LookRotation(forward).eulerAngles.y);
                 player.enabled=false;
                 player.firstPerson.SetInputCaptured(true); player.pistol.SetExternalInput(true,false,false,false,false,false); player.pistol.Equip();
-                var camera=player.gameObject.AddComponent<ContextualInteractionReviewCamera>(); camera.viewCamera=player.viewCamera;
+                var camera=player.GetComponent<ContextualInteractionReviewCamera>(); camera.viewCamera=player.viewCamera;
                 camera.Look(player.viewCamera.transform.position,evac.shelterEntrance.position+Vector3.up*4);
                 SetResolution(resolutions[0]); Next(1); return;
             case 1:
@@ -74,19 +87,24 @@ public static class CleanHudChecks
                 var status=hud.objectiveText.transform.parent as RectTransform;
                 Check("readable objective and timer at "+Screen.width+"x"+Screen.height,Inside(quest)&&Inside(timer)&&Inside(status)&&!Bounds(quest).Overlaps(Bounds(timer))&&!Bounds(timer).Overlaps(Bounds(status)));
                 Check("objective text fits its content at "+Screen.width+"x"+Screen.height,hud.questBodyText.rectTransform.rect.height+1>=hud.questBodyText.preferredHeight&&hud.questTitleText.rectTransform.rect.height+1>=hud.questTitleText.preferredHeight);
+                Check("timer text is centered in its panel at "+Screen.width+"x"+Screen.height,Mathf.Abs(Bounds(timer).center.x-Screen.width*.5f)<1 && Mathf.Abs(Bounds(hud.eruptionText.rectTransform).center.x-Bounds(timer).center.x)<1 && hud.eruptionText.alignment==TextAnchor.MiddleCenter);
                 if(++resolution<resolutions.Length) { SetResolution(resolutions[resolution]); Next(1); return; }
                 Check("walking hides the speed and water cards",!hud.speedText.transform.parent.gameObject.activeSelf&&!hud.waterGroup.activeSelf&&hud.equipmentGroup.activeSelf);
-                SetResolution(resolutions[0]); mission.evacuation.BeginMission(); Next(2); return;
+                SetResolution(resolutions[0]);
+                typeof(VolcanoStorySequence).GetField("currentLine",BindingFlags.Instance|BindingFlags.NonPublic).SetValue(mission.story,"Erken uyarıları dikkate almalıyım. Kasabadakileri güvenli bir yere götürmeliyim.");
+                typeof(VolcanoStorySequence).GetField("lineRemaining",BindingFlags.Instance|BindingFlags.NonPublic).SetValue(mission.story,8f);
+                Next(2); return;
             case 2:
                 if(age<.65f) return;
                 if(!Photo("02-clean-notification.png")) return;
-                Check("dispatch appears below the play area without a second toast",hud.subtitleText.transform.parent.gameObject.activeSelf&&!hud.toastText.transform.parent.gameObject.activeSelf&&Bounds(hud.subtitleText.rectTransform).yMax<Screen.height*.35f);
+                Check("centered Turkish captions fit without a second toast",hud.subtitleText.transform.parent.gameObject.activeSelf&&!hud.toastText.transform.parent.gameObject.activeSelf&&Bounds(hud.subtitleText.rectTransform).yMax<Screen.height*.35f && hud.subtitleText.preferredHeight<=hud.subtitleText.rectTransform.rect.height+1 && Mathf.Abs(Bounds(hud.subtitleText.rectTransform).center.x-Screen.width*.5f)<1);
+                typeof(VolcanoStorySequence).GetField("lineRemaining",BindingFlags.Instance|BindingFlags.NonPublic).SetValue(mission.story,0f);
                 typeof(VolcanoMissionDirector).GetProperty("EruptionTriggered").SetValue(mission,true);
                 Next(3); return;
             case 3:
                 if(age<.6f) return;
                 if(!Photo("03-clean-defense.png")) return;
-                Check("defense health replaces the timer compactly",hud.villageIntegrity.IsVisible&&!hud.eruptionText.gameObject.activeSelf&&hud.villageIntegrity.houseFills.Length==5&&hud.villageIntegrity.timerPanel.rect.height<=120);
+                Check("defense health replaces the timer compactly",hud.villageIntegrity.IsVisible&&!hud.eruptionText.gameObject.activeSelf&&hud.villageIntegrity.houseFills.Length==5&&hud.villageIntegrity.timerPanel.rect.height<=140);
                 hud.flow.Pause(); Next(4); return;
             case 4:
                 if(age<.6f) return;
@@ -96,11 +114,29 @@ public static class CleanHudChecks
             case 5:
                 if(age<.3f) return;
                 Check("resume restores HUD and time",hud.gameplayGroup.alpha==1&&Time.timeScale==1);
-                hud.flow.FinishMission(true); Next(6); return;
+                // This fixture reviews the result UI. The complete closing journey has its own suite.
+                hud.flow.victoryCinematic=null; hud.flow.FinishMission(true); Next(6); return;
             case 6:
                 if(age<hud.flow.resultDelaySeconds+hud.outcomeFadeInSeconds+.2f) return;
                 if(!Photo("05-clean-success.png")) return;
                 Check("result keeps real statistics and restart",hud.VictoryVisible&&hud.victoryStatsText.text.Contains("Saved Villagers")&&hud.victoryStatsText.text.Contains("Houses Saved")&&hud.outcomeRestartButton.isActiveAndEnabled&&hud.gameplayGroup.alpha==0);
+                hud.flow.ReturnToMainMenu(); Next(7); return;
+            case 7:
+                if(SceneManager.GetActiveScene().name!="MainMenu" || age<1.5f) return;
+                var settings=Object.FindObjectsByType<Button>(FindObjectsSortMode.None).FirstOrDefault(b=>b.GetComponentInChildren<Text>() && b.GetComponentInChildren<Text>().text.Equals("Settings",StringComparison.OrdinalIgnoreCase));
+                if(!settings || !settings.interactable) return;
+                var controller=Object.FindFirstObjectByType<Ashfall.MainMenu.AshfallMenuController>();
+                var serializedMenu=new UnityEditor.SerializedObject(controller);
+                var groups=serializedMenu.FindProperty("menuGroups");
+                for(int i=0;i<groups.arraySize;i++) if(groups.GetArrayElementAtIndex(i).objectReferenceValue is CanvasGroup group && group.alpha<.99f) return;
+                var menuLabels=Object.FindObjectsByType<Text>(FindObjectsInactive.Include,FindObjectsSortMode.None);
+                Check("main menu shares the new typefaces",menuLabels.Length>5 && menuLabels.Where(t=>t.name!="Direction"&&t.name!="Arrow").All(t=>t.font==Ashfall.UI.AshfallTypography.Regular||t.font==Ashfall.UI.AshfallTypography.Semibold||t.font==Ashfall.UI.AshfallTypography.Compact));
+                if(!Photo("06-refreshed-main-menu.png")) return;
+                settings.onClick.Invoke(); Next(8); return;
+            case 8:
+                if(age<1f) return;
+                if(!Photo("07-refreshed-settings.png")) return;
+                Check("settings keep readable body fonts",Object.FindObjectsByType<Text>(FindObjectsSortMode.None).Any(t=>t.isActiveAndEnabled && t.font==Ashfall.UI.AshfallTypography.Regular));
                 Finish(null); return;
         }
     }
@@ -112,7 +148,7 @@ public static class CleanHudChecks
         if(capture!=file) { ScreenCapture.CaptureScreenshot(CleanHudSetup.Reports+"/"+file); capture=file; captureAt=Time.frameCount; return false; }
         return Time.frameCount>captureAt+2;
     }
-    static void Check(string label,bool passed) { lines.Add((passed?"PASS ":"FAIL ")+label); File.WriteAllLines(CleanHudSetup.Reports+"/checks.txt",lines); if(!passed) throw new InvalidOperationException(label); }
+    static void Check(string label,bool passed) { string line=(passed?"PASS ":"FAIL ")+label; if(!lines.Contains(line)) lines.Add(line); File.WriteAllLines(CleanHudSetup.Reports+"/checks.txt",lines); if(!passed) throw new InvalidOperationException(label); }
     static void Next(int value) { phase=value; began=Time.unscaledTime; deadline=EditorApplication.timeSinceStartup+45; }
     static void Log(string condition,string stack,LogType type) { if(type==LogType.Error||type==LogType.Exception||type==LogType.Assert) error=condition+"\n"+stack; }
     static void SetResolution(Vector2Int size)

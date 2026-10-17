@@ -329,7 +329,7 @@ namespace GameJam.FireRescue
             GUI.DrawTexture(new Rect(0, Screen.height - bar, Screen.width, bar), Texture2D.whiteTexture);
             if (caption == null) caption = new GUIStyle(GUI.skin.label) { alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Bold };
             var storyFont = Kind == ShotKind.ShelterReturn && player && player.mission && player.mission.story ? player.mission.story.subtitleFont : null;
-            caption.font = storyFont ? storyFont : Ashfall.UI.AshfallTypography.Modular;
+            caption.font = storyFont ? storyFont : Ashfall.UI.AshfallTypography.Regular;
             caption.wordWrap = Kind == ShotKind.ShelterReturn;
             caption.fontSize = Mathf.RoundToInt(Mathf.Clamp(Screen.height / 40f, 14, 30));
             caption.normal.textColor = new Color(1, .83f, .6f);

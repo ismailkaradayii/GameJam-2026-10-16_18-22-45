@@ -129,6 +129,8 @@ namespace GameJam.FireRescue
                 body = new GUIStyle(GUI.skin.label) { fontSize = 14, wordWrap = true };
                 centered = new GUIStyle(body) { alignment = TextAnchor.MiddleCenter, fontSize = 18 };
                 button = new GUIStyle(GUI.skin.button) { fontSize = 17, fontStyle = FontStyle.Bold };
+                title.font = button.font = Ashfall.UI.AshfallTypography.Semibold;
+                body.font = centered.font = Ashfall.UI.AshfallTypography.Regular;
                 title.normal.textColor = body.normal.textColor = centered.normal.textColor = Color.white;
             }
             var oldMatrix = GUI.matrix; var oldColor = GUI.color; int oldDepth = GUI.depth;

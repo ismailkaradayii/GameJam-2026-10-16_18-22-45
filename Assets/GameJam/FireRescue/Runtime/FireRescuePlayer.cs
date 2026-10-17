@@ -722,6 +722,8 @@ namespace GameJam.FireRescue
                 titleStyle = new GUIStyle(GUI.skin.label) { fontSize = 18, fontStyle = FontStyle.Bold };
                 textStyle = new GUIStyle(GUI.skin.label) { fontSize = 14, wordWrap = true };
                 promptStyle = new GUIStyle(textStyle) { alignment = TextAnchor.MiddleCenter, fontSize = 17 };
+                titleStyle.font = Ashfall.UI.AshfallTypography.Semibold;
+                textStyle.font = promptStyle.font = Ashfall.UI.AshfallTypography.Regular;
                 titleStyle.normal.textColor = textStyle.normal.textColor = promptStyle.normal.textColor = Color.white;
             }
             float scale = Mathf.Clamp(Screen.height / 900f, 0.75f, 1.5f);

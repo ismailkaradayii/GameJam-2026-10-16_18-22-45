@@ -128,11 +128,9 @@ namespace GameJam.FireRescue
 
         void ConfigureReadableHudText()
         {
-            // Keep the compact volcanic frames, but use their available area more effectively.
-            // Best-fit provides a safe fallback for translations and narrower aspect ratios.
-            FitText(questTitleText, 18, 25, true);
-            FitText(questBodyText, 16, 20, true);
-            FitText(questHintText, 15, 19, true);
+            FitText(questTitleText, 24, cleanPresentation ? 32 : 25, true);
+            FitText(questBodyText, 20, cleanPresentation ? 24 : 20, true);
+            FitText(questHintText, 18, cleanPresentation ? 21 : 19, true);
             if (cleanPresentation)
             {
                 // The clean layout measures wrapped text and grows the card to fit it.
@@ -142,9 +140,9 @@ namespace GameJam.FireRescue
             }
             if (questTitleText)
                 FitText(questTitleText.transform.parent.Find("QuestKicker")?.GetComponent<Text>(), 14, 17, false);
-            FitText(objectiveText, 15, 19, false);
+            FitText(objectiveText, 19, cleanPresentation ? 24 : 19, false);
             FitText(speedText, 15, 19, false);
-            FitText(eruptionText, 18, 27, false);
+            FitText(eruptionText, 24, cleanPresentation ? 30 : 27, false);
 
             FitText(victoryTitleText, 24, 34, true);
             FitText(victoryDetailText, 17, 22, true);
@@ -366,36 +364,39 @@ namespace GameJam.FireRescue
                 layoutScreenWidth = Screen.width; layoutScreenHeight = Screen.height;
                 laidOutTitle = laidOutBody = laidOutHint = laidOutSubtitle = laidOutToast = null;
             }
-            float width = Mathf.Min(objectiveWidth, ((RectTransform)canvas.transform).rect.width * .32f);
+            float canvasWidth = ((RectTransform)canvas.transform).rect.width;
+            float width = Mathf.Min(objectiveWidth, canvasWidth * .32f);
             if (laidOutTitle != questTitleText.text || laidOutBody != questBodyText.text || laidOutHint != questHintText.text || !Mathf.Approximately(width, laidOutWidth))
             {
                 laidOutTitle = questTitleText.text; laidOutBody = questBodyText.text; laidOutHint = questHintText.text; laidOutWidth = width;
                 cleanQuest.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, width);
-                float textWidth = width - 40f;
+                float textWidth = width - 48f;
                 var kicker = cleanQuest.Find("QuestKicker") as RectTransform;
                 if (kicker) kicker.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, textWidth);
-                float y = 38f;
-                y += PlaceText(questTitleText, 20, y, textWidth, 30) + 8f;
-                y += PlaceText(questBodyText, 20, y, textWidth, 24);
+                float y = 48f;
+                y += PlaceText(questTitleText, 24, y, textWidth, 38) + 10f;
+                y += PlaceText(questBodyText, 24, y, textWidth, 30);
                 bool progress = !string.IsNullOrEmpty(questHintText.text);
                 questHintText.gameObject.SetActive(progress);
-                if (progress) y += 12f + PlaceText(questHintText, 20, y + 12f, textWidth, 22);
+                if (progress) y += 14f + PlaceText(questHintText, 24, y + 14f, textWidth, 26);
                 if (questFill && questFill.transform.parent is RectTransform track)
                 {
                     track.gameObject.SetActive(progress);
-                    if (progress) { track.anchoredPosition = new Vector2(20, -y - 12f); track.sizeDelta = new Vector2(textWidth, 3); y += 15f; }
+                    if (progress) { track.anchoredPosition = new Vector2(24, -y - 14f); track.sizeDelta = new Vector2(textWidth, 3); y += 17f; }
                 }
-                cleanQuest.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, y + 18f);
+                cleanQuest.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, y + 24f);
             }
             if (cleanSubtitle && laidOutSubtitle != subtitleText.text)
             {
                 laidOutSubtitle = subtitleText.text;
-                cleanSubtitle.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, PlaceText(subtitleText, 20, 14, 640, 26) + 28);
+                float subtitleWidth = Mathf.Min(800, canvasWidth - 96);
+                cleanSubtitle.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, subtitleWidth);
+                cleanSubtitle.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, PlaceText(subtitleText, 24, 18, subtitleWidth - 48, 32) + 36);
             }
             if (cleanToast && laidOutToast != toastText.text)
             {
                 laidOutToast = toastText.text;
-                cleanToast.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, PlaceText(toastText, 20, 12, 380, 24) + 24);
+                cleanToast.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, PlaceText(toastText, 24, 16, 412, 28) + 32);
             }
         }
         static float PlaceText(Text text, float x, float y, float width, float minimumHeight)

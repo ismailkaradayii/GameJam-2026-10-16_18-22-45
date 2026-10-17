@@ -15,8 +15,8 @@ public static class CleanHudSetup
     public const string Reports = "Logs/CleanHUD";
     static readonly Color Paper = new Color(.94f, .955f, .97f);
     static readonly Color Muted = new Color(.64f, .70f, .76f);
-    static readonly Color Slate = new Color(.025f, .037f, .05f, .84f);
-    static readonly Color Orange = new Color(1f, .52f, .28f);
+    static readonly Color Slate = new Color(.026f, .034f, .043f, .93f);
+    static readonly Color Orange = new Color(1f, .46f, .20f);
     static readonly Color Blue = new Color(.28f, .73f, 1f);
     static Font regular, semibold;
 
@@ -29,9 +29,9 @@ public static class CleanHudSetup
         var hud = Object.FindFirstObjectByType<RescueHUD>();
         if (hud && !hud.villageIntegrity && hud.eruptionText) hud.villageIntegrity = hud.eruptionText.GetComponentInParent<VillageIntegrityHUD>();
         if (!hud || !hud.canvas || !hud.questTitleText || !hud.villageIntegrity) throw new InvalidOperationException("Existing HUD references are required.");
-        regular = Resources.Load<Font>("ASHFALL/UI/Fonts/SourceSans3-Regular");
-        semibold = Resources.Load<Font>("ASHFALL/UI/Fonts/SourceSans3-Semibold");
-        if (!regular || !semibold) throw new InvalidOperationException("Existing Source Sans fonts missing.");
+        regular = Ashfall.UI.AshfallTypography.Regular;
+        semibold = Ashfall.UI.AshfallTypography.Semibold;
+        if (!regular || !semibold) throw new InvalidOperationException("The shared game fonts are missing.");
         Undo.RecordObjects(hud.canvas.GetComponentsInChildren<Component>(true).Where(c => c).Cast<Object>().ToArray(), "Clean gameplay HUD");
         foreach (var sizer in hud.canvas.GetComponentsInChildren<VolcanicRockFrameSizer>(true)) { sizer.enabled = false; Dirty(sizer); }
         foreach (var label in hud.canvas.GetComponentsInChildren<Text>(true))
@@ -42,6 +42,7 @@ public static class CleanHudSetup
         }
         foreach (var image in hud.canvas.GetComponentsInChildren<Image>(true))
         {
+            if (image.name == "ObsidianCore") { image.gameObject.SetActive(false); Dirty(image.gameObject); continue; }
             string path = AssetDatabase.GetAssetPath(image.sprite);
             if (path.StartsWith("Assets/Art/UI/") && (path.Contains("Ashfall") || path.Contains("VOLKANOVSK")))
                 Flat(image, image.GetComponent<Button>() ? new Color(.10f, .15f, .20f, 1f) : Slate);
@@ -61,15 +62,17 @@ public static class CleanHudSetup
         var group = root.GetComponent<CanvasGroup>(); if (!group) group = Undo.AddComponent<CanvasGroup>(root.gameObject);
         group.alpha = 1; group.interactable = group.blocksRaycasts = false;
         foreach (var child in hud.canvas.transform.Cast<Transform>().ToArray())
-            if (child != root && child != hud.pausePanel.transform && child != hud.victoryPanel.transform) child.SetParent(root, false);
-        root.SetAsFirstSibling(); hud.gameplayGroup = group; hud.cleanPresentation = true; hud.objectiveWidth = 400;
+            if (child != root && child != hud.pausePanel.transform && child != hud.victoryPanel.transform && child != hud.subtitleText.transform.parent) child.SetParent(root, false);
+        // Narrative captions remain visible while the opening hides the task HUD.
+        hud.subtitleText.transform.parent.SetParent(hud.canvas.transform, false);
+        root.SetAsFirstSibling(); hud.gameplayGroup = group; hud.cleanPresentation = true; hud.objectiveWidth = 440;
 
         var quest = hud.questTitleText.transform.parent as RectTransform;
-        Panel(quest, new Vector2(0, 1), new Vector2(0, 1), new Vector2(28, -28), new Vector2(400, 160));
+        Panel(quest, new Vector2(0, 1), new Vector2(0, 1), new Vector2(36, -36), new Vector2(440, 190));
         var kicker = quest.Find("QuestKicker").GetComponent<Text>(); kicker.text = "OBJECTIVE";
-        Style(kicker, 13, true, Muted); Local(kicker.rectTransform, 20, 14, 350, 18);
-        Style(hud.questTitleText, 25, true, Paper); Style(hud.questBodyText, 20, false, new Color(.78f, .82f, .86f));
-        Style(hud.questHintText, 18, true, new Color(.63f, .83f, 1f));
+        Style(kicker, 16, true, Orange); Local(kicker.rectTransform, 24, 18, 392, 24);
+        Style(hud.questTitleText, 32, true, Paper); Style(hud.questBodyText, 24, false, new Color(.84f, .87f, .89f));
+        Style(hud.questHintText, 21, false, new Color(.63f, .83f, 1f));
         hud.questTitleText.text = "TAKE YOUR WEAPON";
         hud.questBodyText.text = "Pick up the pistol on the bedside cabinet. Press E when nearby.";
         hud.questHintText.text = "";
@@ -92,14 +95,14 @@ public static class CleanHudSetup
         Bar(hud.waterFill, Blue); Local(hud.waterFill.transform.parent as RectTransform, 18, 74, 264, 4);
         Style(hud.pumpText, 16, false, Muted); Local(hud.pumpText.rectTransform, 18, 88, 264, 24);
         water.gameObject.SetActive(false);
-        Panel(status, Vector2.one, Vector2.one, new Vector2(-28, -28), new Vector2(220, 48));
+        Panel(status, Vector2.one, Vector2.one, new Vector2(-36, -36), new Vector2(240, 68));
         var statusKicker = status.Find("StatusKicker"); if (statusKicker) statusKicker.gameObject.SetActive(false);
-        Style(hud.objectiveText, 20, true, Paper); hud.objectiveText.text = "Houses   5 / 5";
-        Local(hud.objectiveText.rectTransform, 18, 10, 184, 28);
+        Style(hud.objectiveText, 24, true, Paper); hud.objectiveText.text = "Houses   5 / 5";
+        Local(hud.objectiveText.rectTransform, 20, 14, 200, 40); hud.objectiveText.alignment = TextAnchor.MiddleCenter;
 
         var timer = hud.eruptionText.transform.parent as RectTransform;
-        Panel(timer, new Vector2(.5f, 1), new Vector2(.5f, 1), new Vector2(0, -28), new Vector2(430, 58));
-        Style(hud.eruptionText, 25, true, Paper); Local(hud.eruptionText.rectTransform, 16, 10, 398, 36);
+        Panel(timer, new Vector2(.5f, 1), new Vector2(.5f, 1), new Vector2(0, -36), new Vector2(480, 76));
+        Style(hud.eruptionText, 30, true, Paper); Local(hud.eruptionText.rectTransform, 20, 15, 440, 46);
         hud.eruptionText.alignment = TextAnchor.MiddleCenter; hud.eruptionText.text = "VOLCANO ERUPTION IN: 02:00";
         CompactIntegrity(hud.villageIntegrity);
 
@@ -119,6 +122,7 @@ public static class CleanHudSetup
         var equipment = hud.equipmentGroup.transform as RectTransform;
         Panel(equipment, new Vector2(1, 0), new Vector2(1, 0), new Vector2(-28, 60), new Vector2(300, 48));
         Style(hud.equipmentText, 20, true, Paper); Local(hud.equipmentText.rectTransform, 16, 9, 268, 30);
+        equipment.gameObject.SetActive(false);
         var pause = root.Find("PauseHint") as RectTransform;
         Panel(pause, new Vector2(1, 0), new Vector2(1, 0), new Vector2(-28, 20), new Vector2(130, 28));
         pause.GetComponent<Image>().color = Color.clear;
@@ -127,10 +131,10 @@ public static class CleanHudSetup
 
         var subtitle = hud.subtitleText.transform.parent as RectTransform;
         Panel(subtitle, new Vector2(.5f, 0), new Vector2(.5f, 0), new Vector2(0, 150), new Vector2(680, 64));
-        Style(hud.subtitleText, 20, false, Paper); hud.subtitleText.horizontalOverflow = HorizontalWrapMode.Wrap;
+        Style(hud.subtitleText, 26, false, Paper); hud.subtitleText.horizontalOverflow = HorizontalWrapMode.Wrap;
         hud.subtitleText.alignment = TextAnchor.MiddleCenter;
         var toast = hud.toastText.transform.parent as RectTransform;
-        Panel(toast, new Vector2(.5f, 0), new Vector2(.5f, 0), new Vector2(0, 150), new Vector2(420, 48));
+        Panel(toast, new Vector2(.5f, 0), new Vector2(.5f, 0), new Vector2(0, 150), new Vector2(460, 64));
         Style(hud.toastText, 19, true, new Color(.6f, .9f, .73f)); hud.toastText.alignment = TextAnchor.MiddleCenter;
 
         var target = hud.targetGroup.transform as RectTransform;
@@ -154,6 +158,7 @@ public static class CleanHudSetup
             shadow.enabled = true; shadow.effectColor = new Color(0, 0, 0, .8f); shadow.effectDistance = new Vector2(0, -1); Dirty(shadow);
         }
         Dirty(navigation); Dirty(hud); Dirty(group); Dirty(root);
+        if (hud.promptText) hud.promptText.transform.parent.gameObject.SetActive(false);
         Canvas.ForceUpdateCanvases(); hud.RefreshCleanLayout();
         EditorSceneManager.MarkSceneDirty(scene); EditorSceneManager.SaveScene(scene); AssetDatabase.SaveAssets();
         Inspect(); Validate();
@@ -161,20 +166,20 @@ public static class CleanHudSetup
 
     static void CompactIntegrity(VillageIntegrityHUD status)
     {
-        status.compactLabels = true; status.preparationHeight = 58; status.defenseHeight = 116;
-        var root = status.defenseGroup.transform as RectTransform; Local(root, 0, 0, 430, 116);
+        status.compactLabels = true; status.preparationHeight = 76; status.defenseHeight = 132;
+        var root = status.defenseGroup.transform as RectTransform; Local(root, 0, 0, 480, 132);
         var title = root.Find("Title").GetComponent<Text>(); title.text = "VILLAGE INTEGRITY";
-        Style(title, 13, true, Muted); Local(title.rectTransform, 18, 10, 290, 23);
-        Style(status.percentageText, 22, true, Paper); Local(status.percentageText.rectTransform, 332, 6, 80, 30);
-        Bar(status.villageFill, new Color(.45f, .85f, .65f)); Local(status.villageFill.transform.parent as RectTransform, 18, 39, 394, 5);
-        float width = (394f - 4f * 12f) / Mathf.Max(1, status.houseFills.Length);
+        Style(title, 18, true, Muted); Local(title.rectTransform, 24, 12, 310, 28);
+        Style(status.percentageText, 26, true, Paper); Local(status.percentageText.rectTransform, 366, 8, 90, 34);
+        Bar(status.villageFill, new Color(.45f, .85f, .65f)); Local(status.villageFill.transform.parent as RectTransform, 24, 46, 432, 5);
+        float width = (432f - 4f * 12f) / Mathf.Max(1, status.houseFills.Length);
         for (int i = 0; i < status.houseFills.Length; i++)
         {
-            float x = 18 + i * (width + 12);
-            Style(status.houseLabels[i], 14, false, Muted); Local(status.houseLabels[i].rectTransform, x, 51, width, 22);
-            Bar(status.houseFills[i], new Color(.45f, .85f, .65f)); Local(status.houseFills[i].transform.parent as RectTransform, x, 76, width, 3);
+            float x = 24 + i * (width + 12);
+            Style(status.houseLabels[i], 18, false, Muted); Local(status.houseLabels[i].rectTransform, x, 60, width, 24);
+            Bar(status.houseFills[i], new Color(.45f, .85f, .65f)); Local(status.houseFills[i].transform.parent as RectTransform, x, 87, width, 3);
         }
-        Style(status.statusText, 14, false, Muted); Local(status.statusText.rectTransform, 18, 88, 394, 22);
+        Style(status.statusText, 17, false, Muted); Local(status.statusText.rectTransform, 24, 101, 432, 24);
         status.Refresh(false); Dirty(status);
     }
     static RectTransform Rect(Transform parent, string name)
@@ -193,6 +198,8 @@ public static class CleanHudSetup
     static void Flat(Image image, Color color)
     {
         image.sprite = null; image.type = Image.Type.Simple; image.pixelsPerUnitMultiplier = 1;
+        image.material = null;
+        foreach (var shadow in image.GetComponents<Shadow>()) { shadow.enabled = false; Dirty(shadow); }
         image.color = color; image.raycastTarget = image.GetComponent<Button>() || image.GetComponent<CanvasGroup>(); Dirty(image);
     }
     static void Panel(RectTransform rect, Vector2 anchor, Vector2 pivot, Vector2 position, Vector2 size)
@@ -200,6 +207,8 @@ public static class CleanHudSetup
         rect.anchorMin = rect.anchorMax = anchor; rect.pivot = pivot; rect.anchoredPosition = position; rect.sizeDelta = size;
         var image = rect.GetComponent<Image>(); if (!image) image = Undo.AddComponent<Image>(rect.gameObject);
         Flat(image, Slate); Dirty(rect);
+        var outline = rect.GetComponent<Outline>(); if (!outline) outline = Undo.AddComponent<Outline>(rect.gameObject);
+        outline.enabled = true; outline.effectColor = new Color(.52f, .62f, .68f, .28f); outline.effectDistance = new Vector2(1, -1); Dirty(outline);
     }
     static void Local(RectTransform rect, float x, float y, float width, float height)
     {
@@ -235,7 +244,7 @@ public static class CleanHudSetup
         if (hud.canvas.GetComponentsInChildren<VolcanicRockFrameSizer>(true).Any(s => s.enabled)) throw new InvalidOperationException("An old frame sizer still controls the layout.");
         if (!hud.questBodyText.font.HasCharacter('ğ') || !hud.questBodyText.font.HasCharacter('ı')) throw new InvalidOperationException("Turkish font glyph missing.");
         FinalLoopSetup.Validate(); ContextualInteractionSetup.Validate();
-        Directory.CreateDirectory(Reports); File.WriteAllText(Reports + "/validation.txt", "PASS existing HUD, compact layout, Source Sans Turkish glyphs, no volcanic artwork, menus, objective and contextual bindings.\n");
+        Directory.CreateDirectory(Reports); File.WriteAllText(Reports + "/validation.txt", "PASS existing HUD, responsive layout, Turkish glyphs, clean panel surfaces, menus, objective and contextual bindings.\n");
     }
     [MenuItem("GameJam/Final Loop/Inspect clean HUD")]
     public static void Inspect()

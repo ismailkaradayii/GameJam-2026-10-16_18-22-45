@@ -23,7 +23,7 @@ namespace GameJam.FireRescue
             GUI.matrix = Matrix4x4.TRS(Vector3.zero, Quaternion.identity, Vector3.one * scale);
             if (text == null)
             {
-                font = Resources.Load<Font>("ASHFALL/UI/Fonts/SourceSans3-Regular");
+                font = Ashfall.UI.AshfallTypography.Regular;
                 text = new GUIStyle(GUI.skin.label) { font = font, wordWrap = true, padding = new RectOffset(), richText = false };
             }
             Fill(new Rect(0, 0, w, h), new Color(.015f, .025f, .035f, .2f));
