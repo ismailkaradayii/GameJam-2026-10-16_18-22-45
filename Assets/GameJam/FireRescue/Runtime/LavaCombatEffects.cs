@@ -72,16 +72,16 @@ namespace GameJam.FireRescue
             var fx = Get(); var b = fx.Rent(point, false);
             HitsPlayed++;
             b.priority = bullet;
-            fx.EmitBurst(b, bullet ? 7 : 5, bullet ? 34 : 8, bullet ? 3 : 3, -direction.normalized, bullet ? 1.2f : .5f);
+            fx.EmitBurst(b, bullet ? 10 : 5, bullet ? 44 : 8, bullet ? 5 : 3, -direction.normalized, bullet ? 1.35f : .5f);
             if (bullet)
             {
                 // A sharp, two-frame hot core precedes the longer ember spray.
-                Emit(b.flash, point - direction.normalized * .06f, Vector3.zero, .85f, .075f, new Color(4f, 3.6f, 2.5f));
+                Emit(b.flash, point - direction.normalized * .08f, Vector3.zero, 1.05f, .095f, new Color(4f, 3.6f, 2.5f));
                 for (int i = 0; i < 4; i++)
                     fx.AddFragment(b, fx.chipMesh, new[] { fx.shardMaterial }, point - direction.normalized * .07f,
                         Random.rotation, Vector3.one * Random.Range(.045f, .105f), false, -direction);
                 b.ringNormal = direction.sqrMagnitude > .001f ? direction.normalized : Vector3.forward;
-                b.ringDuration = .13f; b.ringRadius = .7f; b.ring.enabled = true;
+                b.ringDuration = .18f; b.ringRadius = .85f; b.ring.enabled = true;
                 fx.Play(b, fx.hits[Random.Range(0, fx.hits.Length)], .9f);
             }
             b.light.color = bullet ? new Color(1f, .62f, .19f) : new Color(1f, .27f, .035f);

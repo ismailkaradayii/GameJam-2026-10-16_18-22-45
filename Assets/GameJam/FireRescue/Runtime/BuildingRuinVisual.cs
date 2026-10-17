@@ -9,8 +9,18 @@ namespace GameJam.FireRescue
         Mesh ashMesh;
         public void Collapse(BurnableBuilding building)
         {
+            var fire = building.GetComponent<BuildingFireVisual>();
+            if (fire) fire.ClearForRuin();
+            foreach (var particles in GetComponentsInChildren<ParticleSystem>(true))
+                particles.Stop(false, ParticleSystemStopBehavior.StopEmittingAndClear);
+            foreach (var light in GetComponentsInChildren<Light>(true)) light.enabled = false;
+            foreach (var overlay in building.windowGlowOverlays)
+                if (overlay) { overlay.enabled = false; overlay.gameObject.SetActive(false); }
             Bounds footprint = building.ignitionBounds ? building.ignitionBounds.bounds : new Bounds(transform.position + Vector3.up * 5, Vector3.one * 15);
-            foreach (var renderer in GetComponentsInChildren<MeshRenderer>()) renderer.enabled = false;
+            // LOD groups can re-enable their window/emissive renderers on the next camera
+            // cull, leaving yellow panes floating above the ruin. Retire the groups first.
+            foreach (var lod in GetComponentsInChildren<LODGroup>(true)) lod.enabled = false;
+            foreach (var renderer in GetComponentsInChildren<Renderer>(true)) renderer.enabled = false;
             foreach (var collider in GetComponentsInChildren<Collider>()) collider.enabled = false;
             ash = new Material(Shader.Find("Universal Render Pipeline/Lit"));
             ash.name = "Charred rubble (runtime)"; ash.color = new Color(.12f, .10f, .085f);
@@ -29,24 +39,34 @@ namespace GameJam.FireRescue
                 CreatePiece(rubble.transform, position, new Vector3(.3f + (float)random.NextDouble() * .65f, height, 2f + (float)random.NextDouble() * 5),
                     Quaternion.Euler((float)random.NextDouble() * 12, (float)random.NextDouble() * 180, 5), true);
             }
-            if (building.smoke)
-            {
-                var dust = Instantiate(building.smoke, rubble.transform); dust.name = "Collapse ash cloud";
-                dust.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
-                dust.transform.SetPositionAndRotation(new Vector3(footprint.center.x, ground + .35f, footprint.center.z), Quaternion.identity);
-                Vector3 parentScale = rubble.transform.lossyScale;
-                dust.transform.localScale = new Vector3(1/Mathf.Max(.001f,Mathf.Abs(parentScale.x)),1/Mathf.Max(.001f,Mathf.Abs(parentScale.y)),1/Mathf.Max(.001f,Mathf.Abs(parentScale.z)));
-                var main = dust.main; main.loop = false; main.duration = 6; main.startLifetime = new ParticleSystem.MinMaxCurve(4, 8);
-                main.simulationSpace = ParticleSystemSimulationSpace.World; main.scalingMode = ParticleSystemScalingMode.Shape;
-                main.startSize3D = false; main.startSize = new ParticleSystem.MinMaxCurve(1.2f,2f);
-                var shape = dust.shape; shape.enabled = true; shape.shapeType = ParticleSystemShapeType.Box;
-                shape.scale = new Vector3(footprint.size.x * .75f,.2f,footprint.size.z * .75f);
-                var velocity = dust.velocityOverLifetime; velocity.enabled = true; velocity.space = ParticleSystemSimulationSpace.World;
-                velocity.x = .25f; velocity.y = .6f; velocity.z = .1f;
-                main.startColor = new Color(.18f, .16f, .14f, .75f);
-                var emission = dust.emission; emission.rateOverTime = 25;
-                dust.Play(true); Destroy(dust.gameObject, 15);
-            }
+            CreateCollapseDust(building, rubble.transform, footprint, ground);
+        }
+        void CreateCollapseDust(BurnableBuilding building, Transform parent, Bounds footprint, float ground)
+        {
+            var go = new GameObject("Collapse ash cloud"); go.transform.SetParent(parent, false);
+            go.transform.position = new Vector3(footprint.center.x, ground + .35f, footprint.center.z);
+            var dust = go.AddComponent<ParticleSystem>(); dust.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+            var main = dust.main; main.loop = false; main.playOnAwake = false; main.duration = .25f;
+            main.simulationSpace = ParticleSystemSimulationSpace.World; main.scalingMode = ParticleSystemScalingMode.Shape;
+            main.startLifetime = new ParticleSystem.MinMaxCurve(1.1f, 2.5f); main.startSpeed = new ParticleSystem.MinMaxCurve(.35f, 1.2f);
+            main.startSize = new ParticleSystem.MinMaxCurve(1.4f, 3.2f); main.startColor = new Color(.22f, .21f, .2f, .5f);
+            main.maxParticles = 64;
+            var emission = dust.emission; emission.rateOverTime = 0; emission.SetBursts(new[] { new ParticleSystem.Burst(0, 42) });
+            var shape = dust.shape; shape.shapeType = ParticleSystemShapeType.Box;
+            Vector3 scale = go.transform.lossyScale;
+            shape.scale = new Vector3(footprint.size.x * .7f / Mathf.Max(.01f, Mathf.Abs(scale.x)), .2f,
+                footprint.size.z * .7f / Mathf.Max(.01f, Mathf.Abs(scale.z)));
+            var color = dust.colorOverLifetime; color.enabled = true;
+            color.color = new Gradient { colorKeys = new[] { new GradientColorKey(Color.white, 0), new GradientColorKey(Color.white, 1) },
+                alphaKeys = new[] { new GradientAlphaKey(0, 0), new GradientAlphaKey(.6f, .1f), new GradientAlphaKey(0, 1) } };
+            var size = dust.sizeOverLifetime; size.enabled = true;
+            size.size = new ParticleSystem.MinMaxCurve(1, AnimationCurve.Linear(0, .7f, 1, 1.8f));
+            var renderer = dust.GetComponent<ParticleSystemRenderer>();
+            renderer.sharedMaterial = building.smoke ? building.smoke.GetComponent<ParticleSystemRenderer>().sharedMaterial : Resources.Load<Material>("LavaCombat/Smoke");
+            renderer.SetActiveVertexStreams(new System.Collections.Generic.List<ParticleSystemVertexStream> {
+                ParticleSystemVertexStream.Position, ParticleSystemVertexStream.Color, ParticleSystemVertexStream.UV });
+            renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            dust.Play(false); Destroy(go, 3);
         }
         void CreateAshBed(Transform parent, Bounds footprint, float ground, System.Random random)
         {

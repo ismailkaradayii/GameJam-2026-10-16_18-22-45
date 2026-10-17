@@ -16,6 +16,8 @@ namespace Itfaiye
         public ItfaiyePistol pistol;
         [Tooltip("A gameplay coordinator supplies movement and view input instead of this component polling devices.")]
         public bool externalControl;
+        public GameJam.FireRescue.PlayerSwimming Swimming { get; private set; }
+        public bool IsSwimming => Swimming && Swimming.IsSwimming;
 
         [Header("Movement (metres per second)")]
         [Min(.1f)] public float walkSpeed = 1.87f;
@@ -39,7 +41,7 @@ namespace Itfaiye
         public bool InputCaptured { get; private set; }
         // Keep presentation stable across a single missed contact on steps or
         // slopes. Jump impulses still leave the grounded pose immediately.
-        public bool IsGrounded => motor != null && motor.enabled && (motor.isGrounded ||
+        public bool IsGrounded => !IsSwimming && motor != null && motor.enabled && (motor.isGrounded ||
             (verticalVelocity <= 0f && Time.time - lastGroundedAt <= .12f));
         public bool IsKneeling { get; private set; }
         public float KneelAmount { get; private set; }
@@ -49,7 +51,7 @@ namespace Itfaiye
         public bool IsSprinting { get; private set; }
         public float SprintViewBlend { get; private set; }
         public float SprintFovOffset => SprintViewBlend * sprintFovBoost * (pistol ? 1f - pistol.AimAmount : 1f);
-        public bool CanChangeWeapon => !IsKneeling && KneelAmount < .02f && !PostureTransition;
+        public bool CanChangeWeapon => !IsSwimming && !IsKneeling && KneelAmount < .02f && !PostureTransition;
         public bool PostureTransition => bodyAnimator != null && (bodyAnimator.GetCurrentAnimatorStateInfo(0).IsName("Kneel Down") || bodyAnimator.GetCurrentAnimatorStateInfo(0).IsName("Stand Up"));
 
         static readonly int SpeedId = Animator.StringToHash("Speed");
@@ -73,6 +75,8 @@ namespace Itfaiye
             spawnRotation = transform.rotation;
             standingHeight = motor.height;
             if (playerCamera != null) cameraRest = playerCamera.transform.localPosition;
+            Swimming = GetComponent<GameJam.FireRescue.PlayerSwimming>();
+            if (!Swimming) Swimming = gameObject.AddComponent<GameJam.FireRescue.PlayerSwimming>();
             if (bodyAnimator != null && bodyAnimator.isHuman)
             {
                 var legs = bodyAnimator.GetComponent<ItfaiyeLegStabilizer>();
@@ -135,32 +139,46 @@ namespace Itfaiye
                 }
             }
             SimulateMovement(move, sprint, keyboard != null && keyboard.spaceKey.wasPressedThisFrame,
-                keyboard != null && keyboard.cKey.wasPressedThisFrame, null);
+                keyboard != null && keyboard.cKey.wasPressedThisFrame, null, InputCaptured && keyboard != null
+                    ? (keyboard.spaceKey.isPressed ? 1f : 0f) - (keyboard.leftCtrlKey.isPressed || keyboard.cKey.isPressed ? 1f : 0f) : 0f);
         }
 
         /// <summary>One coordinator owns input; this component retains the authored locomotion and animation.</summary>
         public void SimulateExternalMovement(Vector2 move, bool sprint, bool jump, bool kneel,
-            bool captured, float viewPitch, Vector2 lookVelocity, System.Func<Vector3, Vector3> constrainTravel = null)
+            bool captured, float viewPitch, Vector2 lookVelocity, System.Func<Vector3, Vector3> constrainTravel = null, float swimVertical = 0f)
         {
             if (!externalControl) return;
             InputCaptured = captured;
             pitch = Mathf.Clamp(viewPitch, -maximumPitch, maximumPitch);
             LookAngularVelocity = captured ? lookVelocity : Vector2.zero;
             SimulateMovement(captured ? move : Vector2.zero, captured && sprint,
-                captured && jump, captured && kneel, constrainTravel);
+                captured && jump, captured && kneel, constrainTravel, captured ? swimVertical : 0f);
             AdvancePosture();
         }
 
-        void SimulateMovement(Vector2 move, bool sprint, bool jump, bool kneel, System.Func<Vector3, Vector3> constrainTravel)
+        void SimulateMovement(Vector2 move, bool sprint, bool jump, bool kneel, System.Func<Vector3, Vector3> constrainTravel, float swimVertical = 0f)
         {
             if (motor == null || !motor.enabled) return;
             move = Vector2.ClampMagnitude(move, 1f);
             float dt = Time.deltaTime;
             if (dt <= 0f) return;
-            bool armed = pistol != null && pistol.Equipped;
-            if (InputCaptured && armed)
+            if (Swimming && Swimming.Simulate(move, sprint, swimVertical, InputCaptured, dt, constrainTravel))
             {
-                if (kneel && motor.isGrounded) SetKneeling(!IsKneeling);
+                planarVelocity = Vector3.ProjectOnPlane(Swimming.Velocity, Vector3.up);
+                verticalVelocity = 0f; pendingJump = -1f; lastGroundedAt = float.NegativeInfinity;
+                CurrentSpeed = planarVelocity.magnitude;
+                var swimmingLocal = transform.InverseTransformDirection(planarVelocity);
+                LocalVelocity = new Vector2(swimmingLocal.x, swimmingLocal.z);
+                IsSprinting = IsKneeling = false; KneelAmount = 0f;
+                if (bodyAnimator) bodyAnimator.SetFloat(SpeedId, 0f, .15f, dt);
+                if (handsAnimator) handsAnimator.SetFloat(SpeedId, 0f, .15f, dt);
+                if (pistol) { UpdatePistolAnimator(bodyAnimator, dt); UpdatePistolAnimator(handsAnimator, dt); }
+                return;
+            }
+            bool armed = pistol != null && pistol.Equipped;
+            if (InputCaptured)
+            {
+                if (armed && kneel && motor.isGrounded) SetKneeling(!IsKneeling);
                 if (move.sqrMagnitude > .01f && IsKneeling) SetKneeling(false);
                 if (jump && motor.isGrounded && pendingJump < 0f && Time.time - lastJump > .6f)
                 {
@@ -225,6 +243,7 @@ namespace Itfaiye
             bool running = InputCaptured && IsSprinting && CurrentSpeed > walkSpeed * .75f && KneelAmount < .05f;
             SprintViewBlend = Mathf.MoveTowards(SprintViewBlend, running ? 1f : 0f,
                 Time.deltaTime / Mathf.Max(.05f, running ? sprintFovInSeconds : sprintFovOutSeconds));
+            if (IsSwimming) return;
             KneelAmount = Mathf.MoveTowards(KneelAmount, IsKneeling ? 1f : 0f, Time.deltaTime / (IsKneeling ? .65f : .9f));
             motor.height = Mathf.Lerp(standingHeight, 1.18f, KneelAmount);
             motor.center = Vector3.up * (motor.height * .5f);
@@ -239,6 +258,7 @@ namespace Itfaiye
         public void SuspendExternalMovement()
         {
             if (!externalControl) return;
+            if (Swimming) Swimming.ResetSwimming();
             InputCaptured = false;
             planarVelocity = Vector3.zero;
             verticalVelocity = -2f;
@@ -271,6 +291,7 @@ namespace Itfaiye
             if (pistol != null && pistol.Feedback != null)
                 playerCamera.transform.localRotation *= pistol.Feedback.CameraRotation;
             playerCamera.transform.localPosition = cameraRest + Vector3.down * (.52f * Mathf.SmoothStep(0f, 1f, KneelAmount));
+            if (Swimming) playerCamera.transform.localPosition += Swimming.CameraOffset;
             if (pistol != null && pistol.Feedback != null) playerCamera.transform.localPosition += pistol.Feedback.CameraOffset;
             if (pistol != null && pistol.Hands != null) playerCamera.transform.position += pistol.Hands.ButtonViewOffset;
             float hipFov = fieldOfView;
@@ -321,6 +342,7 @@ namespace Itfaiye
 
         void ReturnToSpawn()
         {
+            if (Swimming) Swimming.ResetSwimming();
             motor.enabled = false;
             transform.SetPositionAndRotation(spawnPosition, spawnRotation);
             motor.enabled = true;

@@ -17,11 +17,37 @@ namespace GameJam.FireRescue
         public bool rejectDryTerrain = true;
 
         private static readonly List<WaterSourceVolume> Sources = new List<WaterSourceVolume>();
+        static Terrain[] cachedTerrains;
+        static int terrainCacheFrame = -1;
         public static IReadOnlyList<WaterSourceVolume> ActiveSources => Sources;
         public float SurfaceY => waterSurface != null ? waterSurface.position.y : surfaceY;
+        WaterSurfaceInteraction surfaceEffects;
+        public WaterSurfaceInteraction Effects
+        {
+            get
+            {
+                if (!surfaceEffects) surfaceEffects = GetComponent<WaterSurfaceInteraction>();
+                if (!surfaceEffects) surfaceEffects = gameObject.AddComponent<WaterSurfaceInteraction>();
+                return surfaceEffects;
+            }
+        }
+
+        public bool ContainsSurface(Vector3 point)
+        {
+            point.y = SurfaceY - .025f;
+            return ContainsIntake(point);
+        }
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-        private static void ResetSources() => Sources.Clear();
+        private static void ResetSources() { Sources.Clear(); cachedTerrains = null; terrainCacheFrame = -1; }
+
+        public static bool IsSurfaceCollider(Collider collider)
+        {
+            if (!collider) return false;
+            for (int i = 0; i < Sources.Count; i++)
+                if (Sources[i] && Sources[i].waterSurface && collider.transform == Sources[i].waterSurface) return true;
+            return false;
+        }
 
         private void Reset()
         {
@@ -54,7 +80,10 @@ namespace GameJam.FireRescue
 
             if (rejectDryTerrain)
             {
-                foreach (Terrain terrain in Terrain.activeTerrains)
+                // activeTerrains returns an array. Reuse it across all ripple vertices and ballistic samples this frame.
+                if (cachedTerrains == null || terrainCacheFrame != Time.frameCount)
+                { cachedTerrains = Terrain.activeTerrains; terrainCacheFrame = Time.frameCount; }
+                foreach (Terrain terrain in cachedTerrains)
                 {
                     if (terrain == null || terrain.terrainData == null)
                         continue;

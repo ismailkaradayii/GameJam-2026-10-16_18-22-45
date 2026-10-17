@@ -48,7 +48,7 @@ namespace GameJam.FireRescue
             public float age, litres, emittedAt;
         }
         readonly Packet[] packets = new Packet[Capacity];
-        readonly ParticleSystem.Particle[] droplets = new ParticleSystem.Particle[Capacity * 3];
+        public PressurizedWaterVisual Visuals { get; private set; }
         readonly RaycastHit[] rayHits = new RaycastHit[64];
         readonly Collider[] overlapHits = new Collider[32];
         bool sprayRequested;
@@ -56,7 +56,7 @@ namespace GameJam.FireRescue
         float simulationTime;
         float simulationRemainder;
         Rigidbody vehicleBody;
-        ParticleSystem configuredSpray, configuredImpact;
+
 
         void Awake()
         {
@@ -142,7 +142,15 @@ namespace GameJam.FireRescue
                     Retire(i);
                     continue;
                 }
-                if (NearestHit(packet.position, movement.normalized, movement.magnitude, true, out RaycastHit hit))
+                bool solidHit = NearestHit(packet.position, movement.normalized, movement.magnitude, true, out RaycastHit hit);
+                float surfaceDistance = solidHit ? hit.distance : movement.magnitude;
+                if (WaterSurfaceInteraction.Raycast(new Ray(packet.position, movement.normalized), surfaceDistance, out var water, out var contact))
+                {
+                    water.Effects.Cannon(contact, packet.velocity, packet.litres);
+                    Retire(i);
+                    continue;
+                }
+                if (solidHit)
                 {
                     Impact(hit.collider, hit.point, hit.normal, packet.litres);
                     Retire(i);
@@ -194,26 +202,8 @@ namespace GameJam.FireRescue
             }
             LavaCreatureActor creature = surface.GetComponentInParent<LavaCreatureActor>();
             if (creature) creature.ApplyWater(litres);
-            ConfigureParticles();
-            if (!impactParticles) return;
-            Vector3 tangent = Vector3.Cross(normal, Vector3.up);
-            if (tangent.sqrMagnitude < .01f) tangent = Vector3.right;
-            tangent.Normalize();
-            Vector3 bitangent = Vector3.Cross(normal, tangent);
-            for (int n = 0; n < 5; n++)
-            {
-                float angle = n * 2.399963f + simulationTime;
-                var emission = new ParticleSystem.EmitParams
-                {
-                    position = point + normal * .035f,
-                    velocity = normal * (1.3f + n * .2f) +
-                        (tangent * Mathf.Cos(angle) + bitangent * Mathf.Sin(angle)) * 1.5f,
-                    startLifetime = .3f + n * .035f,
-                    startSize = .07f + n * .012f,
-                    startColor = new Color(.65f, .87f, 1f, .8f)
-                };
-                impactParticles.Emit(emission, 1);
-            }
+            EnsureVisuals();
+            Visuals.Impact(point, normal, litres, simulationTime);
         }
 
         void UpdateAim()
@@ -250,6 +240,10 @@ namespace GameJam.FireRescue
                 requestedCollider = hit.collider;
             }
             else requested = ray.origin + ray.direction * cameraRange;
+            if (WaterSurfaceInteraction.Raycast(ray, Vector3.Distance(ray.origin, requested) + .002f, out var water, out var waterPoint))
+            {
+                requested = waterPoint; requestedCollider = water.volume;
+            }
             if ((requested - muzzle.position).sqrMagnitude > maxRange * maxRange) requestedCollider = null;
             return muzzle.position + Vector3.ClampMagnitude(requested - muzzle.position, maxRange);
         }
@@ -321,7 +315,14 @@ namespace GameJam.FireRescue
             {
                 Vector3 next = point + velocity * Step + Physics.gravity * (.5f * Step * Step);
                 Vector3 movement = next - point;
-                if (NearestHit(point, movement.normalized, movement.magnitude, true, out RaycastHit hit))
+                bool solidHit = NearestHit(point, movement.normalized, movement.magnitude, true, out RaycastHit hit);
+                if (WaterSurfaceInteraction.Raycast(new Ray(point, movement.normalized), solidHit ? hit.distance : movement.magnitude,
+                    out var water, out var waterPoint))
+                {
+                    HasPredictedImpact = true; surface = water.volume; AimPoint = waterPoint; PredictedImpactNormal = Vector3.up;
+                    closest = Mathf.Min(closest, (waterPoint - requested).sqrMagnitude); break;
+                }
+                if (solidHit)
                 {
                     HasPredictedImpact = true;
                     surface = hit.collider;
@@ -391,85 +392,35 @@ namespace GameJam.FireRescue
         }
 
         bool IgnoreCollider(Collider collider) => !collider || collider is CharacterController ||
+            WaterSourceVolume.IsSurfaceCollider(collider) ||
             (ignoredCollisionRoot && collider.transform.IsChildOf(ignoredCollisionRoot)) ||
             collider.GetComponentInParent<FireRescuePlayer>() != null;
 
-        void ConfigureParticles()
+        void EnsureVisuals()
         {
-            if (sprayParticles && configuredSpray != sprayParticles)
-            {
-                configuredSpray = sprayParticles;
-                sprayParticles.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
-                var main = sprayParticles.main;
-                main.simulationSpace = ParticleSystemSimulationSpace.World;
-                main.maxParticles = droplets.Length;
-                main.useUnscaledTime = false;
-                main.gravityModifier = 0f;
-                var emission = sprayParticles.emission; emission.enabled = false;
-                var noise = sprayParticles.noise; noise.enabled = false;
-                var velocity = sprayParticles.velocityOverLifetime; velocity.enabled = false;
-                var force = sprayParticles.forceOverLifetime; force.enabled = false;
-                var color = sprayParticles.colorOverLifetime; color.enabled = false;
-                var size = sprayParticles.sizeOverLifetime; size.enabled = false;
-                sprayParticles.Play(true);
-                sprayParticles.Pause(true);
-            }
-            if (impactParticles && configuredImpact != impactParticles)
-            {
-                configuredImpact = impactParticles;
-                impactParticles.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
-                var main = impactParticles.main;
-                main.simulationSpace = ParticleSystemSimulationSpace.World;
-                main.useUnscaledTime = false;
-                main.gravityModifier = .7f;
-                main.maxParticles = 1024;
-                var emission = impactParticles.emission; emission.enabled = false;
-                impactParticles.Play(true);
-            }
+            if (Visuals) return;
+            Visuals = GetComponent<PressurizedWaterVisual>();
+            if (!Visuals) Visuals = gameObject.AddComponent<PressurizedWaterVisual>();
+            if (waterJet) waterJet.enabled = false;
+            if (sprayParticles) sprayParticles.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+            if (impactParticles) impactParticles.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
         }
 
         void DrawWater()
         {
-            ConfigureParticles();
-            int count = 0;
-            if (sprayParticles)
-            {
-                for (int i = 0; i < Capacity; i++)
-                {
-                    if (!packets[i].active) continue;
-                    Packet packet = packets[i];
-                    for (int n = 0; n < 3; n++)
-                    {
-                        droplets[count++] = new ParticleSystem.Particle
-                        {
-                            position = Vector3.Lerp(packet.previous, packet.position, n / 2f),
-                            velocity = Vector3.zero, startLifetime = 1f, remainingLifetime = 1f,
-                            startSize = .105f, startColor = new Color(.65f, .87f, 1f, .82f),
-                            randomSeed = (uint)(i * 3 + n + 1)
-                        };
-                    }
-                }
-                sprayParticles.SetParticles(droplets, count);
-            }
-            // Render only a contiguous recent stream. Separate shots/abrupt turns cannot create
-            // a phantom connecting line; their individual simulated droplets remain visible.
-            int lineCount = 0;
-            Packet newer = default;
-            if (waterJet) { waterJet.useWorldSpace = true; waterJet.positionCount = Capacity; }
+            EnsureVisuals();
+            if (waterJet) waterJet.enabled = false;
+            Visuals.BeginFrame(simulationTime, muzzle.position, LaunchVelocity, IsSpraying);
+            bool newest = true;
             for (int offset = 1; offset <= Capacity; offset++)
             {
                 int index = (nextSlot - offset + Capacity) % Capacity;
                 Packet packet = packets[index];
-                if (!packet.active) { if (lineCount > 0) break; continue; }
-                if (lineCount == 0) NewestPacketPosition = packet.position;
-                else if (newer.emittedAt - packet.emittedAt > Step * 1.6f ||
-                    Vector3.Dot(newer.launchDirection, packet.launchDirection) < .985f ||
-                    Vector3.Distance(newer.position, packet.position) > 2.5f) break;
-                if (waterJet) waterJet.SetPosition(lineCount, packet.position);
-                newer = packet;
-                lineCount++;
+                if (!packet.active) continue;
+                if (newest) { NewestPacketPosition = packet.position; newest = false; }
+                Visuals.Sample(packet.position, packet.previous, packet.velocity, packet.age, packet.emittedAt, index);
             }
-            if (waterJet) { waterJet.positionCount = lineCount; waterJet.enabled = lineCount >= 2; }
+            Visuals.EndFrame();
         }
 
         void ClearWater()
@@ -481,7 +432,7 @@ namespace GameJam.FireRescue
             if (waterJet) waterJet.enabled = false;
             if (sprayParticles) sprayParticles.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
             if (impactParticles) impactParticles.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
-            configuredSpray = configuredImpact = null;
+            if (Visuals) Visuals.Clear();
         }
         static bool IsFinite(float value) => !float.IsNaN(value) && !float.IsInfinity(value);
         void OnDisable() { sprayRequested = false; HitFire = null; ClearWater(); }

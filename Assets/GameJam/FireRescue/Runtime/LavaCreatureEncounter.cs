@@ -35,6 +35,10 @@ namespace GameJam.FireRescue
         [Min(1f)] public float secondsBetweenWaves = 32f;
         [Min(.1f)] public float secondsBetweenSpawns = 1.8f;
         [Min(1)] public int maximumAlive = 10;
+        [Header("Village tactics")]
+        [Tooltip("Leave the lava after emerging and use independent outdoor routes.")]
+        public bool disperseIntoVillage = true;
+        [Range(0f, 1f)] public float buildingAttackShare = .6f;
         public bool Initialized { get; private set; }
         public int SpawnedCount { get; private set; }
         public int DefeatedCount { get; private set; }
@@ -161,12 +165,13 @@ namespace GameJam.FireRescue
             spawn.spawned = true; SpawnedCount++; living.Add(actor);
             var siege = actor.GetComponent<LavaCreatureCombat>();
             if (!siege) siege = actor.gameObject.AddComponent<LavaCreatureCombat>();
-            siege.attackBuildings = true;
+            // A repeating low-discrepancy pattern guarantees both roles even in a three-spirit wave.
+            siege.attackBuildings = Mathf.Repeat((SpawnedCount - 1) * .618034f, 1f) < buildingAttackShare;
             if (spawn.descendFromLava)
             {
-                var path = DescentPath(spawn);
+                var path = disperseIntoVillage ? VillageEmergence(spawn) : DescentPath(spawn);
                 // Spread each procession across the lava channel instead of using one footprint.
-                float lane = ((SpawnedCount - 1) / Mathf.Max(1, spawns.Length) % 3 - 1) * 1.35f;
+                float lane = disperseIntoVillage ? 0 : ((SpawnedCount - 1) / Mathf.Max(1, spawns.Length) % 3 - 1) * 1.35f;
                 var originalPath = (Vector3[])path.Clone();
                 var sourceJump = spawn.creature.GetComponent<LavaCreatureAutoJump>();
                 for (int i = 0; i < path.Length; i++)
@@ -179,10 +184,41 @@ namespace GameJam.FireRescue
                 }
                 var combat = actor.GetComponent<LavaCreatureCombat>();
                 if (!combat) combat = actor.gameObject.AddComponent<LavaCreatureCombat>();
-                combat.ConfigureLavaDescent(path, spawn.emergenceDepth);
+                if (disperseIntoVillage) combat.ConfigureVillageEmergence(spawn.emergenceDepth);
+                else combat.ConfigureLavaDescent(path, spawn.emergenceDepth);
                 if (path.Length > 0) actor.transform.position = path[0];
             }
             actor.gameObject.SetActive(true);
+        }
+
+        Vector3[] VillageEmergence(Spawn spawn)
+        {
+            var jump = spawn.creature.GetComponent<LavaCreatureAutoJump>();
+            var terrain = jump ? jump.groundTerrain : null;
+            float clearance = jump ? jump.groundClearance : .1f;
+            float first = spawn.feed.Length * Mathf.Clamp01(spawn.feedProgress);
+            float last = Mathf.Max(first, Mathf.Min(spawn.feed.VisibleDistance - EmergenceLavaMargin, spawn.feed.Length * .94f));
+            Vector3 origin = spawn.feed.PositionAtDistance(first);
+            // Sample along the live lava front and alternate banks. Reject house interiors and water.
+            for (int attempt = 0; attempt < 20; attempt++)
+            {
+                float distance = Mathf.Lerp(first, last, Mathf.Repeat(SpawnedCount * .381966f + attempt * .173f, 1));
+                Vector3 center = spawn.feed.PositionAtDistance(distance);
+                Vector3 forward = spawn.feed.PositionAtDistance(Mathf.Min(spawn.feed.Length, distance + 2)) -
+                    spawn.feed.PositionAtDistance(Mathf.Max(0, distance - 2));
+                Vector3 side = Vector3.Cross(Vector3.up, forward).normalized * ((SpawnedCount + attempt) % 2 == 0 ? 1 : -1);
+                Vector3 point = center + side * (1.4f + attempt % 4 * 1.1f);
+                if (terrain) point.y = terrain.SampleHeight(point) + terrain.transform.position.y + clearance;
+                if (SpiritOutdoorNavigation.Contains(point, 1.5f)) continue;
+                bool water = false;
+                foreach (var source in WaterSourceVolume.ActiveSources)
+                    if (source && source.ContainsSurface(point) && point.y < source.SurfaceY) { water = true; break; }
+                if (water) continue;
+                origin = point; break;
+            }
+            origin = SpiritOutdoorNavigation.Outside(origin, origin, 1.6f);
+            if (terrain) origin.y = terrain.SampleHeight(origin) + terrain.transform.position.y + clearance;
+            return new[] { origin };
         }
 
         void RemoveDefeated()

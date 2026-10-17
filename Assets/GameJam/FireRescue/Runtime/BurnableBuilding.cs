@@ -13,6 +13,8 @@ namespace GameJam.FireRescue
         public Light fireLight;
         [Tooltip("A fitted trigger box for lava contact; existing solid meshes still block water rays.")]
         public BoxCollider ignitionBounds;
+        [Tooltip("Decorative window light meshes authored outside the house hierarchy; hide them when this house collapses.")]
+        public Renderer[] windowGlowOverlays = Array.Empty<Renderer>();
         public bool startBurning;
         [Min(1f)] public float litresToExtinguish = 100f;
         [Min(0f)] public float wetProtectionSeconds = 2f;
@@ -24,6 +26,7 @@ namespace GameJam.FireRescue
         [Min(.2f)] public float visualFireSpreadSeconds = 3.5f;
         public bool IsBurnedOut { get; private set; }
         public float BurnDamage { get; private set; }
+        public float Integrity01 => IsBurnedOut ? 0f : Mathf.Clamp01(1f - BurnDamage / Mathf.Max(1f, secondsToCollapse));
         public float SecondsUntilCollapse => IsBurning ? Mathf.Max(0, secondsToCollapse - BurnDamage) / Mathf.Max(.1f, heat) : float.PositiveInfinity;
 
         [SerializeField, Range(0f, 1f)] private float heat;
@@ -36,6 +39,7 @@ namespace GameJam.FireRescue
         private float smokeEmission;
         private float lightIntensity;
         private BuildingFirePresentation presentation;
+        private BuildingFireVisual detailedFire;
         private static readonly List<BurnableBuilding> Buildings = new List<BurnableBuilding>();
         public static event Action FireStateChanged;
 
@@ -149,6 +153,16 @@ namespace GameJam.FireRescue
             {
                 presentation.SetState(heat, isActiveAndEnabled && !IsBurnedOut);
                 return;
+            }
+            if (Application.isPlaying)
+            {
+                if (!detailedFire) detailedFire = BuildingFireVisual.Ensure(this);
+                if (detailedFire)
+                {
+                    detailedFire.SetHeat(isActiveAndEnabled ? heat : 0);
+                    if (fireLight) fireLight.enabled = isActiveAndEnabled && IsBurning;
+                    return;
+                }
             }
             CacheVisualSettings();
             bool burning = isActiveAndEnabled && IsBurning;

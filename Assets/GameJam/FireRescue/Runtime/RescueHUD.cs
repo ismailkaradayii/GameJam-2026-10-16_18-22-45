@@ -45,6 +45,7 @@ namespace GameJam.FireRescue
 
         [Header("Live HUD")]
         public Text objectiveText, waterText, pumpText, speedText, eruptionText, targetText, promptText, toastText, lowWaterText, healthText;
+        public VillageIntegrityHUD villageIntegrity;
         public Text questTitleText, questBodyText, questHintText, subtitleText;
         public Image waterFill, targetFill, questFill, impactReticle, lowWaterBackground, healthFill;
         public GameObject targetGroup, lowWaterWarning, healthPanel;
@@ -228,7 +229,8 @@ namespace GameJam.FireRescue
                 int saved = 0;
                 foreach (var house in flow.targetBuildings) if (house && !house.IsBurnedOut) saved++;
                 if (victoryTitleText) victoryTitleText.text = "Final Result: " + (won ? "SUCCESS" : "FAILED");
-                if (victoryDetailText) victoryDetailText.text = won ? "Alev dalgaları durduruldu. Köy korundu." : "Köyü kurtarmak için yeniden dene.";
+                if (victoryDetailText) victoryDetailText.text = won ? "Alev dalgaları durduruldu. Köy korundu." :
+                    saved == 0 ? "Tüm evler kül oldu. Köy kaybedildi. Evler yanarken suyla söndürerek dayanıklılıklarını koru." : "Köyü kurtarmak için yeniden dene.";
                 if (victoryStatsText) victoryStatsText.text = "Saved Villagers   " + (evacuation ? evacuation.RescuedCount + " / " + evacuation.TotalCount : "0") +
                     "\nHouses Saved   " + saved + " / " + flow.TargetCount + "\nFires Extinguished   " + flow.RescuedCount;
                 if (outcomeRestartButton) outcomeRestartButton.gameObject.SetActive(true);
@@ -316,6 +318,13 @@ namespace GameJam.FireRescue
 
         void UpdateEruption()
         {
+            bool afterEruption = missionDirector ? missionDirector.EruptionTriggered : eruption &&
+                (eruption.Stage == VolcanoEruptionSequence.EruptionStage.Erupting || eruption.Stage == VolcanoEruptionSequence.EruptionStage.Flowing);
+            if (villageIntegrity)
+            {
+                villageIntegrity.Refresh(afterEruption);
+                if (afterEruption) return;
+            }
             if (!eruptionText || !eruption) return;
             if (missionDirector)
             {

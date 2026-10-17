@@ -1,6 +1,5 @@
 using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.AI;
 
 namespace GameJam.FireRescue
 {
@@ -8,7 +7,7 @@ namespace GameJam.FireRescue
     [DisallowMultipleComponent]
     public sealed class LavaCreatureCombat : MonoBehaviour
     {
-        public enum Motion { Emerging, Searching, Windup, Leaping, Recovery, Staggered, Dead }
+        public enum Motion { Emerging, Searching, Windup, Leaping, Recovery, Staggered, Dead, Igniting }
         [Min(1f)] public float noticeDistance = 70f;
         [Min(.1f)] public float hopDistance = 4.6f;
         [Min(.1f)] public float hopDuration = .58f;
@@ -23,8 +22,11 @@ namespace GameJam.FireRescue
         [Min(.5f)] public float buildingContactDistance = 2.5f;
         [Min(15f)] public float maximumLifeSeconds = 105f;
         public BurnableBuilding BuildingTarget { get; private set; }
-        float lifetime, pathRefresh;
-        NavMeshPath buildingPath;
+        float lifetime, retaliationUntil, progressClock;
+        Vector3 progressPosition;
+        readonly SpiritOutdoorNavigation navigation = new SpiritOutdoorNavigation();
+        public bool PursuingBuilding => attackBuildings && Time.time >= retaliationUntil;
+        public int RouteRecoveries { get; private set; }
         public Motion State { get; private set; }
         public int Leaps { get; private set; }
         public int SuccessfulAttacks { get; private set; }
@@ -41,7 +43,7 @@ namespace GameJam.FireRescue
         float animatorSpeed = 1f, elapsed, duration, cooldown, acquireAt, bodyOffset = .8f, attackWait;
         float radius = .38f, height = 1.1f, fallbackGroundY;
         bool initialized, attacking, struck, alerted;
-        bool downhillLeap, emergenceSplash;
+        bool downhillLeap, emergenceSplash, villageEmergence;
         Vector3[] descentPath;
         float[] descentDistances;
         int descentIndex;
@@ -60,6 +62,13 @@ namespace GameJam.FireRescue
 
         void Start() => Initialize();
         void Update() => TickCombat(Time.deltaTime);
+
+        public void ConfigureVillageEmergence(float depth)
+        {
+            if (initialized) return;
+            villageEmergence = true; emergenceDepth = Mathf.Max(.5f, depth);
+            descentPath = null; descentDistances = null;
+        }
 
         // The encounter supplies mesh samples before activating this actor, so the first rendered
         // frame is already under the lava and movement stays on the authored mountain channel.
@@ -81,7 +90,6 @@ namespace GameJam.FireRescue
             jump = GetComponent<LavaCreatureAutoJump>();
             if (!actor || !jump) { enabled = false; return; }
             initialized = true;
-            buildingPath = new NavMeshPath();
             fallbackGroundY = transform.position.y;
             jump.TakeCombatControl();
             // The encounter explicitly assigns its player, even when the lava emerges far away.
@@ -95,10 +103,11 @@ namespace GameJam.FireRescue
                 radius = Mathf.Clamp(Mathf.Min(hitbox.bounds.extents.x, hitbox.bounds.extents.z), .24f, .75f);
             }
             grounded = IsDescending ? descentPath[0] : GroundAt(transform.position);
+            progressPosition = grounded;
             start = grounded - Vector3.up * emergenceDepth;
             landing = grounded;
             transform.position = start;
-            Change(Motion.Emerging, IsDescending ? .9f : .55f);
+            Change(Motion.Emerging, IsDescending || villageEmergence ? .9f : .55f);
             AcquireTarget();
         }
 
@@ -114,7 +123,8 @@ namespace GameJam.FireRescue
                 // Stragglers dissipate; no infinite encounter if scenery blocks a hop.
                 actor.Dissipate(); return;
             }
-            if (attackBuildings && !IsDescending && TickBuildingContact()) return;
+            if (PursuingBuilding && !IsDescending &&
+                (State == Motion.Searching || State == Motion.Recovery) && TickBuildingContact()) return;
             cooldown = Mathf.Max(0f, cooldown - dt);
             attackWait += dt;
             elapsed += dt;
@@ -124,7 +134,7 @@ namespace GameJam.FireRescue
             {
                 case Motion.Emerging:
                     transform.position = Vector3.Lerp(start, landing, Mathf.SmoothStep(0f, 1f, elapsed / duration));
-                    if (IsDescending && !emergenceSplash && elapsed >= duration * .35f)
+                    if ((IsDescending || villageEmergence) && !emergenceSplash && elapsed >= duration * .35f)
                     {
                         emergenceSplash = true;
                         LavaCombatEffects.Emerge(landing - Vector3.up * jump.groundClearance);
@@ -132,7 +142,7 @@ namespace GameJam.FireRescue
                     if (elapsed >= duration) { jump.CombatGrounded(landing); Change(Motion.Searching, 0f); }
                     break;
                 case Motion.Searching:
-                    bool siege = attackBuildings && FindBuilding();
+                    bool siege = PursuingBuilding && FindBuilding();
                     bool hasTarget = target && target.isActiveAndEnabled && target.Health > 0f;
                     Vector3 offset = hasTarget ? target.PursuitPosition - transform.position : Vector3.zero;
                     // A nearby player can intercept the procession, including from a vehicle.
@@ -152,6 +162,11 @@ namespace GameJam.FireRescue
                     {
                         goal = ApproachPoint(); offset = goal - transform.position; offset.y = 0f;
                     }
+                    if (!downhillLeap && !attacking)
+                    {
+                        goal = navigation.Next(transform.position, goal, radius + .45f);
+                        offset = goal - transform.position; offset.y = 0;
+                    }
                     if (!attacking && offset.magnitude < .65f) return;
                     direction = offset.sqrMagnitude > .001f ? offset.normalized : Vector3.forward;
                     start = downhillLeap ? transform.position : GroundAt(transform.position);
@@ -159,6 +174,11 @@ namespace GameJam.FireRescue
                     float step = downhillLeap ? Mathf.Min(downhillHopDistance, offset.magnitude) :
                         Mathf.Min(attacking ? attackRange : hopDistance, Mathf.Max(0f, offset.magnitude - (attacking ? .55f : .1f)));
                     landing = ChooseLanding(start, direction, step);
+                    if (FlatDistance(start, landing) < .18f)
+                    {
+                        navigation.Invalidate(); detourSide = lane % 2 == 0 ? 1 : -1;
+                        Change(Motion.Recovery, .18f); break;
+                    }
                     if (downhillLeap && FlatDistance(landing, goal) < .4f) landing.y = Mathf.Max(landing.y, goal.y);
                     direction = (landing - start); direction.y = 0f;
                     if (direction.sqrMagnitude > .001f) direction.Normalize();
@@ -205,6 +225,18 @@ namespace GameJam.FireRescue
                 case Motion.Recovery:
                     if (elapsed >= duration) Change(Motion.Searching, 0f);
                     break;
+                case Motion.Igniting:
+                    if (!BuildingTarget || BuildingTarget.IsBurnedOut || BuildingTarget.IsRescued)
+                    { BuildingTarget = null; Change(Motion.Searching, 0); break; }
+                    jump.CombatWindup(direction, Mathf.Clamp01(elapsed / duration));
+                    if (elapsed >= duration)
+                    {
+                        BuildingTarget.Ignite();
+                        if (BuildingTarget.IsBurning)
+                        { LavaCombatEffects.Emerge(BuildingApproach()); actor.ConsumeAtBuilding(); }
+                        else { BuildingTarget = null; Change(Motion.Recovery, .6f); }
+                    }
+                    break;
                 case Motion.Staggered:
                     // Only this enemy pauses for impact; player controls and world time continue.
                     if (elapsed < .065f) return;
@@ -212,22 +244,36 @@ namespace GameJam.FireRescue
                     float recovery = Mathf.Clamp01((elapsed - .065f) / .23f);
                     // Fast initial displacement, then a soft settle. The impulse reads at once.
                     float recoil = 1f - Mathf.Pow(1f - recovery, 3f);
-                    transform.position = Vector3.Lerp(start, landing, recoil);
+                    Vector3 recoilPosition = Vector3.Lerp(start, landing, recoil);
+                    Vector3 recoilTravel = recoilPosition - transform.position;
+                    float recoilClear = ClearDistance(transform.position, recoilTravel.normalized, recoilTravel.magnitude);
+                    transform.position += recoilTravel.normalized * recoilClear;
                     jump.RecoverCombatImpact(recoil);
-                    if (recovery >= 1f) { grounded = landing; jump.CombatGrounded(grounded); Change(Motion.Recovery, .1f); }
+                    if (recovery >= 1f) { grounded = GroundAt(transform.position); transform.position = grounded; jump.CombatGrounded(grounded); Change(Motion.Recovery, .1f); }
                     break;
+            }
+            if (!IsDescending && State != Motion.Staggered && State != Motion.Igniting)
+            {
+                progressClock += dt;
+                if (progressClock >= 2.5f)
+                {
+                    if (FlatDistance(progressPosition, transform.position) < .6f)
+                    { navigation.Invalidate(); detourSide = detourSide == 0 ? 1 : -detourSide; RouteRecoveries++; }
+                    progressClock = 0; progressPosition = transform.position;
+                }
             }
         }
 
         bool FindBuilding()
         {
-            if (BuildingTarget && !BuildingTarget.IsBurnedOut && !BuildingTarget.IsRescued) return true;
-            BuildingTarget = null; pathRefresh = 0; buildingPath.ClearCorners(); float best = float.PositiveInfinity;
+            if (BuildingTarget && BuildingTarget.isActiveAndEnabled && !BuildingTarget.IsBurnedOut &&
+                !BuildingTarget.IsBurning && !BuildingTarget.IgnitionBlocked) return true;
+            BuildingTarget = null; navigation.Invalidate(); float best = float.PositiveInfinity;
             foreach (var house in BurnableBuilding.ActiveBuildings)
             {
-                if (!house || house.IsBurnedOut || house.IsRescued || !house.ignitionBounds) continue;
-                float score = FlatDistance(transform.position, house.ignitionBounds.bounds.ClosestPoint(transform.position)) + (house.IsBurning ? 45 : 0);
-                foreach (var other in crowd) if (other && other != this && other.BuildingTarget == house) score += 9;
+                if (!house || !house.isActiveAndEnabled || house.IsBurnedOut || house.IsBurning || house.IgnitionBlocked || !house.ignitionBounds) continue;
+                float score = FlatDistance(transform.position, house.ignitionBounds.ClosestPoint(transform.position));
+                foreach (var other in crowd) if (other && other != this && other.PursuingBuilding && other.BuildingTarget == house) score += 24;
                 if (score < best) { best = score; BuildingTarget = house; }
             }
             return BuildingTarget;
@@ -237,38 +283,29 @@ namespace GameJam.FireRescue
             if (!FindBuilding()) return false;
             Vector3 contact = BuildingTarget.ignitionBounds.ClosestPoint(transform.position + Vector3.up * bodyOffset);
             if (FlatDistance(transform.position, contact) > buildingContactDistance || Mathf.Abs(contact.y - transform.position.y) > 8) return false;
-            BuildingTarget.Ignite(); actor.ConsumeAtBuilding(); return true;
+            direction = contact - transform.position; direction.y = 0; direction.Normalize();
+            attacking = false; HideAttackTell(); Change(Motion.Igniting, .7f);
+            return true;
         }
         Vector3 BuildingApproach()
         {
-            Vector3 goal = BuildingTarget.ignitionBounds.ClosestPoint(transform.position);
-            if (Time.time >= pathRefresh)
-            {
-                pathRefresh = Time.time + 1f;
-                if (NavMesh.SamplePosition(transform.position, out var from, 12, NavMesh.AllAreas) &&
-                    NavMesh.SamplePosition(goal, out var to, 8, NavMesh.AllAreas))
-                    NavMesh.CalculatePath(from.position, to.position, NavMesh.AllAreas, buildingPath);
-            }
-            if (buildingPath.status == NavMeshPathStatus.PathComplete)
-            {
-                var corners = buildingPath.corners;
-                // Corner zero is the old route origin, never a forward destination.
-                for (int i = 1; i < corners.Length; i++)
-                    if (FlatDistance(corners[i], transform.position) > 3f) return corners[i];
-            }
-            return goal;
+            return SpiritOutdoorNavigation.Exterior(BuildingTarget.ignitionBounds, transform.position,
+                Mathf.Max(radius + .65f, buildingContactDistance * .6f));
         }
         public void Stagger(Vector3 shotDirection)
         {
             Initialize();
             if (!initialized || actor.IsDefeated) return;
             alerted = true;
+            retaliationUntil = Time.time + 4.5f; navigation.Invalidate();
+            if (IsDescending && target && FlatDistance(transform.position, target.PursuitPosition) < 26f)
+                descentIndex = descentPath.Length - 1;
             attacking = false; HideAttackTell();
             cooldown = Mathf.Max(cooldown, .55f);
             shotDirection.y = 0f;
             if (shotDirection.sqrMagnitude < .001f) shotDirection = -direction;
             start = transform.position;
-            landing = GroundAt(start + shotDirection.normalized * ClearDistance(start, shotDirection.normalized, .95f));
+            landing = GroundAt(start + shotDirection.normalized * ClearDistance(start, shotDirection.normalized, 1.3f));
             // Hold the exact struck pose, including a midair flip, before easing upright.
             jump.CaptureCombatImpact();
             if (animator) animator.speed = 0f;
@@ -303,12 +340,13 @@ namespace GameJam.FireRescue
             float bestScore = float.NegativeInfinity;
             float bestAngle = 0f;
             // A fan of collision probes routes repeated hops around buildings and boulders.
-            for (int i = 0; i < (downhillLeap ? 7 : 9); i++)
+            for (int i = 0; i < (downhillLeap ? 7 : 13); i++)
             {
                 float angle = i == 0 ? 0f : ((i + 1) / 2) * 30f * (i % 2 == 1 ? 1f : -1f);
                 Vector3 route = Quaternion.AngleAxis(angle, Vector3.up) * forward;
                 float clear = ClearDistance(from, route, distance);
                 Vector3 candidate = GroundAt(from + route * clear);
+                if (SpiritOutdoorNavigation.Contains(candidate, radius + .2f)) continue;
                 if (downhillLeap)
                 {
                     // Shorten cliff-edge hops instead of refusing every downhill step.
@@ -368,6 +406,7 @@ namespace GameJam.FireRescue
             foreach (var other in crowd)
             {
                 if (!other || other == this || !other.isActiveAndEnabled || other.target != target) continue;
+                if (other.PursuingBuilding && other.BuildingTarget) continue;
                 if (other.IsAttacking)
                 {
                     attackers++;
@@ -385,13 +424,14 @@ namespace GameJam.FireRescue
             Vector3 center = target.PursuitPosition;
             Vector3 radial = transform.position - center; radial.y = 0f;
             if (radial.sqrMagnitude < .1f) radial = Quaternion.Euler(0, lane * 137.508f, 0) * Vector3.forward;
-            float ring = 4.1f + lane % 3 * .42f;
+            float ring = 3.4f + lane % 3 * .45f;
             Vector3 best = center + radial.normalized * ring;
             float bestScore = float.PositiveInfinity;
             for (int i = 0; i < 12; i++)
             {
                 float angle = i == 0 ? 0 : ((i + 1) / 2) * 30f * (i % 2 == 0 ? -1 : 1);
                 Vector3 p = center + Quaternion.Euler(0, angle, 0) * radial.normalized * ring;
+                p = SpiritOutdoorNavigation.Outside(p, transform.position, radius + .65f);
                 float score = FlatDistance(p, transform.position) + Occupancy(p) * 9f;
                 if (score < bestScore) { bestScore = score; best = p; }
             }
@@ -460,15 +500,28 @@ namespace GameJam.FireRescue
         float ClearDistance(Vector3 from, Vector3 along, float distance)
         {
             if (distance < .001f) return 0f;
+            float outdoor = distance;
+            if (SpiritOutdoorNavigation.Blocked(from, from + along * distance, radius + .2f))
+            {
+                float low = 0, high = distance;
+                for (int n = 0; n < 9; n++)
+                { float middle = (low + high) * .5f; if (SpiritOutdoorNavigation.Blocked(from, from + along * middle, radius + .2f)) high = middle; else low = middle; }
+                outdoor = Mathf.Max(0, low - .04f);
+            }
             int count = Physics.SphereCastNonAlloc(from + Vector3.up * bodyOffset, radius, along, hits,
                 distance + .07f, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore);
-            float result = distance;
+            float result = outdoor;
             for (int i = 0; i < count; i++)
             {
                 Collider obstacle = hits[i].collider;
                 if (!obstacle || obstacle is TerrainCollider || obstacle.transform.IsChildOf(transform) ||
                     obstacle.GetComponentInParent<LavaCreatureActor>() ||
                     (target && obstacle.transform.IsChildOf(target.transform))) continue;
+                // Birth can overlap the advancing lava mesh. Its zero-distance sweep normal is
+                // horizontal, so treating it as a wall pins a spirit in place in every direction.
+                if (obstacle.GetComponentInParent<ProgressiveLavaFlow>() ||
+                    obstacle.GetComponentInParent<LavaIgnitionSource>() ||
+                    obstacle.GetComponentInParent<LavaCoolingSurface>()) continue;
                 // Floor contacts are not walls, including the flat test/training floor.
                 if (hits[i].normal.y > .65f) continue;
                 result = Mathf.Min(result, Mathf.Max(0f, hits[i].distance - .07f));
