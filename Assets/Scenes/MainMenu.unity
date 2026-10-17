@@ -4924,8 +4924,8 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 0
     m_LineSpacing: 1
-  m_Text: "Kasabay\u0131 yang\u0131ndan koru; g\xF6lden su \xE7ek ve lav yarat\u0131klar\u0131n\u0131
-    durdur."
+  m_Text: "\xD6nce halk\u0131 s\u0131\u011F\u0131na\u011Fa g\xF6t\xFCr; ard\u0131ndan
+    kasabay\u0131 yang\u0131ndan koru."
 --- !u!222 &415431318
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -8259,8 +8259,8 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 0
     m_LineSpacing: 1
-  m_Text: "Ara\xE7tayken sa\u011F t\u0131kla evlere veya lav yarat\u0131klar\u0131na
-    su s\u0131k."
+  m_Text: "Ara\xE7tayken sa\u011F t\u0131kla evleri s\xF6nd\xFCr, lavlar\u0131 so\u011Fut
+    ve ruhlara su s\u0131k."
 --- !u!222 &690956816
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -14004,7 +14004,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 0
     m_LineSpacing: 1
-  m_Text: PATLAMA
+  m_Text: "TAHL\u0130YE"
 --- !u!222 &1093381021
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -18632,9 +18632,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   m_IgnoreLayout: 0
   m_MinWidth: -1
-  m_MinHeight: 88
+  m_MinHeight: 138
   m_PreferredWidth: -1
-  m_PreferredHeight: 88
+  m_PreferredHeight: 138
   m_FlexibleWidth: -1
   m_FlexibleHeight: -1
   m_LayoutPriority: 1
@@ -19023,9 +19023,11 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 0
     m_LineSpacing: 1
-  m_Text: "Yeni Oyun kasaba haritas\u0131n\u0131 a\xE7ar. Patlamadan sonra lavlar
-    ilerler, evler yanar ve lav yarat\u0131klar\u0131 ortaya \xE7\u0131kar. \u0130tfaiyenin
-    su deposunu g\xF6lden doldur."
+  m_Text: "\xD6nce evlere yakla\u015F, Q ile seslen ve 7 sivili SHELTER tabelal\u0131
+    s\u0131\u011F\u0131na\u011Fa g\xF6t\xFCr. Sonra itfaiyenin deposunu g\xF6lden
+    doldur. 10 saniyelik patlama sahnesinden sonra alev ruhlar\u0131n\u0131 durdur.
+    Yanan evleri 90 saniye i\xE7inde s\xF6nd\xFCr; yakla\u015Fan lavlar\u0131 suyla
+    so\u011Fut. S\u0131cak lava girersen can\u0131n azal\u0131r."
 --- !u!222 &1573834501
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -21472,7 +21474,7 @@ GameObject:
   - component: {fileID: 1819183305}
   - component: {fileID: 1819183304}
   m_Layer: 0
-  m_Name: PATLAMAControlRow
+  m_Name: "TAHL\u0130YEControlRow"
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -24406,8 +24408,8 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 0
     m_LineSpacing: 1
-  m_Text: "Patlamay\u0131 erkenden ba\u015Flat. Beklersen volkan kendili\u011Finden
-    patlar."
+  m_Text: "Evlerin yak\u0131n\u0131nda 'Herkes d\u0131\u015Far\u0131ya!' diye seslen.
+    Halk\u0131 s\u0131\u011F\u0131na\u011Fa g\xF6t\xFCr."
 --- !u!222 &2065835464
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -24805,7 +24807,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 0
     m_LineSpacing: 1
-  m_Text: V
+  m_Text: Q
 --- !u!222 &2086511883
 CanvasRenderer:
   m_ObjectHideFlags: 0

@@ -60,9 +60,91 @@ public sealed class LavaCreatureAutoJump : MonoBehaviour
     private bool animatorInitialized;
     private Quaternion visualRestLocalRotation;
     private Vector3 visualRestLocalScale;
+    private Quaternion impactRotation;
+    private Vector3 impactScale;
     private readonly List<Renderer> flameRenderers = new List<Renderer>();
     private readonly List<Color> flameBaseEmission = new List<Color>();
     private MaterialPropertyBlock emissionBlock;
+    private bool combatControlled;
+
+    // Gameplay actors use the same authored flip/tuck without competing coroutines.
+    public Transform Target => target;
+    public void TakeCombatControl()
+    {
+        combatControlled = true;
+        if (jumpLoop != null) StopCoroutine(jumpLoop);
+        jumpLoop = null;
+        InitializeAnimator();
+        groundPosition = transform.position;
+        RestoreVisualTransform();
+    }
+
+    public void CombatWindup(Vector3 direction, float amount)
+    {
+        FaceCombatDirection(direction);
+        if (visualRoot != null)
+            visualRoot.localScale = Vector3.Scale(visualRestLocalScale,
+                new Vector3(1f + .16f * amount, 1f + .16f * amount, 1f - .28f * amount));
+        SetFireballEffects(amount * 1.3f);
+    }
+
+    public void BeginCombatJump(Vector3 direction)
+    {
+        FaceCombatDirection(direction);
+        PlayJump();
+    }
+
+    public void CombatPose(Vector3 position, float progress)
+    {
+        transform.position = position;
+        if (visualRoot == null) return;
+        float ball = CalculateFireballAmount(progress);
+        visualRoot.localRotation = visualRestLocalRotation * Quaternion.AngleAxis(-360f * somersaultCount * progress, Vector3.right);
+        visualRoot.localScale = Vector3.Scale(visualRestLocalScale,
+            new Vector3(1f + .2f * ball, 1f + .2f * ball, 1f - .38f * ball)) * Mathf.Lerp(1f, midairFireballScale, ball);
+        SetFireballEffects(ball * 1.5f);
+    }
+
+    public void CombatLungePose(Vector3 position, float progress)
+    {
+        transform.position = position;
+        if (!visualRoot) return;
+        float drive = Mathf.Sin(Mathf.Clamp01(progress) * Mathf.PI);
+        visualRoot.localRotation = visualRestLocalRotation * Quaternion.AngleAxis(-26f * drive, Vector3.right);
+        // Local -Y faces forward in the authored FBX. Keep the face visible during the attack.
+        visualRoot.localScale = Vector3.Scale(visualRestLocalScale,
+            new Vector3(1f - .1f * drive, 1f + .38f * drive, 1f - .16f * drive));
+        SetFireballEffects(drive * 1.8f);
+    }
+
+    public void CombatGrounded(Vector3 position)
+    {
+        groundPosition = position;
+        transform.position = position;
+        RestoreVisualTransform();
+        PlayIdle();
+    }
+
+    public void CaptureCombatImpact()
+    {
+        if (visualRoot == null) return;
+        impactRotation = visualRoot.localRotation;
+        impactScale = visualRoot.localScale;
+    }
+
+    public void RecoverCombatImpact(float amount)
+    {
+        if (visualRoot == null) return;
+        visualRoot.localRotation = Quaternion.Slerp(impactRotation, visualRestLocalRotation, amount);
+        visualRoot.localScale = Vector3.Lerp(impactScale, visualRestLocalScale, amount);
+    }
+
+    void FaceCombatDirection(Vector3 direction)
+    {
+        direction.y = 0f;
+        if (direction.sqrMagnitude > .0001f)
+            transform.rotation = Quaternion.LookRotation(direction, Vector3.up) * ModelBasisCorrection;
+    }
 
     // Inspected FBX basis: the face points along local -Y and the head/up axis
     // is local +Z. This correction maps that basis to Unity forward/up.
@@ -92,7 +174,7 @@ public sealed class LavaCreatureAutoJump : MonoBehaviour
         if (TryTerrainHeight(groundPosition, out float surfaceY))
             groundPosition.y = surfaceY;
         transform.position = groundPosition;
-        if (jumpLoop == null)
+        if (!combatControlled && jumpLoop == null)
             jumpLoop = StartCoroutine(AutoJumpLoop());
     }
 
@@ -301,7 +383,7 @@ public sealed class LavaCreatureAutoJump : MonoBehaviour
 
     private void PlayIdle()
     {
-        if (animator != null && hasIdleState)
+        if (animator != null && animator.isActiveAndEnabled && hasIdleState)
             animator.CrossFadeInFixedTime(IdleState, 0.1f);
     }
 

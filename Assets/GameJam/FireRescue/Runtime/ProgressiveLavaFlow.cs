@@ -20,6 +20,10 @@ namespace GameJam.FireRescue
         [Min(0f)] public float groundClearance = 0.2f;
         [Tooltip("The renderer and collider advance together at this interval. Explicit SetDistance is immediate.")]
         [Min(0.02f)] public float meshUpdateInterval = 0.1f;
+        [Tooltip("Village branches can be stopped by cooling the advancing lava front.")]
+        public bool canBeStoppedByWater;
+        public bool StoppedByCooling => canBeStoppedByWater && IsInitialized && VisibleDistance > 0 &&
+            ignitionSource && ignitionSource.IsHotSurfaceActive && !ignitionSource.IsHotAt(FrontPosition);
 
         public bool IsInitialized { get; private set; }
         public float DistanceTravelled { get; private set; }
@@ -188,7 +192,7 @@ namespace GameJam.FireRescue
         {
             if (!IsInitialized)
                 Initialize();
-            if (!IsFinite(deltaTime) || deltaTime <= 0f || !IsFinite(speed) || speed <= 0f || HasArrived)
+            if (!IsFinite(deltaTime) || deltaTime <= 0f || !IsFinite(speed) || speed <= 0f || HasArrived || StoppedByCooling)
                 return;
             DistanceTravelled = Mathf.Min(Length, DistanceTravelled + speed * deltaTime);
             untilMeshUpdate -= deltaTime;
@@ -427,7 +431,8 @@ namespace GameJam.FireRescue
             fraction = segment > Epsilon ? Mathf.Clamp01((arc - rowDistances[lower]) / segment) : 0f;
         }
 
-        private Vector3 PositionAtDistance(float distance)
+        /// <summary>World-space centre of the actual lava mesh, measured from its flow origin.</summary>
+        public Vector3 PositionAtDistance(float distance)
         {
             if (source == null) return transform.position;
             if (rowCount == 0) return source.transform.position;

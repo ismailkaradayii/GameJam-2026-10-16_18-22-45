@@ -26,6 +26,7 @@ namespace GameJam.FireRescue
         public bool IsSpraying { get; private set; }
         public Vector3 AimPoint { get; private set; }
         public BurnableBuilding HitFire { get; private set; }
+        public LavaCoolingSurface HitLava { get; private set; }
 
         private bool sprayRequested;
         private readonly RaycastHit[] rayHits = new RaycastHit[64];
@@ -56,6 +57,7 @@ namespace GameJam.FireRescue
         public void TickSpray(float deltaTime)
         {
             HitFire = null;
+            HitLava = null;
             if (muzzle == null || !IsFinite(maxRange) || maxRange <= 0f)
             {
                 StopEffects();
@@ -83,7 +85,10 @@ namespace GameJam.FireRescue
                 normal = hit.normal;
             }
             if (hitCollider != null)
+            {
                 HitFire = hitCollider.GetComponentInParent<BurnableBuilding>();
+                HitLava = hitCollider.GetComponentInParent<LavaCoolingSurface>();
+            }
 
             float consumed = 0f;
             if (sprayRequested && tank != null && IsFinite(deltaTime) && deltaTime > 0f &&
@@ -92,6 +97,7 @@ namespace GameJam.FireRescue
                 consumed = tank.ConsumeWater(flowLitresPerSecond * deltaTime);
                 if (consumed > 0f && HitFire != null)
                     HitFire.ApplyWater(consumed);
+                if (consumed > 0f && HitLava) HitLava.ApplyWater(AimPoint, consumed);
                 if (consumed > 0f && hitCollider != null)
                 {
                     var creature = hitCollider.GetComponentInParent<LavaCreatureActor>();
