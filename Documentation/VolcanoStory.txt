@@ -51,3 +51,33 @@ Tek Q ile 7/7 cagrildi; 7/7 gercek ajan siginaga ulasti; depo mevcut pompayla
 2000/2000 L doldu; donus rotasi savunma hedefine gecti; duraklatma, patlama ve
 yeniden baslatma kontrolleri gecti. Pencere kadraji ve Turkce altyazilarin oyun ici
 ekran goruntuleri incelendi. Butun gol yolunu elle surme kontrolu yapilmadi.
+
+18 Ekim 2026 - merge1710-2 birlestirmesi
+-------------------------------------
+Kaynaklar: osman1710-5 (6637a50), ismail1710-5 (1c0b6dc).
+Osman'in kasaba duzeni, arazi, evler, arac, yangin sistemi, alarm/panik, anlik yol
+yonlendirmesi ve gunesten volkanik havaya gecisi esas alindi. Ismail'in mevcut
+giris/kalkis sinematigi, pencereye fiziksel yuruyusu, kucuk duman/kivilcimi,
+Turkce ic sesleri ve savunma hedefi bunlarla birlikte korundu. Ana menu sahnesi,
+VolcanoCinematic ve acilis sahne sirasi Ismail dalindakiyle aynidir.
+
+Sahne karsilastirmasi: Osman'in 8155 kaydina 19 senaryo kaydi eklendi; hicbir
+Osman kaydi silinmedi. Yalnizca 5 mevcut kayitta senaryo baglantisi/altyazi
+ayarlari eklendi. 110 diger Osman degisiklik dosyasi birebir korundu.
+
+Istisna: Osman dalindaki ikili VillageEvacuationNavMesh.asset, satir sonu
+donusumu nedeniyle 6 bayt eksikti ve Unity tarafindan yuklenemiyordu. Birlesmis
+kasabadan yeniden hesaplandi; ayni GUID ve sahne referanslari korundu. Git
+attributes istisnasi bu dosyayi binary tutarak tekrar bozulmasini engeller.
+Kasaba koordinatlari veya arazi, bu onarim sirasinda degistirilmedi.
+
+Unity 6000.0.58f2 derlemesi ve birlesmis sahnenin oyun ici kontrolu COMPLETED:
+- Pencere yuruyusu, kucuk efektler ve Turkce altyazilar.
+- Gercek E ile silah ve siren; Q'dan once 7 koylunun disari cikip paniklemesi.
+- Tek Q ile 7/7 takip; gercek ajanlarla 7/7 siginaga ulasma.
+- Mevcut arac fizigi ve pompayla 2000 L dolum; donus ve savunma yonlendirmesi.
+- Duraklatma, patlama sinematigi, volkanik gokyuzu ve gecikmeli 3 kul bulutu.
+- Yeniden baslatmada senaryo, alarm, NPC'ler, hava ve deponun sifirlanmasi.
+Rapor: Library/VolcanoStoryReview/checks.txt. Yapisal karsilastirma:
+Library/Merge1710Review/scene-and-source-audit.txt. Kontrol kapsamindaki oyuncu
+ve arac yerlestirme duzenegi yukarida aciklandigi gibidir; tam elle surus testi degildir.

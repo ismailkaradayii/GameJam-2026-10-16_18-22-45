@@ -241,10 +241,13 @@ public static class VolcanoStoryChecks
                 Check("original independent eruption still starts its cinematic", mission.EruptionTriggered && mission.cinematic.IsPlaying && player.CinematicLocked && story.CurrentLine == "" && !story.omenSmoke.IsAlive());
                 Next(24, 50); return;
             case 24:
-                if (mission.cinematic.IsPlaying || weather.Transition01 < .999f) return;
+                // The three native banks deliberately start at 5, 11 and 17 seconds.
+                if (mission.cinematic.IsPlaying || weather.Transition01 < .999f ||
+                    mission.sequence.effects.Elapsed < mission.sequence.effects.driftingAshClouds.Max(c => c.delay) + .5f) return;
                 Check("eruption restores control without a story input lock", !player.CinematicLocked && player.viewCamera.enabled && mission.sequence.effects.IsErupting);
                 Check("Osman eruption restores the volcanic sky and moving native ash clouds", RenderSettings.skybox == weather.volcanicSky && weather.environment.cloudsMaterial &&
-                    weather.sunnyFill.intensity < .01f && mission.sequence.effects.driftingAshClouds.All(c => c.particles.isPlaying));
+                    weather.sunnyFill.intensity < .01f && mission.sequence.effects.driftingAshClouds.All(c => c.particles.isPlaying &&
+                        Vector3.Distance(c.particles.transform.position, c.villagePosition) < Vector3.Distance(c.eruptionPosition, c.villagePosition)));
                 player.gameFlow.RestartMission(); Next(25, 45); return;
             case 25:
                 var fresh = Object.FindFirstObjectByType<VolcanoMissionDirector>();
