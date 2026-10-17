@@ -20,6 +20,11 @@ namespace GameJam.FireRescue
         public Transform exitPoint;
         public RescueGameFlow gameFlow;
         public VolcanoMissionDirector mission;
+        public ContextualInteractionUI contextualInteractions;
+        [Header("Interaction keys (Input System)")]
+        public Key interactKey = Key.E, exitVehicleKey = Key.F, retractHoseKey = Key.R, pumpKey = Key.P;
+        public event Action<string> NoticeRaised;
+        public string ActiveNotice => Time.unscaledTime < noticeUntil ? notice : "";
         [Tooltip("The authored bedroom pickup owns the existing slot 1.")]
         public bool requiresWeaponPickup;
         [Min(0f)] public float vehicleCameraBlendSeconds = .6f;
@@ -55,6 +60,7 @@ namespace GameJam.FireRescue
         public string InteractionPrompt => GetPrompt();
         public string WaterStatus => GetWaterStatus();
         public bool CinematicLocked { get; private set; }
+        public bool InteractionBusy => mission && mission.villageAlarm && mission.villageAlarm.IsPressing;
         public void SetCinematicLocked(bool locked)
         {
             if (CinematicLocked == locked) return;
@@ -87,7 +93,7 @@ namespace GameJam.FireRescue
         Vector2 lookAngularVelocity;
         Renderer[] bodyRenderers;
         bool[] bodyRendererDefaults;
-        bool equipmentStateKnown, previousDriving, previousCarrying;
+        bool equipmentStateKnown, previousDriving, previousCarrying, previousInteracting;
         Func<Vector3, Vector3> hoseTravelConstraint;
         string notice;
         float noticeUntil;
@@ -164,6 +170,12 @@ namespace GameJam.FireRescue
                 return;
             }
 
+            if (InteractionBusy)
+            {
+                StopGameplayInput();
+                if (!IsDriving) MoveOnFoot(Vector2.zero, false, captured: false);
+                return;
+            }
             Vector2 mouseDelta = mouse != null ? mouse.delta.ReadValue() : Vector2.zero;
             if (IsDriving)
             {
@@ -183,7 +195,7 @@ namespace GameJam.FireRescue
                     lookAngularVelocity = new Vector2(lookYaw - previousYaw, lookPitch - previousPitch) / Time.deltaTime;
             }
 
-            if (IsDriving && keyboard.fKey.wasPressedThisFrame) ExitVehicle();
+            if (IsDriving && exitVehicleKey != Key.None && keyboard[exitVehicleKey].wasPressedThisFrame) ExitVehicle();
 
             Vector2 move = new Vector2(
                 (keyboard.dKey.isPressed ? 1f : 0f) - (keyboard.aKey.isPressed ? 1f : 0f),
@@ -192,7 +204,7 @@ namespace GameJam.FireRescue
             {
                 if (pistol) pistol.SetExternalInput(false, false, false, false, false, false);
                 var station = mission ? mission.fillStation : null;
-                if (station && keyboard.eKey.wasPressedThisFrame) station.Interact();
+                if (station && interactKey != Key.None && keyboard[interactKey].wasPressedThisFrame) station.Interact();
                 bool filling = station && station.IsFilling;
                 if (drive) drive.SetInput(filling ? 0 : move.y, filling ? 0 : move.x, filling || keyboard.spaceKey.isPressed);
                 SetCannonActive(!filling && mouse != null && mouse.rightButton.isPressed);
@@ -204,14 +216,14 @@ namespace GameJam.FireRescue
                 keyboard.spaceKey.wasPressedThisFrame, keyboard.cKey.wasPressedThisFrame);
             // Update the first-person camera before ray-based interactions this frame.
             UpdateFootCamera();
-            if (keyboard.eKey.wasPressedThisFrame)
+            if (interactKey != Key.None && keyboard[interactKey].wasPressedThisFrame)
             {
                 Interact();
                 if (IsDriving) return;
             }
-            if (hose && keyboard.pKey.wasPressedThisFrame) hose.TogglePump();
+            if (hose && pumpKey != Key.None && keyboard[pumpKey].wasPressedThisFrame) hose.TogglePump();
             RefreshEquipmentState();
-            if (keyboard.rKey.wasPressedThisFrame) ReloadOrRetract();
+            if (retractHoseKey != Key.None && keyboard[retractHoseKey].wasPressedThisFrame) ReloadOrRetract();
             if (pistol)
                 pistol.SetExternalInput(true, mouse != null && mouse.rightButton.isPressed,
                     mouse != null && mouse.leftButton.wasPressedThisFrame,
@@ -257,12 +269,12 @@ namespace GameJam.FireRescue
             if (!drive || IsDriving) return false;
             if (!NearVehicleEntry())
             {
-                ShowNotice("Approach the driver's door to enter.");
+                ShowNotice("Binmek için sürücü kapısına yaklaş.");
                 return false;
             }
             if (hose && hose.IsDeployed)
             {
-                ShowNotice("Retract the intake hose at the rear of the truck with R.");
+                ShowNotice("Önce aracın arkasındaki emiş hortumunu topla.");
                 return false;
             }
             SetDriving(true);
@@ -275,7 +287,7 @@ namespace GameJam.FireRescue
             if (!IsDriving || !drive || !playerBody) return false;
             if (Mathf.Abs(drive.SpeedKph) > 4f)
             {
-                ShowNotice("Stop the truck before exiting.");
+                ShowNotice("İnmek için önce aracı durdur.");
                 return false;
             }
             Vector3 destination = exitPoint ? exitPoint.position : drive.transform.position - drive.transform.right * 3f;
@@ -287,7 +299,7 @@ namespace GameJam.FireRescue
                 destination = FindGround(drive.transform.TransformPoint(opposite));
                 if (!IsClearExit(destination))
                 {
-                    ShowNotice("The exit is blocked. Park in an open area.");
+                    ShowNotice("Çıkış engellendi. Açık bir yere park et.");
                     return false;
                 }
             }
@@ -334,13 +346,14 @@ namespace GameJam.FireRescue
         public void RefreshEquipmentState()
         {
             bool carrying = hose && hose.IsCarried;
-            bool available = !IsDriving && !carrying && !CinematicLocked;
+            bool available = !IsDriving && !carrying && !CinematicLocked && !InteractionBusy;
             if (pistol) pistol.SetAvailable(available && HasPistol);
-            if (equipmentStateKnown && previousDriving == IsDriving && previousCarrying == carrying) return;
+            if (equipmentStateKnown && previousDriving == IsDriving && previousCarrying == carrying && previousInteracting == InteractionBusy) return;
             equipmentStateKnown = true;
             previousDriving = IsDriving;
             previousCarrying = carrying;
-            if (firstPerson && firstPerson.handsCamera) firstPerson.handsCamera.enabled = available;
+            previousInteracting = InteractionBusy;
+            if (firstPerson && firstPerson.handsCamera) firstPerson.handsCamera.enabled = available || (InteractionBusy && !CinematicLocked && !IsDriving);
             if (bodyRenderers != null)
                 for (int i = 0; i < bodyRenderers.Length; i++)
                     if (bodyRenderers[i]) bodyRenderers[i].enabled = !IsDriving && bodyRendererDefaults[i];
@@ -410,14 +423,28 @@ namespace GameJam.FireRescue
         /// <summary>E performs one contextual action; vehicle entry and lake filling cannot happen in the same frame.</summary>
         public bool Interact()
         {
-            if (GameplaySuspended || IsDriving || waitForMouseRelease) return false;
+            if (GameplaySuspended || InteractionBusy || IsDriving || waitForMouseRelease) return false;
+            if (contextualInteractions && contextualInteractions.isActiveAndEnabled)
+            {
+                if (!contextualInteractions.TryGetPrimaryTarget(out var target)) return false;
+                switch (target.kind)
+                {
+                    case ContextualInteractionKind.Pistol: return mission.weaponPickup.TryPickUp();
+                    case ContextualInteractionKind.VillageAlarm: return target.alarm && target.alarm.TryPress();
+                    case ContextualInteractionKind.Door: return ToggleDoor(target.door);
+                    case ContextualInteractionKind.TruckEntry: return EnterVehicle();
+                    case ContextualInteractionKind.HoseDrop: InteractWithHose(); return true;
+                    case ContextualInteractionKind.HosePickup:
+                        bool pickedUp = hose && hose.TryPickup(hand);
+                        RefreshEquipmentState(); return pickedUp;
+                    default: return false;
+                }
+            }
             if (mission && mission.weaponPickup && mission.weaponPickup.CanPickUp) return mission.weaponPickup.TryPickUp();
             if (hose && hose.IsCarried) { InteractWithHose(); return true; }
             if (TryGetDoorTarget(out InteractiveDoor door))
             {
-                bool changed = door.TryToggle();
-                if (!changed && door.LastBlocked) ShowNotice("The door is blocked. Step back.");
-                return changed;
+                return ToggleDoor(door);
             }
             if (NearVehicleEntry()) return EnterVehicle();
             if (hose && hand && Near(hose.IsDeployed ? hose.nozzle : hose.hoseSocket, interactionDistance))
@@ -428,6 +455,16 @@ namespace GameJam.FireRescue
             }
             return false;
         }
+
+        bool ToggleDoor(InteractiveDoor door)
+        {
+            bool changed = door && door.TryToggle();
+            if (!changed && door && door.LastBlocked) ShowNotice("Kapı engellendi. Biraz geri çekil.");
+            return changed;
+        }
+
+        public bool IsWithinInteractionReach(Transform target) => Near(target, interactionDistance);
+        public bool CanReachVehicleEntry() => NearVehicleEntry();
 
         /// <summary>The first solid surface owns the ray; a door behind a wall cannot be used.</summary>
         public bool TryGetDoorTarget(out InteractiveDoor door)
@@ -582,6 +619,7 @@ namespace GameJam.FireRescue
         {
             notice = text;
             noticeUntil = Time.unscaledTime + 3f;
+            NoticeRaised?.Invoke(text);
         }
 
         void SetCannonActive(bool active)

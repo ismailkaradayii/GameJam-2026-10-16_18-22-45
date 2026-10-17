@@ -11,6 +11,25 @@ namespace Itfaiye
         public Vector3 leftRestPosition = new Vector3(-.28f, -.26f, .43f);
         public Vector3 rightRestPosition = new Vector3(.28f, -.26f, .43f);
         public ItfaiyePistol pistol;
+        public bool ButtonSlapActive { get; private set; }
+        public float ButtonSlapProgress => ButtonSlapActive ? Mathf.Clamp01((Time.time - buttonSlapStarted) / buttonSlapSeconds) : 0f;
+        [Range(0f, .5f)] public float buttonLeanInViewMetres = .4f;
+        public Vector3 ButtonViewOffset
+        {
+            get
+            {
+                if (!ButtonSlapActive) return Vector3.zero;
+                float t = ButtonSlapProgress;
+                float reach = Mathf.SmoothStep(0, 1, Mathf.InverseLerp(0, buttonContactFraction, t));
+                float recover = 1f - Mathf.SmoothStep(0, 1, Mathf.InverseLerp(buttonContactFraction + .14f, 1, t));
+                return buttonViewDirection * buttonViewLean * reach * recover;
+            }
+        }
+        float buttonSlapStarted, buttonSlapSeconds, buttonContactFraction;
+        float buttonViewLean, buttonDepression;
+        Vector3 buttonViewDirection, buttonContactNormal;
+        Vector3 buttonWrist;
+        Quaternion buttonPalmRotation;
         [Header("Unarmed sprint")]
         [Tooltip("Camera-space arm swing, synchronized to the existing running clip.")]
         public Vector3 unarmedSprintSwing = new Vector3(.04f, .09f, .17f);
@@ -196,6 +215,12 @@ namespace Itfaiye
         void OnAnimatorIK(int layerIndex)
         {
             if (view == null || animator == null || !animator.isHuman) return;
+            if (ButtonSlapActive)
+            {
+                animator.SetIKPositionWeight(AvatarIKGoal.LeftHand, 0);
+                animator.SetIKPositionWeight(AvatarIKGoal.RightHand, 0);
+                return;
+            }
             if (pistol != null && pistol.DrawAmount > .001f)
             {
                 var right = animator.GetBoneTransform(HumanBodyBones.RightHand);
@@ -216,6 +241,7 @@ namespace Itfaiye
         {
             UpdateSway();
             UpdateLocomotion();
+            if (ButtonSlapActive) { PoseButtonSlap(); return; }
             if (view == null || pistol == null || pistol.weapon == null || pistol.DrawAmount <= .001f || animator == null || !animator.isHuman) return;
             if (fingerPoseDirty) CacheGrip();
             float aim = Mathf.SmoothStep(0f, 1f, pistol.AimAmount);
@@ -366,6 +392,66 @@ namespace Itfaiye
             inertiaPosition = Vector3.SmoothDamp(inertiaPosition, target, ref inertiaVelocity, .10f, .3f, dt);
         }
 
+        public bool CanReachButton(Vector3 contact)
+        {
+            if (!view || !animator || !animator.isHuman) return false;
+            var upper = animator.GetBoneTransform(HumanBodyBones.RightUpperArm);
+            var lower = animator.GetBoneTransform(HumanBodyBones.RightLowerArm);
+            var hand = animator.GetBoneTransform(HumanBodyBones.RightHand);
+            float length = Vector3.Distance(upper.position, lower.position) + Vector3.Distance(lower.position, hand.position);
+            Vector3 direction = (contact - view.position).normalized;
+            Vector3 shoulder = ButtonShoulderPosition(false) + direction * (buttonLeanInViewMetres * view.lossyScale.y);
+            return Vector3.Distance(shoulder, contact) <= length + .12f * view.lossyScale.y;
+        }
+        public void BeginButtonSlap(Vector3 contact, Vector3 normal, float seconds, float contactFraction)
+        {
+            if (!view || !animator || !animator.isHuman) return;
+            if (fingerPoseDirty) CacheGrip();
+            var hand = animator.GetBoneTransform(HumanBodyBones.RightHand);
+            var index = animator.GetBoneTransform(HumanBodyBones.RightIndexProximal);
+            var little = animator.GetBoneTransform(HumanBodyBones.RightLittleProximal);
+            Vector3 indexDirection = hand.InverseTransformVector(index.position - hand.position);
+            Vector3 littleDirection = hand.InverseTransformVector(little.position - hand.position);
+            Vector3 localForward = (indexDirection + littleDirection).normalized;
+            Vector3 localPalm = Vector3.Cross(indexDirection, littleDirection).normalized;
+            Vector3 forward = Vector3.ProjectOnPlane(view.forward, normal).normalized;
+            if (forward.sqrMagnitude < .01f) forward = Vector3.ProjectOnPlane(view.up, normal).normalized;
+            buttonPalmRotation = Quaternion.LookRotation(forward, -normal) * Quaternion.Inverse(Quaternion.LookRotation(localForward, localPalm));
+            Vector3 palmOffset = Vector3.Scale((indexDirection + littleDirection) * .5f, hand.lossyScale);
+            buttonWrist = contact + normal * .025f - buttonPalmRotation * palmOffset;
+            buttonViewDirection = (contact - view.position).normalized;
+            buttonViewLean = Mathf.Min(buttonLeanInViewMetres * view.lossyScale.y, Mathf.Max(0, Vector3.Distance(view.position, contact) - .9f));
+            buttonContactNormal = normal; buttonDepression = 0;
+            buttonSlapStarted = Time.time; buttonSlapSeconds = Mathf.Max(.35f, seconds); buttonContactFraction = Mathf.Clamp(contactFraction, .2f, .7f);
+            ButtonSlapActive = true;
+        }
+        public void CancelButtonSlap() => ButtonSlapActive = false;
+        public void SetButtonSlapDepression(float metres) => buttonDepression = Mathf.Max(0, metres);
+        Vector3 ButtonShoulderPosition(bool left)
+        {
+            // The cut shoulders stay behind the first-person camera, including when looking down.
+            return view.TransformPoint(new Vector3(left ? -.23f : .23f, -.3f, -.14f));
+        }
+        void PoseButtonSlap()
+        {
+            if (!view || !animator || !animator.isHuman) return;
+            float progress = ButtonSlapProgress;
+            Vector3 rest = new Vector3(.28f, -.28f, .38f), windup = new Vector3(.36f, -.02f, .2f);
+            Vector3 contact = view.InverseTransformPoint(buttonWrist - buttonContactNormal * buttonDepression), wrist;
+            float windupEnd = buttonContactFraction * .45f;
+            if (progress < windupEnd) wrist = Vector3.Lerp(rest, windup, Mathf.SmoothStep(0, 1, progress / windupEnd));
+            else if (progress < buttonContactFraction)
+            {
+                float reach = Mathf.InverseLerp(windupEnd, buttonContactFraction, progress);
+                wrist = Vector3.Lerp(windup, contact, reach * reach);
+            }
+            else wrist = Vector3.Lerp(contact, rest, Mathf.SmoothStep(0, 1, Mathf.InverseLerp(buttonContactFraction + .1f, 1, progress)));
+            PoseArm(false, wrist, buttonPalmRotation);
+            PoseArm(true, new Vector3(-.3f, -.36f, .32f), view.rotation * LeftGripRotation);
+            for (int i = 0; i < fingers.Length; i++)
+                if (fingers[i]) fingers[i].localRotation = openRotations[i];
+        }
+
         void PoseArm(bool left, Vector3 wrist, Quaternion wristRotation)
         {
             var upper = animator.GetBoneTransform(left ? HumanBodyBones.LeftUpperArm : HumanBodyBones.RightUpperArm);
@@ -375,8 +461,8 @@ namespace Itfaiye
             float lowerLength = Vector3.Distance(lower.position, hand.position);
             float side = left ? -1f : 1f;
             // Camera-space shoulders keep the viewmodel within reach during kneeling and jumps.
-            var reach = left && pistol.IsReloading ? new Vector3(-.015f, .015f, .035f) * pistol.ReloadPose.weaponWeight : Vector3.zero;
-            upper.position = view.TransformPoint(new Vector3(side * .17f, -.18f, -.06f) + pistol.PoseOffset * .4f + reach);
+            var reach = !ButtonSlapActive && left && pistol.IsReloading ? new Vector3(-.015f, .015f, .035f) * pistol.ReloadPose.weaponWeight : Vector3.zero;
+            upper.position = ButtonSlapActive ? ButtonShoulderPosition(left) : view.TransformPoint(new Vector3(side * .17f, -.18f, -.06f) + pistol.PoseOffset * .4f + reach);
             Vector3 target = view.TransformPoint(wrist);
             Vector3 direction = target - upper.position;
             // Let the shoulder follow a small forward reach instead of letting the
@@ -387,7 +473,8 @@ namespace Itfaiye
             direction = target - upper.position;
             float distance = Mathf.Clamp(direction.magnitude, .01f, upperLength + lowerLength - .001f);
             direction.Normalize();
-            Vector3 hint = view.TransformPoint(new Vector3(side * .43f, -.45f, .10f)) - upper.position;
+            Vector3 hint = ButtonSlapActive ? view.right * (side * .45f * viewScale) - Vector3.up * (.2f * viewScale) :
+                view.TransformPoint(new Vector3(side * .43f, -.45f, .10f)) - upper.position;
             Vector3 bend = Vector3.ProjectOnPlane(hint, direction).normalized;
             float along = (upperLength * upperLength - lowerLength * lowerLength + distance * distance) / (2f * distance);
             Vector3 elbow = upper.position + direction * along + bend * Mathf.Sqrt(Mathf.Max(0f, upperLength * upperLength - along * along));

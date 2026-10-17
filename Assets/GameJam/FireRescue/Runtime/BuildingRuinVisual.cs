@@ -33,7 +33,16 @@ namespace GameJam.FireRescue
             {
                 var dust = Instantiate(building.smoke, rubble.transform); dust.name = "Collapse ash cloud";
                 dust.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+                dust.transform.SetPositionAndRotation(new Vector3(footprint.center.x, ground + .35f, footprint.center.z), Quaternion.identity);
+                Vector3 parentScale = rubble.transform.lossyScale;
+                dust.transform.localScale = new Vector3(1/Mathf.Max(.001f,Mathf.Abs(parentScale.x)),1/Mathf.Max(.001f,Mathf.Abs(parentScale.y)),1/Mathf.Max(.001f,Mathf.Abs(parentScale.z)));
                 var main = dust.main; main.loop = false; main.duration = 6; main.startLifetime = new ParticleSystem.MinMaxCurve(4, 8);
+                main.simulationSpace = ParticleSystemSimulationSpace.World; main.scalingMode = ParticleSystemScalingMode.Shape;
+                main.startSize3D = false; main.startSize = new ParticleSystem.MinMaxCurve(1.2f,2f);
+                var shape = dust.shape; shape.enabled = true; shape.shapeType = ParticleSystemShapeType.Box;
+                shape.scale = new Vector3(footprint.size.x * .75f,.2f,footprint.size.z * .75f);
+                var velocity = dust.velocityOverLifetime; velocity.enabled = true; velocity.space = ParticleSystemSimulationSpace.World;
+                velocity.x = .25f; velocity.y = .6f; velocity.z = .1f;
                 main.startColor = new Color(.18f, .16f, .14f, .75f);
                 var emission = dust.emission; emission.rateOverTime = 25;
                 dust.Play(true); Destroy(dust.gameObject, 15);

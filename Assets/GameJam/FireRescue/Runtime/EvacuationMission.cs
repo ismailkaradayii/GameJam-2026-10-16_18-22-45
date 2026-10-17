@@ -25,6 +25,8 @@ namespace GameJam.FireRescue
         public float dispatchDelay = 3f;
         public float shoutRadius = 45f;
         public float shoutCooldown = 5f;
+        public Key callKey = Key.Q;
+        public event System.Action<EvacuationResident> ResidentRescued;
         public bool showHud = true;
         [Tooltip("When true, the Canvas RescueHUD draws the objective and subtitle while this component keeps world markers active.")]
         public bool canvasHudOwnsPanel;
@@ -85,7 +87,7 @@ namespace GameJam.FireRescue
                 if (trail.Count > 160) trail.RemoveAt(0);
             }
             if (!IsActive || !Application.isFocused || Time.timeScale <= 0f || Cursor.lockState != CursorLockMode.Locked) return;
-            if (Keyboard.current != null && Keyboard.current.qKey.wasPressedThisFrame) Shout();
+            if (Keyboard.current != null && callKey != Key.None && Keyboard.current[callKey].wasPressedThisFrame) Shout();
         }
         void UpdateCrowdPanicAudio()
         {
@@ -172,6 +174,7 @@ namespace GameJam.FireRescue
             if (!IsActive || !resident || !resident.IsSafe || !IsInsideShelter(resident.transform.position) ||
                 !System.Array.Exists(residents, r => r == resident) || !safeResidents.Add(resident)) return;
             RescuedCount = safeResidents.Count;
+            ResidentRescued?.Invoke(resident);
             if (RescuedCount == TotalCount && TotalCount > 0)
             {
                 IsComplete = true; IsActive = false;

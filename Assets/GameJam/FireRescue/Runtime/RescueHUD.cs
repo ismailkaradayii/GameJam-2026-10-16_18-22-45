@@ -27,6 +27,7 @@ namespace GameJam.FireRescue
         public CreatureCombatPlayer vitals;
         public EvacuationMission evacuation;
         public Canvas canvas;
+        public ContextualInteractionUI contextualInteractions;
 
         [Header("Integrated gameplay")]
         public Text equipmentText;
@@ -185,7 +186,8 @@ namespace GameJam.FireRescue
             if (lowWaterBackground) lowWaterBackground.color = empty ? new Color(.5f, .065f, .035f, .97f) : new Color(.4f, .12f, .04f, .95f);
             if (promptText)
             {
-                promptText.text = playing ? Ashfall.UI.AshfallTypography.NaturalCase(player.InteractionPrompt) : "";
+                promptText.text = playing && (!contextualInteractions || !contextualInteractions.isActiveAndEnabled)
+                    ? Ashfall.UI.AshfallTypography.NaturalCase(player.InteractionPrompt) : "";
                 promptText.transform.parent.gameObject.SetActive(!string.IsNullOrWhiteSpace(promptText.text));
             }
             if (toastText)

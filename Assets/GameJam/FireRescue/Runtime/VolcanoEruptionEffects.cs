@@ -10,7 +10,10 @@ namespace GameJam.FireRescue
         public ParticleSystem lavaBombs;
         public ParticleSystem smokePlume;
         public ParticleSystem ashCrown;
+        public ParticleSystem fireFountain;
         [Min(0f)] public float ashCrownDelay = 1.1f;
+        [Min(.1f)] public float fireFountainSeconds = 6.5f, fireFountainFadeSeconds = 2.5f;
+        [Range(0f, .5f)] public float eruptionGlowFraction = .12f;
         public Light eruptionLight;
         [Min(0.1f)] public float intenseBombSeconds = 8f;
         [Min(0.1f)] public float bombFadeSeconds = 5f;
@@ -22,10 +25,12 @@ namespace GameJam.FireRescue
 
         private ParticleSystem cachedBombs;
         private ParticleSystem cachedSmoke;
+        private ParticleSystem cachedFountain;
         private Light cachedLight;
         private float bombEmission;
         private float smokeEmission;
         private float lightIntensity;
+        private float fountainEmission;
 
         private void Awake() => ResetEffects();
         private void OnDisable() => ResetEffects();
@@ -39,6 +44,7 @@ namespace GameJam.FireRescue
             PlayFromStart(eruptionBurst);
             PlayFromStart(lavaBombs);
             PlayFromStart(smokePlume);
+            PlayFromStart(fireFountain);
             if (ashCrownDelay <= 0f) PlayFromStart(ashCrown);
             ApplyLevels();
         }
@@ -66,8 +72,11 @@ namespace GameJam.FireRescue
             StopAndClear(lavaBombs);
             StopAndClear(smokePlume);
             StopAndClear(ashCrown);
+            StopAndClear(fireFountain);
             SetEmission(lavaBombs, bombEmission);
             SetEmission(smokePlume, smokeEmission);
+            SetEmission(fireFountain, fountainEmission);
+            if (fireFountain) { var emission = fireFountain.emission; emission.enabled = true; }
             if (eruptionLight != null)
             {
                 eruptionLight.enabled = false;
@@ -83,18 +92,26 @@ namespace GameJam.FireRescue
             float bombFraction = Mathf.Lerp(1f, Mathf.Clamp01(sustainedBombFraction),
                 Mathf.SmoothStep(0f, 1f, fade));
             SetEmission(lavaBombs, bombEmission * bombFraction);
-            // The ash column remains at its authored rate until the sequence is explicitly reset.
-            SetEmission(smokePlume, smokeEmission);
+            SetEmission(smokePlume, smokeEmission * Mathf.Lerp(1f, .55f, fade));
+            float fountainFraction = 1f - Mathf.SmoothStep(0, 1, Mathf.Clamp01((Elapsed - fireFountainSeconds) / Mathf.Max(.1f, fireFountainFadeSeconds)));
+            SetEmission(fireFountain, fountainEmission * fountainFraction);
+            if (fireFountain) { var emission = fireFountain.emission; emission.enabled = fountainFraction > 0f; }
             if (eruptionLight != null)
             {
                 float remaining = 1f - Mathf.Clamp01(Elapsed / Mathf.Max(0.05f, flashSeconds));
-                eruptionLight.intensity = lightIntensity * remaining * remaining;
-                eruptionLight.enabled = remaining > 0f;
+                float glow = eruptionGlowFraction * fountainFraction * (.85f + .15f * Mathf.Sin(Elapsed * 17f));
+                eruptionLight.intensity = lightIntensity * Mathf.Max(remaining * remaining, glow);
+                eruptionLight.enabled = eruptionLight.intensity > .01f;
             }
         }
 
         private void CacheSettings()
         {
+            if (fireFountain != cachedFountain)
+            {
+                cachedFountain = fireFountain;
+                fountainEmission = fireFountain ? fireFountain.emission.rateOverTimeMultiplier : 0f;
+            }
             if (lavaBombs != cachedBombs)
             {
                 cachedBombs = lavaBombs;

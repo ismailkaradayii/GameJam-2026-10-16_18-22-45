@@ -26,12 +26,16 @@ public static class VolcanoAtmospherePolishSetup
         var sequence = Object.FindFirstObjectByType<VolcanoEruptionSequence>();
         var fx = sequence.effects; var cinema = sequence.cinematic; var player = cinema.player;
         sequence.cameraShake = Ensure<VolcanoCameraShake>(player.viewCamera.gameObject);
-        cinema.eruptionSeconds = 8; cinema.startOffset = new Vector3(390, 300, -670); cinema.endOffset = new Vector3(290, 240, -535);
-        cinema.eruptionFocusOffset = new Vector3(0, 130, 0); cinema.aftermathShake = sequence.cameraShake;
-        cinema.aftershockSeconds = 8; cinema.aftershockStrength = .12f;
-        sequence.cameraShake.noiseFrequency = 11; sequence.cameraShake.aimedStrengthMultiplier = .35f;
-        fx.intenseBombSeconds = 7; fx.bombFadeSeconds = 7; fx.sustainedBombFraction = .08f; fx.flashSeconds = 1.2f;
-        fx.eruptionLight.intensity = 1100; fx.eruptionLight.range = 220;
+        cinema.eruptionSeconds = 8; cinema.startOffset = new Vector3(310, 255, -560); cinema.endOffset = new Vector3(220, 205, -410);
+        cinema.eruptionFocusOffset = new Vector3(0, 185, 0); cinema.aftermathShake = sequence.cameraShake;
+        cinema.eruptionStartFov = 62; cinema.eruptionEndFov = 54;
+        cinema.eruptionShakeStrength = 1.5f; cinema.eruptionShakeDegrees = 4.2f;
+        cinema.aftershockSeconds = 10; cinema.aftershockStrength = .4f;
+        sequence.cameraShake.noiseFrequency = 14; sequence.cameraShake.aimedStrengthMultiplier = .25f;
+        sequence.cameraShake.rotationDegreesAtDefaultStrength = 2.4f; sequence.cameraShake.decayExponent = 1.4f;
+        fx.intenseBombSeconds = 7; fx.bombFadeSeconds = 7; fx.sustainedBombFraction = .1f; fx.flashSeconds = 3.2f;
+        fx.ashCrownDelay = .8f; fx.fireFountainSeconds = 6.5f; fx.fireFountainFadeSeconds = 2.5f; fx.eruptionGlowFraction = .12f;
+        fx.eruptionLight.intensity = 6500; fx.eruptionLight.range = 330;
         fx.smokePlume.transform.position = cinema.crater.position + Vector3.up * 8;
         fx.eruptionBurst.transform.position = cinema.crater.position + Vector3.up * 12;
         fx.lavaBombs.transform.position = cinema.crater.position + Vector3.up * 4;
@@ -47,12 +51,21 @@ public static class VolcanoAtmospherePolishSetup
         var ashMaterial = Material("Volcanic ash smoke.mat", fx.smokePlume.GetComponent<ParticleSystemRenderer>().sharedMaterial);
         ashMaterial.name = "Volcanic ash smoke"; ashMaterial.SetFloat("_ColorMode", 0);
         ashMaterial.DisableKeyword("_COLORCOLOR_ON"); ashMaterial.DisableKeyword("_COLOROVERLAY_ON"); ashMaterial.DisableKeyword("_COLORADDSUBDIFF_ON");
-        ashMaterial.SetColor("_BaseColor", new Color(.48f,.47f,.46f,1));
+        ashMaterial.SetColor("_BaseColor", new Color(.72f,.70f,.68f,1));
         ashMaterial.SetColor("_EmissionColor", Color.black); ashMaterial.DisableKeyword("_EMISSION");
         fx.smokePlume.GetComponent<ParticleSystemRenderer>().sharedMaterial = ashMaterial;
         fx.ashCrown.GetComponent<ParticleSystemRenderer>().sharedMaterial = ashMaterial; Dirty(ashMaterial);
         ConfigurePressureCloud(fx.eruptionBurst);
         ConfigureBombs(fx.lavaBombs);
+        if (!fx.fireFountain)
+        {
+            var clone = Object.Instantiate(fx.eruptionBurst.gameObject, fx.transform);
+            clone.name = "Explosive magma fountain"; fx.fireFountain = clone.GetComponent<ParticleSystem>();
+        }
+        fx.fireFountain.transform.position = cinema.crater.position + Vector3.up * 7;
+        ConfigureFountain(fx.fireFountain);
+        player.firstPerson.sprintFovBoost = 16; player.firstPerson.sprintFovInSeconds = .24f; player.firstPerson.sprintFovOutSeconds = .2f;
+        Dirty(player.firstPerson); AddSprintWind(player);
 
         var atmosphereObject = GameObject.Find("Volcano atmosphere polish") ?? new GameObject("Volcano atmosphere polish");
         var atmosphere = Ensure<VolcanoAtmospherePolish>(atmosphereObject);
@@ -93,7 +106,7 @@ public static class VolcanoAtmospherePolishSetup
         AddFade(player.gameFlow);
         EditorUtility.SetDirty(profile); EditorUtility.SetDirty(cinematicProfile);
         foreach (var component in profile.components.Concat(cinematicProfile.components)) EditorUtility.SetDirty(component);
-        foreach (var ps in new[] { fx.eruptionBurst, fx.smokePlume, fx.lavaBombs, fx.ashCrown, atmosphere.fallingAsh, feel.movementDust, feel.pickupSparkles }.Concat(atmosphere.groundHaze))
+        foreach (var ps in new[] { fx.eruptionBurst, fx.smokePlume, fx.lavaBombs, fx.ashCrown, fx.fireFountain, atmosphere.fallingAsh, feel.movementDust, feel.pickupSparkles }.Concat(atmosphere.groundHaze))
         {
             var renderer = ps.GetComponent<ParticleSystemRenderer>(); renderer.shadowCastingMode = ShadowCastingMode.Off;
             Dirty(ps); Dirty(ps.transform); Dirty(renderer);
@@ -109,16 +122,18 @@ public static class VolcanoAtmospherePolishSetup
     {
         ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
         var main = ps.main; main.playOnAwake = false; main.loop = true; main.prewarm = false; main.duration = 12;
+        main.simulationSpeed = 1; main.startDelay = 0; main.cullingMode = ParticleSystemCullingMode.AlwaysSimulate;
         main.simulationSpace = ParticleSystemSimulationSpace.World; main.scalingMode = ParticleSystemScalingMode.Shape;
         main.startSize3D = main.startRotation3D = false;
-        main.maxParticles = crown ? 128 : 256; main.startLifetime = new ParticleSystem.MinMaxCurve(crown ? 16 : 12, crown ? 23 : 16);
-        main.startSpeed = new ParticleSystem.MinMaxCurve(crown ? 30 : 50, crown ? 45 : 75);
-        main.startSize = new ParticleSystem.MinMaxCurve(crown ? 160 : 90, crown ? 220 : 135);
-        main.startColor = new Color(.23f, .22f, .21f, crown ? .68f : .86f); main.gravityModifier = 0;
+        main.maxParticles = crown ? 128 : 384; main.startLifetime = new ParticleSystem.MinMaxCurve(crown ? 16 : 12, crown ? 23 : 16);
+        main.startSpeed = new ParticleSystem.MinMaxCurve(crown ? 35 : 65, crown ? 50 : 90);
+        main.startSize = new ParticleSystem.MinMaxCurve(crown ? 160 : 100, crown ? 230 : 155);
+        main.startColor = new Color(.42f, .40f, .38f, crown ? .68f : .86f); main.gravityModifier = 0;
         main.startRotation = new ParticleSystem.MinMaxCurve(0, Mathf.PI * 2);
         var shape = ps.shape; shape.enabled = true; shape.shapeType = ParticleSystemShapeType.Cone; shape.angle = crown ? 52 : 10; shape.radius = crown ? 25 : 12;
+        shape.scale = Vector3.one; shape.position = shape.rotation = Vector3.zero;
         ps.transform.rotation = Quaternion.Euler(-90, 0, 0); ps.transform.localScale = Vector3.one;
-        var emission = ps.emission; emission.rateOverTime = crown ? 7 : 26; emission.SetBursts(Array.Empty<ParticleSystem.Burst>());
+        var emission = ps.emission; emission.rateOverTime = crown ? 10 : 42; emission.SetBursts(Array.Empty<ParticleSystem.Burst>());
         var size = ps.sizeOverLifetime; size.enabled = true; size.separateAxes = false; size.size = new ParticleSystem.MinMaxCurve(1, new AnimationCurve(new Keyframe(0,.6f),new Keyframe(.25f,1.4f),new Keyframe(1,2.3f)));
         var velocity = ps.velocityOverLifetime; velocity.enabled = false;
         var force = ps.forceOverLifetime; force.enabled = false;
@@ -133,12 +148,14 @@ public static class VolcanoAtmospherePolishSetup
     static void ConfigurePressureCloud(ParticleSystem ps)
     {
         ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
-        var main = ps.main; main.playOnAwake = false; main.loop = false; main.prewarm = false; main.duration = .7f; main.maxParticles = 96;
+        var main = ps.main; main.playOnAwake = false; main.loop = false; main.prewarm = false; main.duration = .7f; main.maxParticles = 128;
+        main.simulationSpeed = 1; main.startDelay = 0; main.cullingMode = ParticleSystemCullingMode.AlwaysSimulate;
         main.simulationSpace = ParticleSystemSimulationSpace.World; main.scalingMode = ParticleSystemScalingMode.Shape;
-        main.startLifetime = new ParticleSystem.MinMaxCurve(3.2f, 5.5f); main.startSpeed = new ParticleSystem.MinMaxCurve(35, 75); main.startSize = new ParticleSystem.MinMaxCurve(24, 48);
+        main.startLifetime = new ParticleSystem.MinMaxCurve(2.4f, 3.8f); main.startSpeed = new ParticleSystem.MinMaxCurve(100, 155); main.startSize = new ParticleSystem.MinMaxCurve(60, 95);
         main.startColor = new Color(.65f,.43f,.27f,.7f); main.gravityModifier = 0;
-        var emission = ps.emission; emission.rateOverTime = 0; emission.SetBursts(new[] { new ParticleSystem.Burst(0, 42) });
-        var shape = ps.shape; shape.enabled = true; shape.shapeType = ParticleSystemShapeType.Cone; shape.angle = 55; shape.radius = 16;
+        var emission = ps.emission; emission.rateOverTime = 0; emission.SetBursts(new[] { new ParticleSystem.Burst(0, 90) });
+        var shape = ps.shape; shape.enabled = true; shape.shapeType = ParticleSystemShapeType.Cone; shape.angle = 78; shape.radius = 30;
+        shape.scale = Vector3.one; shape.position = shape.rotation = Vector3.zero;
         ps.transform.rotation = Quaternion.Euler(-90,0,0); ps.transform.localScale = Vector3.one;
         var size = ps.sizeOverLifetime; size.enabled = true; size.size = new ParticleSystem.MinMaxCurve(1, AnimationCurve.Linear(0,.4f,1,3));
         var color = ps.colorOverLifetime; color.enabled = true; color.color = FadeGradient(new Color(1,.7f,.4f),new Color(.22f,.21f,.2f),.8f);
@@ -146,15 +163,62 @@ public static class VolcanoAtmospherePolishSetup
     static void ConfigureBombs(ParticleSystem ps)
     {
         ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
-        var main = ps.main; main.playOnAwake = false; main.loop = true; main.prewarm = false; main.duration = 10; main.maxParticles = 200;
+        var main = ps.main; main.playOnAwake = false; main.loop = true; main.prewarm = false; main.duration = 10; main.maxParticles = 320;
+        main.simulationSpeed = 1; main.startDelay = 0; main.cullingMode = ParticleSystemCullingMode.AlwaysSimulate;
         main.simulationSpace = ParticleSystemSimulationSpace.World; main.scalingMode = ParticleSystemScalingMode.Shape;
-        main.startLifetime = new ParticleSystem.MinMaxCurve(3.8f,7); main.startSpeed = new ParticleSystem.MinMaxCurve(45,95);
-        main.startSize = new ParticleSystem.MinMaxCurve(.55f,1.5f); main.startColor = new Color(3.5f,1.15f,.16f); main.gravityModifier = 1.35f;
-        var emission = ps.emission; emission.rateOverTime = 20; emission.SetBursts(new[] {new ParticleSystem.Burst(0,50)});
-        var shape = ps.shape; shape.enabled = true; shape.shapeType = ParticleSystemShapeType.Cone; shape.angle = 38; shape.radius = 10;
+        main.startLifetime = new ParticleSystem.MinMaxCurve(4.2f,7.5f); main.startSpeed = new ParticleSystem.MinMaxCurve(105,180);
+        main.startSize = new ParticleSystem.MinMaxCurve(2.2f,5.5f); main.startColor = new Color(1f,.22f,.015f); main.gravityModifier = 1.8f;
+        var emission = ps.emission; emission.rateOverTime = 50; emission.SetBursts(new[] {new ParticleSystem.Burst(0,100)});
+        var shape = ps.shape; shape.enabled = true; shape.shapeType = ParticleSystemShapeType.Cone; shape.angle = 52; shape.radius = 18;
+        shape.scale = Vector3.one; shape.position = shape.rotation = Vector3.zero;
         ps.transform.rotation = Quaternion.Euler(-90,0,0); ps.transform.localScale = Vector3.one;
-        var trails = ps.trails; trails.enabled = true; trails.ratio = .35f; trails.lifetime = .2f; trails.minVertexDistance = .8f;
-        ps.GetComponent<ParticleSystemRenderer>().trailMaterial = Resources.Load<Material>("LavaCombat/Flame");
+        var trails = ps.trails; trails.enabled = true; trails.ratio = .5f; trails.lifetime = .04f; trails.minVertexDistance = .8f;
+        trails.widthOverTrail = new ParticleSystem.MinMaxCurve(1,AnimationCurve.Linear(0,.75f,1,0));
+        var animation = ps.textureSheetAnimation; animation.enabled = false;
+        var renderer = ps.GetComponent<ParticleSystemRenderer>(); renderer.renderMode = ParticleSystemRenderMode.Billboard; renderer.alignment = ParticleSystemRenderSpace.View;
+        renderer.velocityScale = 0; renderer.lengthScale = 1; renderer.sharedMaterial = renderer.trailMaterial = Resources.Load<Material>("LavaCombat/Flame");
+    }
+    static void ConfigureFountain(ParticleSystem ps)
+    {
+        ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+        var main = ps.main; main.playOnAwake = false; main.loop = true; main.prewarm = false; main.duration = 7; main.maxParticles = 160;
+        main.simulationSpeed = 1; main.startDelay = 0; main.cullingMode = ParticleSystemCullingMode.AlwaysSimulate;
+        main.simulationSpace = ParticleSystemSimulationSpace.World; main.scalingMode = ParticleSystemScalingMode.Shape;
+        main.startLifetime = new ParticleSystem.MinMaxCurve(2.6f,3.8f); main.startSpeed = new ParticleSystem.MinMaxCurve(90,160);
+        main.startSize3D = false; main.startSize = new ParticleSystem.MinMaxCurve(30,60); main.startColor = Color.white; main.gravityModifier = .65f;
+        var emission = ps.emission; emission.enabled = true; emission.rateOverTime = 24; emission.SetBursts(new[] {new ParticleSystem.Burst(0,28)});
+        var shape = ps.shape; shape.enabled = true; shape.shapeType = ParticleSystemShapeType.Cone; shape.angle = 23; shape.radius = 22;
+        shape.scale = Vector3.one; shape.position = shape.rotation = Vector3.zero;
+        var velocity = ps.velocityOverLifetime; velocity.enabled = false;
+        var force = ps.forceOverLifetime; force.enabled = false;
+        var limit = ps.limitVelocityOverLifetime; limit.enabled = false;
+        var sizeSpeed = ps.sizeBySpeed; sizeSpeed.enabled = false;
+        var colorSpeed = ps.colorBySpeed; colorSpeed.enabled = false;
+        ps.transform.rotation = Quaternion.Euler(-90,0,0); ps.transform.localScale = Vector3.one;
+        var size = ps.sizeOverLifetime; size.enabled = true; size.separateAxes = false;
+        size.size = new ParticleSystem.MinMaxCurve(1,new AnimationCurve(new Keyframe(0,.65f),new Keyframe(.18f,1.1f),new Keyframe(1,1.8f)));
+        var color = ps.colorOverLifetime; color.enabled = true; color.color = FadeGradient(Color.white,new Color(.65f,.3f,.08f),.85f);
+        var fountainMaterial = Material("Explosive magma.mat",AssetDatabase.LoadAssetAtPath<Material>(Materials + "Eruption Glow.mat"));
+        fountainMaterial.name = "Explosive magma"; fountainMaterial.renderQueue = 3002;
+        fountainMaterial.SetColor("_BaseColor",new Color(4.2f,1.25f,.1f,.65f)); Dirty(fountainMaterial);
+        var renderer = ps.GetComponent<ParticleSystemRenderer>(); renderer.sharedMaterial = fountainMaterial;
+        renderer.renderMode = ParticleSystemRenderMode.Billboard; renderer.alignment = ParticleSystemRenderSpace.View; renderer.pivot = Vector3.zero;
+    }
+    static void AddSprintWind(FireRescuePlayer player)
+    {
+        var go = GameObject.Find("Sprint wind screen effects");
+        if (!go) go = new GameObject("Sprint wind screen effects",typeof(RectTransform),typeof(Canvas));
+        go.layer = 5;
+        var canvas = Ensure<Canvas>(go); canvas.renderMode = RenderMode.ScreenSpaceOverlay; canvas.sortingOrder = 35;
+        var scaler = Ensure<CanvasScaler>(go); scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize; scaler.referenceResolution = new Vector2(1920,1080);
+        var child = go.transform.Find("Wind ribbons");
+        if (!child) { child = new GameObject("Wind ribbons",typeof(RectTransform)).transform; child.SetParent(go.transform,false); }
+        child.gameObject.layer = 5;
+        Ensure<CanvasRenderer>(child.gameObject);
+        var rect = child.GetComponent<RectTransform>(); rect.anchorMin = Vector2.zero; rect.anchorMax = Vector2.one; rect.offsetMin = rect.offsetMax = Vector2.zero;
+        var wind = Ensure<SprintWindLines>(child.gameObject); wind.player = player; wind.raycastTarget = false;
+        wind.linesPerSide = 22; wind.travelSpeed = 1.35f; wind.opacity = .85f; wind.thickness = 3.2f; wind.color = new Color(.86f,.96f,1,1);
+        Dirty(canvas); Dirty(scaler); Dirty(wind);
     }
     static ParticleSystem Particles(Transform parent, string name, Material material, int maximum, bool loop)
     {

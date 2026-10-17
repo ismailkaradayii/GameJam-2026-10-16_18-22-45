@@ -17,16 +17,18 @@ public static class VolcanoAtmospherePolishChecks
     const string Pending = "GameJam.AtmospherePolish.Pending", Folder = "Logs/VolcanoPolish";
     static readonly List<string> lines = new List<string>();
     static int phase = -1, frame, dustBefore, oldMissionId, movementSamples;
-    static float phaseAt, pausedIntensity, fixedStep;
+    static float phaseAt, pausedIntensity, fixedStep, maxSprintFov, maxWind, maxShotShake, maxAftershockTurn;
     static double deadline;
     static bool oldBackground, oldMaximized;
-    static bool sawDust, sawSpeed;
+    static bool sawDust, sawSpeed, capturedWind;
+    static Quaternion previousAftershockRotation;
     static string runtimeError;
     static EditorWindow game;
     static VolcanoMissionDirector mission;
     static FireRescuePlayer player;
     static VolcanoAtmospherePolish atmosphere;
     static PlayerPolishEffects feel;
+    static SprintWindLines wind;
     static AshfallSceneFade fade;
     static VolcanoPolishMovementDriver driver;
     static Transform spiritSubject;
@@ -62,6 +64,7 @@ public static class VolcanoAtmospherePolishChecks
         mission = Object.FindFirstObjectByType<VolcanoMissionDirector>(); player = mission.player;
         atmosphere = Object.FindFirstObjectByType<VolcanoAtmospherePolish>(); feel = player.GetComponent<PlayerPolishEffects>();
         fade = Object.FindFirstObjectByType<AshfallSceneFade>();
+        wind = Object.FindFirstObjectByType<SprintWindLines>();
     }
     static void Update()
     {
@@ -89,17 +92,30 @@ public static class VolcanoAtmospherePolishChecks
                 player.enabled = false;
                 player.PlaceOnFoot(Ground(50, -570) + Vector3.up * .2f, 90);
                 driver = player.gameObject.AddComponent<VolcanoPolishMovementDriver>(); driver.player = player; driver.move = Vector2.up;
-                movementSamples = 0; sawDust = sawSpeed = false;
+                movementSamples = 0; sawDust = sawSpeed = capturedWind = false; maxSprintFov = maxWind = 0;
                 Next(1); return;
             case 1:
                 movementSamples++; sawDust |= feel.DustBursts > 0 && feel.movementDust.particleCount > 0; sawSpeed |= atmosphere.SpeedAmount > .3f;
+                maxSprintFov = Mathf.Max(maxSprintFov,player.viewCamera.fieldOfView); maxWind = Mathf.Max(maxWind,wind ? wind.Strength : 0);
+                if (!capturedWind && wind && wind.Strength > .95f && wind.VisibleStrokeCount > 0)
+                { ScreenCapture.CaptureScreenshot(Folder + "/04-sprint-wind.png"); capturedWind = true; }
                 if (age < 1.3f || movementSamples < 12) return;
                 lines.Add($"SPRINT frames={movementSamples} dust={feel.DustBursts} liveDustObserved={sawDust} speedLensObserved={sawSpeed}");
                 Check("sprinting on terrain emits foot dust", sawDust && sawSpeed);
-                dustBefore = feel.DustBursts; driver.move = Vector2.zero;
-                // Land on the same open terrain used for the first footsteps, away from house roofs.
-                player.PlaceOnFoot(Ground(50, -570) + Vector3.up * 7, 90);
-                Next(2); return;
+                lines.Add($"SPRINT FOV peak={maxSprintFov:F1} boost={player.firstPerson.sprintFovBoost:F1} wind={maxWind:F2}");
+                Check("sprint visibly widens the actual camera and draws screen-edge wind", maxSprintFov >= player.firstPerson.fieldOfView + 14 && maxWind > .95f && capturedWind && wind && !wind.raycastTarget);
+                driver.sprint = false; Next(22); return;
+            case 22:
+                if (age < .4f || player.firstPerson.SprintViewBlend > .01f) return;
+                Check("releasing sprint restores FOV and clears wind", Mathf.Abs(player.viewCamera.fieldOfView - player.firstPerson.fieldOfView) < 1 && wind.Strength < .01f && wind.VisibleStrokeCount == 0);
+                player.pistol.SetAvailable(true); player.pistol.Equip(); player.pistol.SetExternalInput(true,true,false,false,false,false);
+                driver.sprint = false; Next(23); return;
+            case 23:
+                if (age < .8f || player.pistol.AimAmount < .98f) return;
+                Check("aiming keeps the original projection and removes wind", Mathf.Abs(player.viewCamera.fieldOfView - 62) < 1 && Mathf.Abs(player.firstPerson.handsCamera.fieldOfView - player.viewCamera.fieldOfView) < .01f && wind.Strength < .02f);
+                player.pistol.SetExternalInput(false,false,false,false,false,false); player.pistol.SetAvailable(false);
+                dustBefore = feel.DustBursts; driver.move = Vector2.zero; driver.sprint = false;
+                player.PlaceOnFoot(Ground(50, -570) + Vector3.up * 7, 90); Next(2); return;
             case 2:
                 if (age < 1.5f || !player.firstPerson.IsGrounded) return;
                 lines.Add($"LANDING point={player.transform.position} dust={dustBefore}->{feel.DustBursts}");
@@ -110,10 +126,16 @@ public static class VolcanoAtmospherePolishChecks
             case 3:
                 if (mission.cinematic.Elapsed < 3f) return;
                 Check("eruption freezes foot control while native layers play", player.CinematicLocked && !player.IsDriving && mission.sequence.effects.IsErupting && mission.sequence.effects.smokePlume.particleCount > 0 && mission.sequence.effects.ashCrown.particleCount > 0);
+                Check("large magma fountain plays inside its particle budget", mission.sequence.effects.fireFountain && mission.sequence.effects.fireFountain.particleCount > 0 && mission.sequence.effects.fireFountain.particleCount <= mission.sequence.effects.fireFountain.main.maxParticles);
+                Check("sprint wind disappears during cinematic", wind.Strength == 0 && player.firstPerson.SprintViewBlend == 0);
                 Check("cinematic focus tracks the crater plume", atmosphere.cinematicVolume.weight > .9f && atmosphere.cinematicVolume.profile.TryGet<DepthOfField>(out var dof) && Mathf.Abs(dof.focusDistance.value - Vector3.Distance(mission.cinematic.ShotCamera.transform.position, mission.cinematic.FocusPosition)) < 10);
-                Capture("01-eruption-onset", mission.cinematic.ShotCamera); Next(4); return;
+                Capture("01-eruption-onset", mission.cinematic.ShotCamera); maxShotShake = 0; Next(4); return;
             case 4:
+                var shot = mission.cinematic.ShotCamera;
+                if (shot) maxShotShake = Mathf.Max(maxShotShake,Quaternion.Angle(Quaternion.LookRotation(mission.cinematic.FocusPosition-shot.transform.position),shot.transform.rotation));
                 if (mission.cinematic.Elapsed < 5.5f) return;
+                lines.Add($"CINEMATIC observed shake={maxShotShake:F2} degrees");
+                Check("eruption produces a strong visible camera jolt", maxShotShake > .6f);
                 Capture("02-eruption-column", mission.cinematic.ShotCamera);
                 Check("eruption is one shot", !mission.sequence.BeginEruption(true) && mission.PreparationRemaining == 0);
                 float before = mission.sequence.effects.Elapsed; mission.sequence.effects.BeginEruption();
@@ -127,9 +149,13 @@ public static class VolcanoAtmospherePolishChecks
                 if (age < .1f) return;
                 Check("foot controls and sharp gameplay camera return", !player.CinematicLocked && !player.GameplaySuspended && player.viewCamera.enabled && Time.timeScale == 1 && atmosphere.cinematicVolume.weight == 0);
                 Check("fresh aftershock continues on gameplay camera", mission.sequence.cameraShake.IsShaking && mission.sequence.cameraShake.Intensity > .07f);
+                previousAftershockRotation = player.viewCamera.transform.rotation; maxAftershockTurn = 0;
                 Capture("03-gameplay-aftershock", player.viewCamera); Next(7); return;
             case 7:
+                maxAftershockTurn = Mathf.Max(maxAftershockTurn,Quaternion.Angle(previousAftershockRotation,player.viewCamera.transform.rotation)); previousAftershockRotation = player.viewCamera.transform.rotation;
                 if (age < 1) return;
+                lines.Add($"AFTERSHOCK peak frame rotation={maxAftershockTurn:F2} degrees strength={mission.sequence.cameraShake.Intensity:F2}");
+                Check("strong aftershock reaches the rendered gameplay camera", maxAftershockTurn > .15f && mission.sequence.cameraShake.Intensity > .25f);
                 Check("aftershock decays instead of stopping at cinematic end", mission.sequence.cameraShake.Intensity > .03f && mission.sequence.cameraShake.Intensity < mission.cinematic.aftershockStrength);
                 player.gameFlow.Pause(); pausedIntensity = mission.sequence.cameraShake.Intensity; Next(8); return;
             case 8:
@@ -139,6 +165,8 @@ public static class VolcanoAtmospherePolishChecks
             case 9:
                 if (mission.sequence.cameraShake.IsShaking || atmosphere.AshBlend < .95f) return;
                 Check("aftershock finishes cleanly", !mission.sequence.cameraShake.IsShaking && mission.sequence.cameraShake.Intensity == 0);
+                lines.Add($"FOUNTAIN end elapsed={mission.sequence.effects.Elapsed:F2} count={mission.sequence.effects.fireFountain.particleCount} rate={mission.sequence.effects.fireFountain.emission.rateOverTimeMultiplier:F2} light={mission.sequence.effects.eruptionLight.enabled}");
+                Check("magma fountain and flash finish after the blast", mission.sequence.effects.fireFountain.particleCount == 0 && mission.sequence.effects.fireFountain.emission.rateOverTimeMultiplier < .01f && !mission.sequence.effects.eruptionLight.enabled);
                 lines.Add($"WEATHER blend={atmosphere.AshBlend:F2} ash={atmosphere.fallingAsh.particleCount}/{atmosphere.fallingAsh.main.maxParticles} fog={RenderSettings.fogMode} start={RenderSettings.fogStartDistance:F1}");
                 Check("ash weather stays bounded and near gameplay stays readable", atmosphere.AshBlend > .95f && atmosphere.fallingAsh.particleCount > 0 && atmosphere.fallingAsh.particleCount <= atmosphere.fallingAsh.main.maxParticles && RenderSettings.fogMode == FogMode.Linear && RenderSettings.fogStartDistance >= 90);
                 Check("pickup particles finish", feel.pickupSparkles.particleCount == 0);
@@ -157,6 +185,7 @@ public static class VolcanoAtmospherePolishChecks
                 Check("actual E-equivalent truck entry still works", player.EnterVehicle()); Next(12); return;
             case 12:
                 if (age < .8f) return;
+                Check("vehicle entry clears sprint lens and wind", player.firstPerson.SprintViewBlend == 0 && wind.Strength == 0 && Mathf.Abs(player.viewCamera.fieldOfView-player.firstPerson.fieldOfView)<.01f);
                 mission.encounter.enabled = false; mission.TriggerDeadline();
                 Check("truck freezes during eruption", player.IsDriving && player.CinematicLocked && player.drive.body.isKinematic);
                 Next(13); return;
@@ -233,5 +262,7 @@ public sealed class VolcanoPolishMovementDriver : MonoBehaviour
 {
     public FireRescuePlayer player;
     public Vector2 move;
-    void Update() { if (player) player.firstPerson.SimulateExternalMovement(move, true, false, false, true, 0, Vector2.zero); }
+    public bool sprint = true;
+    void Update() { if (player) player.firstPerson.SimulateExternalMovement(move, sprint, false, false, true, 0, Vector2.zero); }
+    void LateUpdate() { if (player) player.firstPerson.ApplyExternalView(); }
 }

@@ -79,11 +79,14 @@ public static class ObsidianReloadSetup
         var lava = AssetDatabase.LoadAssetAtPath<Material>("Assets/GameJam/FireRescue/Materials/Town Advancing Lava.mat");
         if (lava)
         {
-            // Retain BK's animated flow, but reveal the dark crust and glowing fissures.
-            lava.SetColor("_EmissiveColor", new Color(5.2f, .65f, .06f));
-            lava.SetFloat("_Smoothness", .32f);
-            lava.SetFloat("_Speed", -.18f);
-            lava.SetFloat("_EdgeDistance1", .32f);
+            // Match Spline (1)'s Lava_stream colour and motion. Depth fades suit the
+            // shallow village mesh; displacement must stay below its obsidian crust.
+            lava.SetColor("_EmissiveColor", new Color(89.454094f, 6.4146366f, 0f));
+            lava.SetFloat("_Smoothness", .5f);
+            lava.SetFloat("_Speed", -.3f);
+            lava.SetFloat("_DepthDistance", .2f);
+            lava.SetFloat("_EdgeDistance1", .08f);
+            lava.SetFloat("_Dispacement", .035f);
             EditorUtility.SetDirty(lava);
         }
         var prefab = PrefabUtility.LoadPrefabContents(PrefabPath);

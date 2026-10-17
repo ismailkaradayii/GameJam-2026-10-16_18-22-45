@@ -18,6 +18,10 @@ namespace GameJam.FireRescue
         [Min(0f)] public float wetProtectionSeconds = 2f;
         [Min(0f)] public float extinguishedCooldownSeconds = 5f;
         [Min(5f)] public float secondsToCollapse = 90f;
+        [Header("Building fire presentation")]
+        public bool fitFireToBuilding = true;
+        [Range(.5f, 2f)] public float flameVisualScale = 1f;
+        [Min(.2f)] public float visualFireSpreadSeconds = 3.5f;
         public bool IsBurnedOut { get; private set; }
         public float BurnDamage { get; private set; }
         public float SecondsUntilCollapse => IsBurning ? Mathf.Max(0, secondsToCollapse - BurnDamage) / Mathf.Max(.1f, heat) : float.PositiveInfinity;
@@ -31,6 +35,7 @@ namespace GameJam.FireRescue
         private float flameEmission;
         private float smokeEmission;
         private float lightIntensity;
+        private BuildingFirePresentation presentation;
         private static readonly List<BurnableBuilding> Buildings = new List<BurnableBuilding>();
         public static event Action FireStateChanged;
 
@@ -54,6 +59,7 @@ namespace GameJam.FireRescue
             IsRescued = false;
             wetSecondsRemaining = 0f;
             cooldownSecondsRemaining = 0f;
+            if (fitFireToBuilding) presentation = BuildingFirePresentation.Create(this);
             UpdateVisuals();
         }
 
@@ -77,6 +83,7 @@ namespace GameJam.FireRescue
             FireStateChanged?.Invoke();
             StopParticles(flames, true);
             StopParticles(smoke, true);
+            presentation?.Stop();
             if (fireLight != null)
                 fireLight.enabled = false;
         }
@@ -133,10 +140,16 @@ namespace GameJam.FireRescue
                 }
             }
             UpdateVisuals();
+            presentation?.Tick(deltaTime);
         }
 
         private void UpdateVisuals()
         {
+            if (presentation != null)
+            {
+                presentation.SetState(heat, isActiveAndEnabled && !IsBurnedOut);
+                return;
+            }
             CacheVisualSettings();
             bool burning = isActiveAndEnabled && IsBurning;
             UpdateParticles(flames, flameEmission, burning);
@@ -188,5 +201,6 @@ namespace GameJam.FireRescue
                 particles.Stop(true, clear ? ParticleSystemStopBehavior.StopEmittingAndClear :
                     ParticleSystemStopBehavior.StopEmitting);
         }
+        private void OnDestroy() => presentation?.Dispose();
     }
 }

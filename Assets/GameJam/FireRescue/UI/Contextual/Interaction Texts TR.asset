@@ -1,0 +1,60 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7f4a8655d13113f4982f741e0070c66d, type: 3}
+  m_Name: Interaction Texts TR
+  m_EditorClassIdentifier: 
+  takePistol: "Tabancay\u0131 Al"
+  pistolSlot: 1. slota ekle
+  openDoor: "Kap\u0131y\u0131 A\xE7"
+  closeDoor: "Kap\u0131y\u0131 Kapat"
+  blockedDoor: "Kap\u0131 engellendi. Biraz geri \xE7ekil."
+  leaveHouse: "Evden \xC7\u0131k"
+  takePistolFirst: "\xC7\u0131k\u0131\u015F g\xF6revi i\xE7in \xF6nce tabancay\u0131
+    al"
+  walkOutside: "Kap\u0131dan d\u0131\u015Far\u0131 y\xFCr\xFC"
+  enterTruck: Araca Bin
+  exitTruck: "Ara\xE7tan \u0130n"
+  stopBeforeExit: "\u0130nmek i\xE7in \xF6nce arac\u0131 durdur"
+  drivingHint: "WASD ile s\xFCr \xB7 {0} su s\u0131k"
+  clearExit: "\xC7\u0131k\u0131\u015F engellendi. A\xE7\u0131k bir yere park et."
+  callVillagers: "K\xF6yl\xFCleri \xC7a\u011F\u0131r"
+  leadVillager: "K\xF6yl\xFCy\xFC S\u0131\u011F\u0131na\u011Fa G\xF6t\xFCr"
+  leadToShelter: "S\u0131\u011F\u0131na\u011Fa g\xF6t\xFCr"
+  following: Seni takip ediyor
+  callCoolingDown: "Sesini dinlendir. Birazdan tekrar \xE7a\u011F\u0131rabilirsin."
+  shelter: "S\u0131\u011F\u0131nak"
+  shelterAutomatic: "K\xF6yl\xFCler i\xE7eri girince kurtar\u0131l\u0131r"
+  fillTank: Su Deposunu Doldur
+  fillingTank: Depo Doluyor
+  disconnect: "Ba\u011Flant\u0131y\u0131 kes"
+  stopBeforeFill: "Dolum i\xE7in mavi halkada dur"
+  tankFull: Depo Dolu
+  returnToVillage: "K\xF6ye d\xF6n"
+  intakeOutOfWater: "Emi\u015F ucu suya ula\u015Fm\u0131yor"
+  hoseTooFar: "Arac\u0131 suya biraz daha yakla\u015Ft\u0131r"
+  takeHose: "Emi\u015F Hortumunu Al"
+  dropHose: "Hortumu B\u0131rak"
+  putIntakeInWater: "Emi\u015F ucunu suya b\u0131rak"
+  retractHose: Hortumu Topla
+  enablePump: "Pompay\u0131 A\xE7"
+  disablePump: "Pompay\u0131 Kapat"
+  extinguish: "Yang\u0131n\u0131 S\xF6nd\xFCr"
+  useWaterCannon: "Su topunu yang\u0131na do\u011Frult ve bas\u0131l\u0131 tut"
+  pistolCollected: "Tabanca Al\u0131nd\u0131"
+  residentSaved: "+1 K\xF6yl\xFC Kurtar\u0131ld\u0131!"
+  objectiveComplete: "G\xF6rev Tamamland\u0131!"
+  fireExtinguished: "Yang\u0131n S\xF6nd\xFCr\xFCld\xFC!"
+  activateAlarm: "K\xF6y Alarm\u0131n\u0131 \xC7al\u0131\u015Ft\u0131r"
+  alarmNeedsPistol: "\xD6nce tabancay\u0131 al"
+  alarmGetCloser: "Butona biraz daha yakla\u015F"
+  alarmReloading: "\u015Earj\xF6r de\u011Fi\u015Fimi bitsin"
+  alarmActivated: "K\xF6y Uyar\u0131ld\u0131!"

@@ -28,6 +28,8 @@ namespace Itfaiye
         [Header("First person view")]
         [Range(.01f, .5f)] public float mouseSensitivity = .09f;
         [Range(40f, 100f)] public float fieldOfView = 80f;
+        [Range(0f, 30f)] public float sprintFovBoost = 16f;
+        [Min(.05f)] public float sprintFovInSeconds = .24f, sprintFovOutSeconds = .2f;
         [Range(30f, 89f)] public float maximumPitch = 80f;
         [Tooltip("Return to the starting point after falling off the small test platform.")]
         public bool recoverFromFall = true;
@@ -45,6 +47,8 @@ namespace Itfaiye
         // Actual mouse-look speed in degrees/second, before visual recoil.
         public Vector2 LookAngularVelocity { get; private set; }
         public bool IsSprinting { get; private set; }
+        public float SprintViewBlend { get; private set; }
+        public float SprintFovOffset => SprintViewBlend * sprintFovBoost * (pistol ? 1f - pistol.AimAmount : 1f);
         public bool CanChangeWeapon => !IsKneeling && KneelAmount < .02f && !PostureTransition;
         public bool PostureTransition => bodyAnimator != null && (bodyAnimator.GetCurrentAnimatorStateInfo(0).IsName("Kneel Down") || bodyAnimator.GetCurrentAnimatorStateInfo(0).IsName("Stand Up"));
 
@@ -218,6 +222,9 @@ namespace Itfaiye
         void AdvancePosture()
         {
             if (motor == null) return;
+            bool running = InputCaptured && IsSprinting && CurrentSpeed > walkSpeed * .75f && KneelAmount < .05f;
+            SprintViewBlend = Mathf.MoveTowards(SprintViewBlend, running ? 1f : 0f,
+                Time.deltaTime / Mathf.Max(.05f, running ? sprintFovInSeconds : sprintFovOutSeconds));
             KneelAmount = Mathf.MoveTowards(KneelAmount, IsKneeling ? 1f : 0f, Time.deltaTime / (IsKneeling ? .65f : .9f));
             motor.height = Mathf.Lerp(standingHeight, 1.18f, KneelAmount);
             motor.center = Vector3.up * (motor.height * .5f);
@@ -239,6 +246,7 @@ namespace Itfaiye
             CurrentSpeed = 0f;
             LocalVelocity = LookAngularVelocity = Vector2.zero;
             IsSprinting = IsKneeling = false;
+            SprintViewBlend = 0f;
             lastGroundedAt = float.NegativeInfinity;
             KneelAmount = 0f;
             if (motor != null)
@@ -264,12 +272,14 @@ namespace Itfaiye
                 playerCamera.transform.localRotation *= pistol.Feedback.CameraRotation;
             playerCamera.transform.localPosition = cameraRest + Vector3.down * (.52f * Mathf.SmoothStep(0f, 1f, KneelAmount));
             if (pistol != null && pistol.Feedback != null) playerCamera.transform.localPosition += pistol.Feedback.CameraOffset;
+            if (pistol != null && pistol.Hands != null) playerCamera.transform.position += pistol.Hands.ButtonViewOffset;
             float hipFov = fieldOfView;
             if (pistol != null && pistol.Hands != null)
                 hipFov = Mathf.Max(40f, fieldOfView - pistol.Hands.pistolViewZoom * Mathf.SmoothStep(0f, 1f, pistol.DrawAmount));
             // Keep both projections identical so the muzzle, world hit and crosshair
             // agree. Zoom only the hip view; the existing ADS alignment stays intact.
             float targetFov = pistol != null ? Mathf.Lerp(hipFov, 62f, pistol.AimAmount) : fieldOfView;
+            targetFov += SprintFovOffset;
             if (pistol != null && pistol.Feedback != null) targetFov += pistol.Feedback.FieldOfViewKick;
             playerCamera.fieldOfView = targetFov;
             if (handsCamera != null) handsCamera.fieldOfView = targetFov;

@@ -1,0 +1,73 @@
+İLK EV — KÖY ALARMI
+
+Kurulum sahnede tamamlandı. Butonun kullanıcı tarafından yerleştirilen konumu ve
+549.02 ölçeği korundu; Inspector'da elle referans bağlaman gerekmiyor.
+
+Akış: Tabancayı E ile al -> ikinci görev Köy Alarmını Çalıştır -> masadaki butona
+bakıp E'ye bas -> sağ el tokadı ve fiziksel düğme hareketi -> köy sirenleri -> tahliye.
+Evden çıkmak alarm görevini atlamaz. Köylüleri çağırmak için mevcut Q sistemi sürer.
+120 saniyelik patlama süresi, alarm görevi tamamlanmasa da bağımsız çalışır.
+
+Tokat 0.72 saniye. Temas %42'de gerçekleşir. Kırmızı başlık 4.5 cm içeri basar.
+Mevcut humanoid el rigine açık avuç pozu verilir; omuz kesikleri kamera arkasında kalır.
+Kamera temas yönüne yumuşakça eğilir ve geri döner. Model, oyuncu veya NPC ışınlanmaz.
+Silah kısa süre gizlenir, atış engellenir; tokat sonunda eski ekipman geri gelir.
+Tokat mermi harcamaz. Her alarm sadece bir kez vurulur ve sirenler bir kez başlar.
+Sinematik temastan önce başlarsa tokat güvenli biçimde iptal olur ve tekrar denenebilir.
+
+Kırmızı Spot Light'ın menzili butonun aydınlatılması için yetersizdi. Aynı ışık
+Realtime/ForcePixel olarak butona yöneltildi; menzil 10 m, yoğunluk 55. Kırmızı
+başlık kendi materyalinde hafif emissive kullanır. Kullanılmadan önce ışık dikkat
+çeker; alarmdan sonra sönük kalır.
+
+Köyün üç noktasında gerçek 3D AudioSource bulunur. Yeni, yerel üretilmiş siren WAV'ı
+8 saniyelik döngüdür. Ses 1.4 saniyede yükselir, toplam 32 saniye çalar ve son
+3 saniyede azalır. SFX ses ayarına uyar. Pause/resume, sonuç, sahne değişimi ve
+Restart için temizlenir. Patlama sinematiğinde sirenler görsel anı bastırmamak için kısılır.
+AI konuşma/seslendirme veya yeni Unity paketi eklenmedi.
+
+Inspector ayarları: Button üzerindeki VillageAlarmButton bileşeni.
+- maximumPressDistance, slapSeconds, contactFraction, buttonTravelMetres, impactShake.
+- sirenSeconds, sirenFadeIn, sirenFadeOut, sirenVolume.
+- Sahne/rig/light/audio referanslarının tamamı bağlı.
+- First Person Hands üzerindeki buttonLeanInViewMetres: kamera eğilmesi (view ölçeğiyle).
+
+Değişen/eklenen temel dosyalar:
+Assets/BK/PureNature_Volcano/Scenes/Volcano_Demo.unity
+Assets/GameJam/FireRescue/Runtime/VillageAlarmButton.cs
+Assets/GameJam/FireRescue/Runtime/VolcanoMissionDirector.cs
+Assets/GameJam/FireRescue/Runtime/FireRescuePlayer.cs
+Assets/GameJam/FireRescue/Runtime/ContextualInteractionTarget.cs
+Assets/GameJam/FireRescue/Runtime/ContextualInteractionUI.cs
+Assets/GameJam/FireRescue/Runtime/InteractionTextCatalog.cs
+Assets/GameJam/FireRescue/Runtime/ObjectiveNavigation.cs
+Assets/Itfaiye/Scripts/ItfaiyeFirstPersonHands.cs
+Assets/Itfaiye/Scripts/ItfaiyeFirstPersonController.cs
+Assets/GameJam/FireRescue/Audio/VillageWarningSiren.wav
+Assets/GameJam/FireRescue/UI/VillageAlarm/ (orijinal modelden ayrılmış gövde/başlık ve materyal)
+Assets/GameJam/FireRescue/UI/Contextual/Interaction Texts TR.asset
+Assets/GameJam/FireRescue/Editor/VillageAlarmSetup.cs
+Assets/GameJam/FireRescue/Editor/VillageAlarmChecks.cs
+Assets/GameJam/FireRescue/Editor/ContextualInteractionChecks.cs
+
+Doğrulama:
+GameJam > Final Loop > Validate village alarm button
+GameJam > Final Loop > Check village alarm button
+GameJam > Final Loop > Check contextual interaction UI
+
+Alarm testi gerçek Play Mode frame'lerinde Input System'e sentetik E olayları
+gönderir. Tabanca -> ikinci görev -> tokat -> el teması -> başlık hareketi ->
+siren yükselmesi -> tahliye; pause, tekrar basma, patlama, Restart ve temas öncesi
+sinematik iptali kontrol edilir. Fiziksel klavye ile baştan sona manuel oynanmış
+bir köy/sürüş turu olduğu iddia edilmez.
+
+Raporlar: Logs/VillageAlarm/validation.txt ve Logs/VillageAlarm/checks.txt
+Son alarm Play Mode turu: 30 kontrol geçti. Kaydedilmiş sahne üzerinden çalıştırıldı.
+Alarm dahil son bağlamsal etkileşim turu: 59 kontrol geçti. Sahne doğrulaması: 0 eksik script.
+Görüntüler: Logs/VillageAlarm/01-alarm-prompt.png, 02-palm-windup.png, 03-palm-impact.png
+Diğer etkileşimler için: Logs/ContextualInteraction/checks.txt
+
+Elle hızlı kontrol: Volcano_Demo > Play. Tabancayı E ile al, kırmızı ışıklı
+masadaki butona yaklaş ve aşağı bakarak E'ye bas. Elin butona vurmasını, kamera
+eğilmesini ve sirenlerin yükselmesini gör/duy. Silah geri geldiğinde Q ile
+köylüleri çağırıp oyuna devam et. Ek sahne kurulumu gerekmiyor.

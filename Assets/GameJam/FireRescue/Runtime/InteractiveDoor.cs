@@ -15,6 +15,7 @@ namespace GameJam.FireRescue
         [SerializeField] bool closedPoseConfigured;
 
         public bool IsOpen => openness >= .999f;
+        public bool WantsOpen => targetOpen;
         public bool IsMoving => Mathf.Abs(openness - (targetOpen ? 1f : 0f)) > .0001f;
         public bool LastBlocked { get; private set; }
         public Collider LastBlockingCollider { get; private set; }

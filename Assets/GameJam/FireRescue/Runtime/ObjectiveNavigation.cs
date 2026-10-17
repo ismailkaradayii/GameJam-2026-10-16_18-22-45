@@ -31,7 +31,7 @@ namespace GameJam.FireRescue
             if (!mission || !mission.player || !mission.player.viewCamera) return;
             Color color = objectiveColor; float radius = objectiveRadius;
             CurrentTarget = SelectTarget(ref color, ref radius);
-            bool visible = CurrentTarget && !VolcanoCinematic.IsPlayingAny && (!mission.gameFlow || !mission.gameFlow.BlocksGameplay);
+            bool visible = CurrentTarget && !mission.player.InteractionBusy && !VolcanoCinematic.IsPlayingAny && (!mission.gameFlow || !mission.gameFlow.BlocksGameplay);
             if (ring) ring.enabled = visible;
             if (marker) marker.gameObject.SetActive(visible);
             if (!visible) return;
@@ -43,7 +43,8 @@ namespace GameJam.FireRescue
                 {
                     float angle = i * Mathf.PI * 2 / (points.Length - 1);
                     Vector3 p = world + new Vector3(Mathf.Cos(angle), 0, Mathf.Sin(angle)) * radius;
-                    if (CurrentTarget != (mission.weaponPickup ? mission.weaponPickup.transform : null))
+                    if (CurrentTarget != (mission.weaponPickup ? mission.weaponPickup.transform : null) &&
+                        CurrentTarget != (mission.villageAlarm ? mission.villageAlarm.contactPoint : null))
                         foreach (var terrain in Terrain.activeTerrains)
                             if (terrain && p.x >= terrain.transform.position.x && p.z >= terrain.transform.position.z &&
                                 p.x <= terrain.transform.position.x + terrain.terrainData.size.x && p.z <= terrain.transform.position.z + terrain.terrainData.size.z)
@@ -70,6 +71,9 @@ namespace GameJam.FireRescue
                 pos = direction * edge;
             }
             marker.anchoredPosition = pos;
+            // Keep distant guidance and world rings; avoid a second boxed label on a nearby prompt.
+            if (player.contextualInteractions && player.contextualInteractions.isActiveAndEnabled &&
+                player.contextualInteractions.ReplacesNavigationLabel(CurrentTarget)) marker.gameObject.SetActive(false);
             if (label) { label.color = color; label.text = CurrentLabel + "\n" + Mathf.RoundToInt(Vector3.Distance(player.transform.position, world)) + " m"; }
             if (arrow)
             {
@@ -84,6 +88,8 @@ namespace GameJam.FireRescue
             if (mission.State == VolcanoMissionDirector.FlowState.Intro) return null;
             if (!player.HasPistol && mission.weaponPickup && !mission.weaponPickup.IsCollected)
             { CurrentLabel = "PISTOL | SLOT 1"; radius = .75f; return mission.weaponPickup.transform; }
+            if (!mission.EruptionTriggered && mission.Phase == VolcanoMissionDirector.MissionPhase.WarnVillage && mission.villageAlarm && !mission.villageAlarm.Activated)
+            { CurrentLabel = "KÖY ALARMI | " + (player.contextualInteractions ? player.contextualInteractions.Label(InteractionInput.Interact) : "E"); radius = .45f; return mission.villageAlarm.contactPoint; }
             if (!mission.EruptionTriggered && mission.Phase == VolcanoMissionDirector.MissionPhase.Weapon)
             { CurrentLabel = "LEAVE THE HOUSE | E: DOOR"; return mission.houseExit; }
             if (!mission.EruptionTriggered && mission.Phase == VolcanoMissionDirector.MissionPhase.Evacuate)

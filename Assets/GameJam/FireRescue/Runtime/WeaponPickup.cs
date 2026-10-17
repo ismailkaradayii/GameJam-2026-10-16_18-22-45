@@ -10,6 +10,8 @@ namespace GameJam.FireRescue
         public GameObject visual;
         [Min(.5f)] public float pickupDistance = 6.5f;
         public bool IsCollected { get; private set; }
+        public event System.Action<WeaponPickup> Collected;
+        readonly RaycastHit[] sightHits = new RaycastHit[32];
         public bool CanPickUp
         {
             get
@@ -18,8 +20,10 @@ namespace GameJam.FireRescue
                 Vector3 origin = player.viewCamera.transform.position, delta = transform.position - origin;
                 if (delta.sqrMagnitude > pickupDistance * pickupDistance) return false;
                 // A cabinet can own the final few centimetres of the ray, but a wall cannot.
-                foreach (var hit in Physics.RaycastAll(origin, delta.normalized, Mathf.Max(0, delta.magnitude - .45f), ~0, QueryTriggerInteraction.Ignore))
-                    if (!hit.transform.IsChildOf(player.transform) && !hit.transform.IsChildOf(transform)) return false;
+                int count = Physics.RaycastNonAlloc(origin, delta.normalized, sightHits, Mathf.Max(0, delta.magnitude - .45f), ~0, QueryTriggerInteraction.Ignore);
+                if (count == sightHits.Length) return false;
+                for (int i = 0; i < count; i++)
+                    if (!sightHits[i].transform.IsChildOf(player.transform) && !sightHits[i].transform.IsChildOf(transform)) return false;
                 return true;
             }
         }
@@ -32,6 +36,7 @@ namespace GameJam.FireRescue
             if (visual) visual.SetActive(false);
             foreach (var light in GetComponentsInChildren<Light>()) light.enabled = false;
             foreach (var c in GetComponentsInChildren<Collider>()) c.enabled = false;
+            Collected?.Invoke(this);
             return true;
         }
     }

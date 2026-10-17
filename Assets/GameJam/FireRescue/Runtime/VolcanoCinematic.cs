@@ -22,11 +22,12 @@ namespace GameJam.FireRescue
         [Min(5f)] public float spiritViewingDistance = 14f;
         [Header("Eruption framing and aftershock")]
         public Vector3 eruptionFocusOffset = new Vector3(0, 130, 0);
-        [Range(.05f, 1f)] public float eruptionShakeStrength = .42f;
-        [Range(0f, 2f)] public float eruptionShakeDegrees = .8f;
+        [Range(.05f, 3f)] public float eruptionShakeStrength = 1.5f;
+        [Range(0f, 8f)] public float eruptionShakeDegrees = 4.2f;
+        [Range(40f, 90f)] public float eruptionStartFov = 62f, eruptionEndFov = 54f;
         public VolcanoCameraShake aftermathShake;
         [Min(0f)] public float aftershockSeconds = 8f;
-        [Range(0f, .3f)] public float aftershockStrength = .12f;
+        [Range(0f, .8f)] public float aftershockStrength = .4f;
         public bool IsPlaying { get; private set; }
         public bool HasPlayed { get; private set; }
         public bool HasIntroPlayed { get; private set; }
@@ -40,7 +41,7 @@ namespace GameJam.FireRescue
         Transform subject;
         Vector3 returnPosition, introPosition, frozenVelocity, frozenAngularVelocity;
         Quaternion returnRotation, introRotation;
-        float returnFov, shotDuration, previousTimeScale, previousFixedStep;
+        float entryFov, returnFov, shotDuration, previousTimeScale, previousFixedStep;
         bool viewEnabled, handsEnabled, previousKinematic, frozenTruck, ownsSlowMotion;
         CursorLockMode savedLock;
         bool savedCursor;
@@ -81,7 +82,8 @@ namespace GameJam.FireRescue
             if (IsPlaying || !player || !player.viewCamera) return false;
             Kind = kind; shotDuration = Mathf.Max(.5f, seconds);
             var view = player.viewCamera;
-            returnPosition = view.transform.position; returnRotation = view.transform.rotation; returnFov = view.fieldOfView;
+            returnPosition = view.transform.position; returnRotation = view.transform.rotation; entryFov = returnFov = view.fieldOfView;
+            if (!player.IsDriving && player.firstPerson) returnFov -= player.firstPerson.SprintFovOffset;
             viewEnabled = view.enabled;
             handsEnabled = player.firstPerson && player.firstPerson.handsCamera && player.firstPerson.handsCamera.enabled;
             savedLock = Cursor.lockState; savedCursor = Cursor.visible;
@@ -134,7 +136,7 @@ namespace GameJam.FireRescue
             if (Kind == ShotKind.Eruption)
             {
                 from = focus + startOffset; to = focus + endOffset; focus += eruptionFocusOffset;
-                zoomStart = 58; zoomEnd = 46;
+                zoomStart = eruptionStartFov; zoomEnd = eruptionEndFov;
             }
             else
             {
@@ -154,15 +156,16 @@ namespace GameJam.FireRescue
             float leave = Mathf.SmoothStep(0, 1, (Elapsed - shotDuration + blendSeconds) / blendSeconds);
             position = Vector3.Lerp(Vector3.Lerp(returnPosition, position, enter), returnPosition, leave);
             rotation = Quaternion.Slerp(Quaternion.Slerp(returnRotation, rotation, enter), returnRotation, leave);
-            fov = Mathf.Lerp(Mathf.Lerp(returnFov, fov, enter), returnFov, leave);
+            fov = Mathf.Lerp(Mathf.Lerp(entryFov, fov, enter), returnFov, leave);
             if (Kind == ShotKind.Eruption)
             {
                 float pressure = Mathf.Exp(-Mathf.Max(0, Elapsed - 1.3f) * 1.8f) * Mathf.SmoothStep(0, 1, (Elapsed - 1f) / .4f);
-                float envelope = (.22f + pressure * .78f) * enter * (1 - leave);
-                float n1 = Mathf.PerlinNoise(Elapsed * 11f, 5.7f) * 2 - 1;
-                float n2 = Mathf.PerlinNoise(32.6f, Elapsed * 13f) * 2 - 1;
+                float envelope = (.58f + pressure * .42f) * enter * (1 - leave);
+                float n1 = (Mathf.PerlinNoise(Elapsed * 11f, 5.7f) * 2 - 1) * .65f + Mathf.Sin(Elapsed * 29f) * .35f;
+                float n2 = (Mathf.PerlinNoise(32.6f, Elapsed * 13f) * 2 - 1) * .65f + Mathf.Sin(Elapsed * 37f + .7f) * .35f;
                 position += (rotation * new Vector3(n1, n2 * .7f, 0)) * (eruptionShakeStrength * envelope);
                 rotation *= Quaternion.Euler(n2 * eruptionShakeDegrees * .45f * envelope, n1 * eruptionShakeDegrees * .3f * envelope, n1 * eruptionShakeDegrees * envelope);
+                fov -= pressure * 3f * enter * (1 - leave);
             }
             shot.transform.SetPositionAndRotation(position, rotation); shot.fieldOfView = fov;
         }

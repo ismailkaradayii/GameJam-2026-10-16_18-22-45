@@ -23,11 +23,12 @@ namespace GameJam.FireRescue
         public BoxCollider startingHouse;
         public WeaponPickup weaponPickup;
         public LakeFillStation fillStation;
+        public VillageAlarmButton villageAlarm;
         [Header("Jam timing")]
         [Min(1f)] public float preparationSeconds = 120f;
         [Min(0f)] public float spiritRevealDelay = 1f;
         [Min(1f)] public float exitRadius = 9f;
-        [Tooltip("Leave enabled until the church and bell are authored.")]
+        [Tooltip("Skip the warning only in scenes without an authored village alarm or bell interaction.")]
         public bool skipVillageWarning = true;
         public MissionPhase Phase { get; private set; } = MissionPhase.Intro;
         public FlowState State { get; private set; } = FlowState.Intro;
@@ -107,19 +108,20 @@ namespace GameJam.FireRescue
         void StartPreparation() { State = FlowState.Preparation; SetPhase(MissionPhase.Weapon); }
         void TickPreparation()
         {
+            if (houseExit && player.HasPistol && !LeftStartingHouse)
+            {
+                Vector3 feet = player.transform.position;
+                bool outside = !startingHouse || !startingHouse.bounds.Contains(feet + Vector3.up * 2f);
+                if (outside || EvacuationResident.FlatDistance(feet, houseExit.position) <= exitRadius &&
+                    Mathf.Abs(feet.y - houseExit.position.y) < 3f && Vector3.Dot(feet - houseExit.position, houseExit.forward) >= -.5f) LeftStartingHouse = true;
+            }
             if (Phase == MissionPhase.Weapon)
             {
-                if (houseExit && player.HasPistol)
-                {
-                    Vector3 feet = player.transform.position;
-                    bool outside = !startingHouse || !startingHouse.bounds.Contains(feet + Vector3.up * 2f);
-                    if (outside || EvacuationResident.FlatDistance(feet, houseExit.position) <= exitRadius &&
-                        Mathf.Abs(feet.y - houseExit.position.y) < 3f && Vector3.Dot(feet - houseExit.position, houseExit.forward) >= -.5f) LeftStartingHouse = true;
-                }
-                if (!player.HasPistol || !LeftStartingHouse) return;
+                if (!player.HasPistol || (!villageAlarm && !LeftStartingHouse)) return;
                 SetPhase(MissionPhase.WarnVillage);
-                if (skipVillageWarning) CompleteVillageWarning();
+                if (!villageAlarm && skipVillageWarning) CompleteVillageWarning();
             }
+            if (Phase == MissionPhase.WarnVillage && villageAlarm && villageAlarm.Activated) CompleteVillageWarning();
             if (Phase == MissionPhase.Evacuate && evacuation && evacuation.IsComplete) SetPhase(MissionPhase.Truck);
             if (Phase == MissionPhase.Truck && player.IsDriving) SetPhase(MissionPhase.Refill);
             if (Phase == MissionPhase.Refill && tank.Tank01 >= .999f)
@@ -128,7 +130,7 @@ namespace GameJam.FireRescue
         // Future bell interaction calls this method; no church destination is displayed while skipped.
         public void CompleteVillageWarning()
         {
-            if (WarningCompleted || Phase != MissionPhase.WarnVillage) return;
+            if (WarningCompleted || Phase != MissionPhase.WarnVillage || (villageAlarm && !villageAlarm.Activated)) return;
             WarningCompleted = true;
             if (evacuation) evacuation.BeginMission();
             SetPhase(MissionPhase.Evacuate);
@@ -153,8 +155,8 @@ namespace GameJam.FireRescue
         public string ObjectiveTitle => EruptionTriggered ? "DEFEND THE VILLAGE" : Phase switch
         {
             MissionPhase.Intro => "ASHFALL",
-            MissionPhase.Weapon => "TAKE YOUR WEAPON AND LEAVE THE HOUSE",
-            MissionPhase.WarnVillage => "WARN THE VILLAGE",
+            MissionPhase.Weapon => villageAlarm ? "TAKE YOUR WEAPON" : "TAKE YOUR WEAPON AND LEAVE THE HOUSE",
+            MissionPhase.WarnVillage => villageAlarm ? "ACTIVATE THE VILLAGE ALARM" : "WARN THE VILLAGE",
             MissionPhase.Evacuate => "EVACUATE THE VILLAGERS",
             MissionPhase.Truck => "PREPARE THE FIRE TRUCK",
             MissionPhase.Refill => "DRIVE TO THE LAKE",
@@ -173,9 +175,11 @@ namespace GameJam.FireRescue
                 return Phase switch
                 {
                     MissionPhase.Weapon => player.HasPistol ? "Pistol in slot 1. Follow the marker to the front door. E opens doors." : "Pick up the pistol on the bedside cabinet. Press E when nearby.",
-                    MissionPhase.WarnVillage => "Warn the village to begin the evacuation.",
+                    MissionPhase.WarnVillage => villageAlarm ? "İlk evde kırmızı ışığın altındaki alarm butonuna yaklaş. " +
+                        (player.contextualInteractions ? player.contextualInteractions.Label(InteractionInput.Interact) : "E") + " ile bas ve köyü uyar." : "Warn the village to begin the evacuation.",
                     MissionPhase.Evacuate => "Q calls nearby villagers. Lead them to the GREEN shelter ring.",
-                    MissionPhase.Truck => "Find the truck behind your house. Approach the driver's door and press F.",
+                    MissionPhase.Truck => "Find the truck behind your house. Approach the driver's door and press " +
+                        (player.contextualInteractions ? player.contextualInteractions.Label(InteractionInput.Interact) : "E") + ".",
                     MissionPhase.Refill => "Park in the BLUE lake ring. Press E to connect the intake and fill the tank.",
                     MissionPhase.Ready => "Return to the village. Keep the pistol and water tank ready.",
                     _ => "Wake up. The volcano is stirring."

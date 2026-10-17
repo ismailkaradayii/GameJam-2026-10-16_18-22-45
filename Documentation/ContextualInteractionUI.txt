@@ -1,0 +1,117 @@
+CONTEXTUAL INTERACTION UI — Volcano_Demo
+17 Ekim 2026 — Unity 6000.0.58f2
+
+Kurulum tamamlandı. Inspector'da elle referans bağlaman gerekmiyor.
+Sahne: Assets/BK/PureNature_Volcano/Scenes/Volcano_Demo.unity
+Sahnede tek Contextual Interaction UI prefabı ve alarm dahil 28 hafif hedef ankrajı var.
+Görev kartları, su deposu, silah slotu ve mevcut sonuç/pause HUD'u korunuyor.
+
+Sunum
+- Nesneye bakan ve mekanik menzilinde olan oyuncu için tek bir hedef seçilir.
+- Beyaz/kırık beyaz TMP, koyu outline/gölge, büyük gerçek tuş, kısa fade.
+- Camera.WorldToScreenPoint, CanvasScaler ve ekran güvenli alanı sınırları kullanılır.
+- Görünür HUD panellerine denk gelen prompt en yakın uygun boşluğa kayar.
+- Aynı hedefte eski waypoint kutusu gizlenir; dünya halkası ve uzaktaki yönlendirme korunur.
+- Fizik sorguları NonAlloc; hedefler Inspector'dan bağlıdır. Kare başına sahne araması yok.
+- Tek prompt ve 6 önceden hazırlanmış floating text slotu; etkileşim başına Instantiate/Destroy yok.
+- Türkçe karakterler mevcut SourceSans3-Semibold fontundan statik SDF atlasına işlendi.
+
+Gerçek mekaniklerle eşleşen bilgiler
+- Tabanca: E; mevcut pickup ve slot 1 kullanılır. Ardından ikinci görev köy alarmıdır.
+- İlk evin alarmı: E ile tokat; gerçek temastan sonra sirenler ve tahliye başlar.
+- Kapı: E; mevcut kapı ışını/toggle/engel kontrolleri kullanılır.
+- Evden çıkış: otomatik görev koşulu; ayrıca hayali E tuşu gösterilmez.
+- İtfaiyeye binme: E. İnme: F. Hareketli araçta durma gereği açıklanır.
+- Hortum açıkken araca binilemiyorsa R ile toplama gereği belirtilir.
+- Köylüler: Q ile bölgesel çağrı. Takip ve sığınağa kabul otomatik; E eklenmez.
+- 7 köylünün her birinin gerçek ResidentArrived olayı +1 yazısını üretir.
+- Sığınak: gerçek kurtarılan/toplam sayısı, tuşsuz açıklama.
+- Göl: E ile mevcut dolumu başlat/kes. Dolum otomatik ilerler; bar gerçek Tank01 değeridir.
+  Fiziksel emiş ucu su altında kaldı; UI ankrajı mavi dolum halkasının görünür kıyı kısmında.
+- Hortum: mevcut E/P/R akışı. Su topu: gerçek sağ fare kontrolü ve evin gerçek ısısı.
+- Yangın söndürüldü yazısı gerçek BurnableBuilding.Rescued olayından gelir.
+- Görev tamamlandı yazısı sadece doğrulanan hazırlık görevi geçişlerinden gelir.
+- Puan/combo sistemi eklenmedi.
+- Intro, sinematik, kontrol kilidi, pause, sonuç ve sahneden çıkışta tüm bağlamsal UI gizlenir.
+
+Merkezi ayarlar
+- Prefab: Assets/GameJam/FireRescue/UI/Contextual/Contextual Interaction UI.prefab
+- Yazılar: Assets/GameJam/FireRescue/UI/Contextual/Interaction Texts TR.asset
+- Font: Assets/GameJam/FireRescue/UI/Contextual/SourceSans3 Turkish SDF.asset
+- Sahnedeki Contextual Interaction UI: player/mission/HUD/targets ve fade/offset/pool referansları.
+- Contextual interaction anchors altındaki hedefler: anchor, localPoint, visibilityRoot,
+  maximumViewDistance, maximumLookAngle, priority ve mevcut mekanik referansı.
+- FireRescuePlayer: interactKey=E, exitVehicleKey=F, retractHoseKey=R, pumpKey=P.
+- EvacuationMission: callKey=Q. Tuş etiketi gerçek Input System KeyControl.displayName'den alınır.
+- Yeni hedef için ContextualInteractionTarget ekle ve merkezi targets dizisine bağla.
+  Yeni mekanik gerekiyorsa TryDescribe genişletilebilir; eylem yürütme oyuncu/mekanik tarafında kalır.
+
+Bu görevde değişen dosyalar
+Yeni:
+  Assets/GameJam/FireRescue/Runtime/ContextualInteractionUI.cs
+  Assets/GameJam/FireRescue/Runtime/ContextualInteractionTarget.cs
+  Assets/GameJam/FireRescue/Runtime/InteractionTextCatalog.cs
+  Assets/GameJam/FireRescue/Editor/ContextualInteractionSetup.cs
+  Assets/GameJam/FireRescue/Editor/ContextualInteractionChecks.cs
+  Assets/GameJam/FireRescue/UI/Contextual/ (prefab, metin kataloğu, TMP font/material/atlas)
+  Assets/TextMesh Pro/ (Unity'nin yerel TMP Essential Resources dosyaları)
+  Documentation/ContextualInteractionUI.txt
+Entegrasyon:
+  Assets/BK/PureNature_Volcano/Scenes/Volcano_Demo.unity
+  Assets/GameJam/FireRescue/Runtime/FireRescuePlayer.cs
+  Assets/GameJam/FireRescue/Runtime/WeaponPickup.cs
+  Assets/GameJam/FireRescue/Runtime/InteractiveDoor.cs
+  Assets/GameJam/FireRescue/Runtime/EvacuationMission.cs
+  Assets/GameJam/FireRescue/Runtime/RescueHUD.cs
+  Assets/GameJam/FireRescue/Runtime/ObjectiveNavigation.cs
+  Assets/GameJam/FireRescue/Runtime/VolcanoMissionDirector.cs
+Unity .meta dosyaları bu assetlerle birlikte korunmalı.
+Yeni paket indirilmedi; Packages/manifest.json değiştirilmedi.
+Önceden mevcut sprint/volkan ve diğer ekip üyesinin bina yangını değişiklikleri bu listenin parçası değil.
+
+Doğrulama
+GameJam > Final Loop > Validate contextual interaction UI:
+  Tek prefab, 28 hedef, 7 gerçek köylü, TMP Türkçe glifleri, sahne/input referansları,
+  floating text havuzu ve sahnede eksik script kontrolü.
+GameJam > Final Loop > Check contextual interaction UI:
+  Alarm görevine uyarlanmış sahnede gerçek frame'lerle 59 kontrol geçti, 0 başarısızlık.
+  Görünür [E] TMP geometrisi; bakış/mesafe/duvar kontrolü; gerçek tabanca alımı;
+  kapı; çıkış koşulu; Q çağrı; 7 gerçek kabul olayı; tekrar olaylarının sayılmaması;
+  E araç girişi ve hortum engeli; F etiketi; pause/kontrol kilidi;
+  gerçek göl pompası/dolum/kesme; silinen hedef; gerçek söndürme geri bildirimi;
+  FAILED, Restart, SUCCESS ve ana menü sınırları doğrulandı.
+  Gerçek Game View boyutları: 1920x1080, 1280x720, 1024x768, 2560x1080.
+  Testin geçici kamera/duvar/park/NavMesh yerleştirmeleri sadece Play Mode'daydı;
+  sahneye kaydedilmedi. Game View çözünürlük ayarı geri yüklendi.
+
+Sınır: Bu, klavyeyle baştan sona manuel oynanmış bir savunma turu veya yol sürüşü değildir.
+Test mevcut etkileşim API'lerini çağırdı, NPC'leri gerçek güvenli NavMesh'e yerleştirdi,
+dolum için aracı park noktasına taşıdı. İki sonucun UI sınırları GameFlow API'siyle açıldı;
+bu test başarı/başarısızlık oyun dengesi hakkında yeni bir iddia içermez.
+Su topuyla canlı nişan alarak söndürme ve elde hortumun tüm açıları için aşağıdaki manuel
+kontrol önerilir. Yeni Windows player build'i alınmadı.
+
+Manuel kontrol (ek kurulum gerektirmez)
+1. Volcano_Demo'yu aç, Play'e bas. Introda prompt olmamalı. Komodindeki tabancaya bak:
+   Tabancayı Al / [E] / 1. slota ekle. Uzaklaşınca, arkanı dönünce veya duvar araya girince gizlenmeli.
+   E ile al; 1. slota geçmeli ve tek Tabanca Alındı yazısı görünmeli.
+2. Tabancadan sonra ilk evdeki kırmızı ışıklı alarm butonuna bakıp E ile vur.
+   Sirenlerle birlikte tahliye görevi başlamalı. Kapıya E ile açarak dışarı çık.
+3. Diğer evlerin girişlerinde Q ile çağır. Köylüler takip ederken E gösterilmemeli.
+   Yeşil sığınağa götür: gerçek sayacın 7'ye ilerlemesini ve +1 yazılarını kontrol et.
+4. Aracın kabinine bak, E ile bin. F ile inmek için dur; hareket ederken neden inemediğini
+   görmelisin. Hortumu E ile al/bırak, P ile pompayı değiştir, aracın arkasında R ile topla.
+5. Göldeki mavi halkada dur. E ile dolumu başlat; bar depo ile birlikte artmalı.
+   E ile bağlantıyı kes. Basılı tutma gerekmiyor. Tam depoda tuşsuz Depo Dolu görünmeli.
+6. Köye dön, yanan eve su topunu doğrult ve sağ fareyi basılı tut. Gerçek söndürme ilerlemesi
+   ve Yangın Söndürüldü geri bildirimini kontrol et. İnip tabancayı kullanıp tekrar E ile bin.
+7. Esc/pause, volkan/ruh sinematikleri, SUCCESS/FAILED ve Restart sırasında prompt sızıntısı
+   olmamalı. Restart sonrası tabanca, köylü ve floating text durumları sıfırdan başlamalı.
+
+Test çıktıları ve gerçek Game View görüntüleri:
+  Logs/ContextualInteraction/validation.txt
+  Logs/ContextualInteraction/checks.txt
+  Logs/ContextualInteraction/01-pistol-prompt.png
+  Logs/ContextualInteraction/02-pickup-feedback.png
+  Logs/ContextualInteraction/03-truck-entry.png
+  Logs/ContextualInteraction/04-lake-progress.png

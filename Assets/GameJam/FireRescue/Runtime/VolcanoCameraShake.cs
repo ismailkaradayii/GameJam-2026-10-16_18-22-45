@@ -11,6 +11,7 @@ namespace GameJam.FireRescue
         [Min(0f)] public float defaultStrength = 0.35f;
         [Min(0f)] public float rotationDegreesAtDefaultStrength = 0.7f;
         [Range(0f, 1f)] public float aimedStrengthMultiplier = .35f;
+        [Range(.5f, 3f)] public float decayExponent = 1.4f;
 
         public float Intensity { get; private set; }
         public bool IsShaking => duration > 0f && elapsed < duration;
@@ -63,7 +64,7 @@ namespace GameJam.FireRescue
             elapsed = Mathf.Min(duration, elapsed + deltaTime);
             noiseTime += deltaTime;
             float envelope = 1f - Mathf.Clamp01(elapsed / duration);
-            Intensity = strength * envelope * envelope;
+            Intensity = strength * Mathf.Pow(envelope, decayExponent);
             if (Intensity <= 0f)
                 return;
 
