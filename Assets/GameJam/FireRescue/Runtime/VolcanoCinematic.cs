@@ -20,12 +20,20 @@ namespace GameJam.FireRescue
         [Range(.1f, 1f)] public float spiritTimeScale = .35f;
         [Min(.1f)] public float transitionSeconds = 1.2f;
         [Min(5f)] public float spiritViewingDistance = 14f;
+        [Header("Eruption framing and aftershock")]
+        public Vector3 eruptionFocusOffset = new Vector3(0, 130, 0);
+        [Range(.05f, 1f)] public float eruptionShakeStrength = .42f;
+        [Range(0f, 2f)] public float eruptionShakeDegrees = .8f;
+        public VolcanoCameraShake aftermathShake;
+        [Min(0f)] public float aftershockSeconds = 8f;
+        [Range(0f, .3f)] public float aftershockStrength = .12f;
         public bool IsPlaying { get; private set; }
         public bool HasPlayed { get; private set; }
         public bool HasIntroPlayed { get; private set; }
         public bool HasSpiritsPlayed { get; private set; }
         public ShotKind Kind { get; private set; }
         public float Elapsed { get; private set; }
+        public Vector3 FocusPosition => subject ? subject.position + (Kind == ShotKind.Eruption ? eruptionFocusOffset : Vector3.up * 1.5f) : returnPosition;
         public Camera ShotCamera => shot;
         public static bool IsPlayingAny { get; private set; }
         Camera shot;
@@ -125,8 +133,8 @@ namespace GameJam.FireRescue
             float zoomStart, zoomEnd;
             if (Kind == ShotKind.Eruption)
             {
-                from = focus + startOffset; to = focus + endOffset; focus += Vector3.up * 20;
-                zoomStart = 55; zoomEnd = 43;
+                from = focus + startOffset; to = focus + endOffset; focus += eruptionFocusOffset;
+                zoomStart = 58; zoomEnd = 46;
             }
             else
             {
@@ -148,7 +156,14 @@ namespace GameJam.FireRescue
             rotation = Quaternion.Slerp(Quaternion.Slerp(returnRotation, rotation, enter), returnRotation, leave);
             fov = Mathf.Lerp(Mathf.Lerp(returnFov, fov, enter), returnFov, leave);
             if (Kind == ShotKind.Eruption)
-                position += new Vector3(Mathf.Sin(Elapsed * 37), Mathf.Sin(Elapsed * 29), 0) * (.22f * enter * (1 - leave));
+            {
+                float pressure = Mathf.Exp(-Mathf.Max(0, Elapsed - 1.3f) * 1.8f) * Mathf.SmoothStep(0, 1, (Elapsed - 1f) / .4f);
+                float envelope = (.22f + pressure * .78f) * enter * (1 - leave);
+                float n1 = Mathf.PerlinNoise(Elapsed * 11f, 5.7f) * 2 - 1;
+                float n2 = Mathf.PerlinNoise(32.6f, Elapsed * 13f) * 2 - 1;
+                position += (rotation * new Vector3(n1, n2 * .7f, 0)) * (eruptionShakeStrength * envelope);
+                rotation *= Quaternion.Euler(n2 * eruptionShakeDegrees * .45f * envelope, n1 * eruptionShakeDegrees * .3f * envelope, n1 * eruptionShakeDegrees * envelope);
+            }
             shot.transform.SetPositionAndRotation(position, rotation); shot.fieldOfView = fov;
         }
         public void EndShot()
@@ -172,6 +187,14 @@ namespace GameJam.FireRescue
                 if (player.firstPerson && player.firstPerson.handsCamera) player.firstPerson.handsCamera.enabled = handsEnabled;
             }
             frozenTruck = false;
+            // Start a fresh envelope on the real gameplay camera, after returning control.
+            // Interrupted shots (restart, defeat, unloading) must not create an aftershock.
+            if (Kind == ShotKind.Eruption && Elapsed >= shotDuration - .001f && player &&
+                (!player.gameFlow || !player.gameFlow.BlocksGameplay))
+            {
+                if (!aftermathShake && player.viewCamera) aftermathShake = player.viewCamera.GetComponent<VolcanoCameraShake>();
+                if (aftermathShake) aftermathShake.Shake(aftershockSeconds, aftershockStrength);
+            }
             Cursor.lockState = savedLock; Cursor.visible = savedCursor;
             if (shot) { shot.enabled = false; Destroy(shot.gameObject); }
         }

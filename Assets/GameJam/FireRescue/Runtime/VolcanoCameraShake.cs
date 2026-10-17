@@ -10,6 +10,7 @@ namespace GameJam.FireRescue
         [Min(0.01f)] public float noiseFrequency = 15f;
         [Min(0f)] public float defaultStrength = 0.35f;
         [Min(0f)] public float rotationDegreesAtDefaultStrength = 0.7f;
+        [Range(0f, 1f)] public float aimedStrengthMultiplier = .35f;
 
         public float Intensity { get; private set; }
         public bool IsShaking => duration > 0f && elapsed < duration;
@@ -69,8 +70,11 @@ namespace GameJam.FireRescue
             float phase = noiseTime * Mathf.Max(0.01f, noiseFrequency);
             Vector3 positionNoise = new Vector3(Noise(phase, 17.3f), Noise(phase, 53.7f), Noise(phase, 91.1f));
             // Clamp the vector magnitude so strength is a true maximum displacement in metres.
-            Vector3 positionOffset = Vector3.ClampMagnitude(positionNoise, 1f) * Intensity;
-            float rotationScale = rotationDegreesAtDefaultStrength * Intensity / Mathf.Max(0.01f, defaultStrength);
+            var controller = GetComponentInParent<Itfaiye.ItfaiyeFirstPersonController>();
+            float aim = controller && controller.pistol ? controller.pistol.AimAmount : 0;
+            float renderedIntensity = Intensity * Mathf.Lerp(1f, aimedStrengthMultiplier, aim);
+            Vector3 positionOffset = Vector3.ClampMagnitude(positionNoise, 1f) * renderedIntensity;
+            float rotationScale = rotationDegreesAtDefaultStrength * renderedIntensity / Mathf.Max(0.01f, defaultStrength);
             Vector3 rotationOffset = new Vector3(Noise(phase, 131.9f) * 0.5f,
                 Noise(phase, 171.4f) * 0.5f, Noise(phase, 211.8f)) * rotationScale;
 

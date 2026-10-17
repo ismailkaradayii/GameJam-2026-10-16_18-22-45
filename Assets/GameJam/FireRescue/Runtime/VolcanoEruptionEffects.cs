@@ -9,6 +9,8 @@ namespace GameJam.FireRescue
         public ParticleSystem eruptionBurst;
         public ParticleSystem lavaBombs;
         public ParticleSystem smokePlume;
+        public ParticleSystem ashCrown;
+        [Min(0f)] public float ashCrownDelay = 1.1f;
         public Light eruptionLight;
         [Min(0.1f)] public float intenseBombSeconds = 8f;
         [Min(0.1f)] public float bombFadeSeconds = 5f;
@@ -30,12 +32,14 @@ namespace GameJam.FireRescue
 
         public void BeginEruption()
         {
+            if (IsErupting) return;
             CacheSettings();
             IsErupting = true;
             Elapsed = 0f;
             PlayFromStart(eruptionBurst);
             PlayFromStart(lavaBombs);
             PlayFromStart(smokePlume);
+            if (ashCrownDelay <= 0f) PlayFromStart(ashCrown);
             ApplyLevels();
         }
 
@@ -44,7 +48,12 @@ namespace GameJam.FireRescue
         {
             if (!IsErupting || deltaTime < 0f || float.IsNaN(deltaTime) || float.IsInfinity(deltaTime))
                 return;
+            float before = Elapsed;
             Elapsed += deltaTime;
+            if (ashCrownDelay > 0f && before < ashCrownDelay && Elapsed >= ashCrownDelay) PlayFromStart(ashCrown);
+            // Two smaller pressure pulses give the rising column a rolling, uneven source.
+            if (eruptionBurst && ((before < .75f && Elapsed >= .75f) || (before < 1.8f && Elapsed >= 1.8f)))
+                eruptionBurst.Emit(10);
             ApplyLevels();
         }
 
@@ -56,6 +65,7 @@ namespace GameJam.FireRescue
             StopAndClear(eruptionBurst);
             StopAndClear(lavaBombs);
             StopAndClear(smokePlume);
+            StopAndClear(ashCrown);
             SetEmission(lavaBombs, bombEmission);
             SetEmission(smokePlume, smokeEmission);
             if (eruptionLight != null)

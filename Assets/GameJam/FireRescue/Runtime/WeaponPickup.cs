@@ -27,6 +27,8 @@ namespace GameJam.FireRescue
         {
             if (!CanPickUp || !player.AcquirePistol()) return false;
             IsCollected = true;
+            var polish = player.GetComponent<PlayerPolishEffects>();
+            if (polish) polish.PlayPickup(transform.position);
             if (visual) visual.SetActive(false);
             foreach (var light in GetComponentsInChildren<Light>()) light.enabled = false;
             foreach (var c in GetComponentsInChildren<Collider>()) c.enabled = false;

@@ -112,8 +112,9 @@ namespace GameJam.FireRescue
             returningToMenu = true; ownsPause = false; Time.timeScale = 1f;
             var cinematic = FindFirstObjectByType<VolcanoCinematic>();
             if (cinematic) cinematic.EndShot();
+            if (player) player.SetGameplaySuspended(true);
             Cursor.lockState = CursorLockMode.None; Cursor.visible = true;
-            SceneManager.LoadScene(gameObject.scene.name, LoadSceneMode.Single);
+            StartCoroutine(LoadWithFade(gameObject.scene.name));
         }
         public void ReturnToMainMenu()
         {
@@ -127,7 +128,12 @@ namespace GameJam.FireRescue
             if (player) player.SetGameplaySuspended(true);
             ownsPause = false; Time.timeScale = 1f;
             Cursor.lockState = CursorLockMode.None; Cursor.visible = true;
-            SceneManager.LoadScene(mainMenuSceneName, LoadSceneMode.Single);
+            StartCoroutine(LoadWithFade(mainMenuSceneName));
+        }
+        System.Collections.IEnumerator LoadWithFade(string scene)
+        {
+            yield return AshfallSceneFade.Cover();
+            SceneManager.LoadScene(scene, LoadSceneMode.Single);
         }
         void ReleasePause()
         {

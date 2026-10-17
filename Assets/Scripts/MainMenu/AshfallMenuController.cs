@@ -146,13 +146,21 @@ namespace Ashfall.MainMenu
 
         public void NewGame()
         {
+            if (startingGame) return;
             if (Application.CanStreamedLevelBeLoaded(gameplaySceneName))
             {
+                startingGame = true;
                 Time.timeScale = 1f;
-                SceneManager.LoadScene(gameplaySceneName);
+                StartCoroutine(LoadGameplayWithFade());
             }
             else
                 Debug.LogError($"ASHFALL: Gameplay scene '{gameplaySceneName}' is not included in Build Settings.", this);
+        }
+        bool startingGame;
+        private IEnumerator LoadGameplayWithFade()
+        {
+            yield return GameJam.FireRescue.AshfallSceneFade.Cover();
+            SceneManager.LoadScene(gameplaySceneName);
         }
 
         public void OpenSettings() => OpenPanel(settingsPanel);
