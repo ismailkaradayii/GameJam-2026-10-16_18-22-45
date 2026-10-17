@@ -132,17 +132,17 @@ namespace GameJam.FireRescue
                 float panelWidth = Mathf.Min(620, width - 36), x = (width - panelWidth) * .5f, y = height * .5f - 170;
                 GUI.color = State == MissionState.Won ? new Color(.3f, 1f, .63f) : new Color(1f, .35f, .13f);
                 GUI.DrawTexture(new Rect(x, y, panelWidth, 4), Texture2D.whiteTexture);
-                GUI.Label(new Rect(x, y + 28, panelWidth, 45), State == MissionState.Won ? "TAHLİYE TAMAM · BÖLGE GÜVENDE" : "GÖREV BAŞARISIZ", centered);
+                GUI.Label(new Rect(x, y + 28, panelWidth, 45), State == MissionState.Won ? "EVACUATION COMPLETE · AREA SECURE" : "MISSION FAILED", centered);
                 GUI.color = Color.white;
                 int saved = 0, lost = 0;
                 foreach (var house in BurnableBuilding.ActiveBuildings) if (house) { if (house.IsBurnedOut) lost++; else saved++; }
-                string outcome = State == MissionState.Won ? "7 kişi güvende. Kurtarılan ev: " + saved + " · Kül olan ev: " + lost : "Canın tükendi. Lavlardan uzak dur ve alev ruhlarını durdur.";
+                string outcome = State == MissionState.Won ? "7 people safe. Houses saved: " + saved + " · Houses lost: " + lost : "You ran out of health. Avoid lava and stop the spirits.";
                 GUI.Label(new Rect(x + 20, y + 90, panelWidth - 40, 60), outcome, centered);
-                GUI.Label(new Rect(x, y + 157, panelWidth, 32), "Durdurulan ruh: " + encounter.DefeatedCount + " / " + encounter.PlannedCount +
-                    "    •    Dalga: " + encounter.WaveNumber + " / " + encounter.WaveCount, centered);
+                GUI.Label(new Rect(x, y + 157, panelWidth, 32), "Spirits defeated: " + encounter.DefeatedCount + " / " + encounter.PlannedCount +
+                    "    •    Wave: " + encounter.WaveNumber + " / " + encounter.WaveCount, centered);
                 float gap = 14, bw = (panelWidth - gap) * .5f;
-                if (GUI.Button(new Rect(x, y + 225, bw, 54), "YENİDEN DENE", button)) RestartMission();
-                if (GUI.Button(new Rect(x + bw + gap, y + 225, bw, 54), "ANA MENÜ", button)) ReturnToMenu();
+                if (GUI.Button(new Rect(x, y + 225, bw, 54), "TRY AGAIN", button)) RestartMission();
+                if (GUI.Button(new Rect(x + bw + gap, y + 225, bw, 54), "MAIN MENU", button)) ReturnToMenu();
             }
             else if (State != MissionState.WaitingForEruption)
             {
@@ -150,21 +150,21 @@ namespace GameJam.FireRescue
                 GUI.color = new Color(.07f, .035f, .025f, .93f);
                 GUI.DrawTexture(new Rect(x, y, 316, 132), Texture2D.whiteTexture);
                 GUI.color = new Color(1f, .64f, .22f);
-                GUI.Label(new Rect(x + 12, y + 9, 292, 28), State == MissionState.ReturnToTruck ? "SON ADIM · ARACA DÖN" :
-                    "ALEV DALGASI  " + Mathf.Max(1, encounter.WaveNumber) + " / " + encounter.WaveCount, title);
+                GUI.Label(new Rect(x + 12, y + 9, 292, 28), State == MissionState.ReturnToTruck ? "FINAL STEP · RETURN TO TRUCK" :
+                    "SPIRIT WAVE  " + Mathf.Max(1, encounter.WaveNumber) + " / " + encounter.WaveCount, title);
                 GUI.color = Color.white;
-                string instruction = State == MissionState.ReturnToTruck ? "Hortumu topla, sürücü kapısına git ve E ile araca bin." :
-                    encounter.IsCleared ? "Ruhlar temizlendi. Kalan ev yangınlarını söndür!" :
-                    encounter.AllWavesReleased ? "Son dalga çıktı. Kalan alev ruhlarını temizle!" :
-                    encounter.SpawnedInWave >= encounter.CurrentWaveSize ? "Yeni dalga: " + Mathf.CeilToInt(encounter.NextWaveIn) + " sn" : "Lavlardan yeni alev ruhları doğuyor.";
+                string instruction = State == MissionState.ReturnToTruck ? "Retract the hose and enter the truck at the driver's door." :
+                    encounter.IsCleared ? "Spirits defeated. Extinguish the remaining fires!" :
+                    encounter.AllWavesReleased ? "Final wave released. Defeat the remaining spirits!" :
+                    encounter.SpawnedInWave >= encounter.CurrentWaveSize ? "Next wave: " + Mathf.CeilToInt(encounter.NextWaveIn) + " sec" : "More spirits are emerging from the lava.";
                 GUI.Label(new Rect(x + 12, y + 43, 292, 45), instruction, body);
-                GUI.Label(new Rect(x + 12, y + 95, 292, 25), "Sahada: " + encounter.AliveCount + "    Durdurulan: " + encounter.DefeatedCount + " / " + encounter.PlannedCount, body);
+                GUI.Label(new Rect(x + 12, y + 95, 292, 25), "Active: " + encounter.AliveCount + "    Defeated: " + encounter.DefeatedCount + " / " + encounter.PlannedCount, body);
                 if (State == MissionState.ReturnToTruck && player && player.drive && player.viewCamera)
                 {
                     Vector3 screen = player.viewCamera.WorldToScreenPoint(player.drive.transform.position + Vector3.up * 3f);
                     if (screen.z > 0f)
                         GUI.Label(new Rect(Mathf.Clamp(screen.x / scale - 100, 10, width - 210),
-                            Mathf.Clamp((Screen.height - screen.y) / scale - 35, 90, height - 130), 200, 65), "İTFAİYE ARACI\nBölümü tamamla", centered);
+                            Mathf.Clamp((Screen.height - screen.y) / scale - 35, 90, height - 130), 200, 65), "FIRE TRUCK\nComplete the mission", centered);
                 }
             }
             GUI.matrix = oldMatrix; GUI.color = oldColor; GUI.depth = oldDepth;

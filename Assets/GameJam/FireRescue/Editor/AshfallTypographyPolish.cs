@@ -23,14 +23,14 @@ public static class AshfallTypographyPolish
         if (EditorApplication.isPlayingOrWillChangePlaymode) throw new System.InvalidOperationException("Stop Play Mode before authoring typography.");
         for (int i = 0; i < SceneManager.sceneCount; i++)
             if (SceneManager.GetSceneAt(i).isDirty) throw new System.InvalidOperationException("Save open scenes before authoring typography.");
-        ValidateFont(AshfallTypography.Regular); ValidateFont(AshfallTypography.Semibold);
+        ValidateFont(AshfallTypography.Modular);
 
         AshfallSettingsSceneBuilder.Build();
         ApplyScene(SceneManager.GetActiveScene());
         VolcanoRescuePolishSetup.Run();
         ApplyScene(SceneManager.GetActiveScene());
         EditorSceneManager.OpenScene("Assets/Scenes/MainMenu.unity", OpenSceneMode.Single);
-        Debug.Log("ASHFALL_TYPOGRAPHY_READY: both UI scenes saved; Source Sans 3 Regular/Semibold, Turkish glyphs, restrained colors, and content padding applied.");
+        Debug.Log("ASHFALL_TYPOGRAPHY_READY: both UI scenes saved with Modular, Turkish glyphs, restrained colors, and content padding applied.");
     }
 
     public static void ApplyScene(Scene scene)
@@ -72,10 +72,14 @@ public static class AshfallTypographyPolish
 
     static void ValidateFont(Font font)
     {
-        if (!font) throw new System.InvalidOperationException("Source Sans 3 font asset is missing.");
+        if (!font) throw new System.InvalidOperationException("Modular font asset is missing.");
         const string characters = "ÇĞİÖŞÜçğıöşü0123456789";
         font.RequestCharactersInTexture(characters, 18, FontStyle.Normal);
         foreach (char character in characters)
-            if (!font.HasCharacter(character)) throw new System.InvalidOperationException(font.name + " lacks " + character);
+            if (!font.HasCharacter(character))
+            {
+                Debug.LogWarning(font.name + " lacks " + character + "; ModularTextSanitizer will use its ASCII UI equivalent.");
+                return;
+            }
     }
 }

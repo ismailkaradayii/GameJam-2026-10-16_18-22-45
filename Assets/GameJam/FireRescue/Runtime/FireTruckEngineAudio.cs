@@ -31,7 +31,9 @@ namespace GameJam.FireRescue
             if (engineSource.clip != null) engineSource.clip.LoadAudioData();
             engineSource.playOnAwake = false;
             engineSource.loop = true;
-            engineSource.spatialBlend = 1f;
+            // This loop only plays for the driver. The gameplay camera follows the
+            // enlarged truck from far behind, so 3D rolloff can nearly silence it.
+            engineSource.spatialBlend = 0f;
             engineSource.dopplerLevel = 0f;
             engineSource.rolloffMode = AudioRolloffMode.Logarithmic;
             engineSource.minDistance = 4f;

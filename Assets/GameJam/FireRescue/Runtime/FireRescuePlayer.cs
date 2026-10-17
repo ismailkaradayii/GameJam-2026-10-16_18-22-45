@@ -459,7 +459,7 @@ namespace GameJam.FireRescue
                 Vector3 point = GetDropPoint();
                 if (!hose.CanReach(point))
                 {
-                    ShowNotice("Hortum bu noktaya yetişmiyor. Biraz yaklaş.");
+                    ShowNotice("The hose cannot reach. Move closer.");
                     return;
                 }
                 hose.Drop(point);
@@ -467,7 +467,7 @@ namespace GameJam.FireRescue
             }
             Transform pickupPoint = hose.IsDeployed ? hose.nozzle : hose.hoseSocket;
             if (hand && Near(pickupPoint, interactionDistance)) hose.TryPickup(hand);
-            else ShowNotice(hose.IsDeployed ? "Hortum ucuna yaklaş." : "Hortumu almak için aracın arkasına yaklaş.");
+            else ShowNotice(hose.IsDeployed ? "Move closer to the intake." : "Approach the rear of the truck to take the hose.");
         }
 
         Vector3 GetDropPoint()
@@ -671,20 +671,20 @@ namespace GameJam.FireRescue
             GUI.color = new Color(0.035f, 0.05f, 0.065f, 0.86f);
             GUI.DrawTexture(new Rect(18f, 18f, 348f, 178f), Texture2D.whiteTexture);
             GUI.color = Color.white;
-            GUI.Label(new Rect(32f, 27f, 315f, 28f), IsDriving ? "İTFAİYE  ·  " + Mathf.Abs(drive ? drive.SpeedKph : 0f).ToString("0") + " km/sa" : "İTFAİYE  ·  YAYA", titleStyle);
+            GUI.Label(new Rect(32f, 27f, 315f, 28f), IsDriving ? "FIRE RESCUE  ·  " + Mathf.Abs(drive ? drive.SpeedKph : 0f).ToString("0") + " km/h" : "FIRE RESCUE  ·  ON FOOT", titleStyle);
             float amount = hose ? hose.Tank01 : 0f;
-            GUI.Label(new Rect(32f, 59f, 315f, 24f), "SU DEPOSU  " + (hose ? hose.TankLitres.ToString("0") : "0") + " L  ·  %" + (amount * 100f).ToString("0"), textStyle);
+            GUI.Label(new Rect(32f, 59f, 315f, 24f), "WATER TANK  " + (hose ? hose.TankLitres.ToString("0") : "0") + " L  ·  " + (amount * 100f).ToString("0") + "%", textStyle);
             GUI.color = new Color(0.16f, 0.21f, 0.26f);
             GUI.DrawTexture(new Rect(32f, 86f, 318f, 9f), Texture2D.whiteTexture);
             GUI.color = new Color(0.15f, 0.72f, 0.83f);
             GUI.DrawTexture(new Rect(32f, 86f, 318f * Mathf.Clamp01(amount), 9f), Texture2D.whiteTexture);
             GUI.color = Color.white;
             GUI.Label(new Rect(32f, 102f, 315f, 33f), GetWaterStatus(), textStyle);
-            GUI.Label(new Rect(32f, 137f, 315f, 54f), IsDriving ? "WASD Sürüş  ·  Boşluk Fren  ·  F İn\nSağ tık Su  ·  Fare Nişan  ·  Esc İmleç" :
-                "WASD Yürü  ·  Shift Koş  ·  E Bin\nE Hortum  ·  P Pompa  ·  R " + (pistol && pistol.Equipped ? "Doldur" : "Topla"), textStyle);
+            GUI.Label(new Rect(32f, 137f, 315f, 54f), IsDriving ? "WASD Drive  ·  Space Brake  ·  F Exit\nRight click Water  ·  Mouse Aim  ·  Esc Cursor" :
+                "WASD Move  ·  Shift Sprint  ·  E Enter\nE Hose  ·  P Pump  ·  R " + (pistol && pistol.Equipped ? "Reload" : "Retract"), textStyle);
 
             string prompt = GetPrompt();
-            if (Cursor.lockState != CursorLockMode.Locked) prompt = "Devam etmek için oyun ekranına tıkla.";
+            if (Cursor.lockState != CursorLockMode.Locked) prompt = "Click the game screen to continue.";
             if (!string.IsNullOrEmpty(prompt))
             {
                 float panelWidth = Mathf.Min(740f, width - 36f);

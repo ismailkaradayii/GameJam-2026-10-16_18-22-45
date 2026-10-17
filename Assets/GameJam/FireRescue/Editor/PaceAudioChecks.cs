@@ -83,7 +83,8 @@ public static class PaceAudioChecks
                 var movement = player.GetComponent<FireRescueMovementAudio>();
                 footsteps = new SerializedObject(movement).FindProperty("footstepSource").objectReferenceValue as AudioSource;
                 engine = new SerializedObject(player.drive.GetComponent<FireTruckEngineAudio>()).FindProperty("engineSource").objectReferenceValue as AudioSource;
-                Check("movement loop disabled in scene", !movement.enabled && footsteps && !footsteps.enabled && !footsteps.playOnAwake);
+                Check("movement audio enabled with distinct clips", movement.enabled && footsteps && footsteps.enabled && !footsteps.playOnAwake &&
+                    new SerializedObject(movement).FindProperty("walkingClip").objectReferenceValue != new SerializedObject(movement).FindProperty("runningClip").objectReferenceValue);
                 var ground = GameObject.CreatePrimitive(PrimitiveType.Cube);
                 ground.name = "Temporary pace test surface";
                 ground.transform.position = new Vector3(6000, 999.5f, 6000);
@@ -113,7 +114,8 @@ public static class PaceAudioChecks
                 if (age < 2) return;
                 Check(phase == 1 ? "walk measured 12 m/s" : "sprint measured 24 m/s",
                     maxSpeed > (phase == 1 ? 11.5f : 23.5f) && maxSpeed < (phase == 1 ? 12.5f : 24.5f), "observed=" + maxSpeed);
-                Check(phase == 1 ? "walking silent" : "sprinting silent", !footsteps.isPlaying && !engine.isPlaying);
+                Check(phase == 1 ? "walking recording plays" : "running recording replaces walking", footsteps.isPlaying && footsteps.volume > 0 && !engine.isPlaying &&
+                    footsteps.clip && footsteps.clip.name.Contains(phase == 1 ? "walksound" : "Breathing"));
                 if (phase == 1) { maxSpeed = 0; nextAnimationSample = 0; interruptedRunFrames = 0; handMin = float.PositiveInfinity; handMax = float.NegativeInfinity; Next(2, 8); return; }
                 Check("unarmed running clip active on body and hands", new[] {player.firstPerson.bodyAnimator, player.firstPerson.handsAnimator}.All(a =>
                     a.GetCurrentAnimatorStateInfo(0).IsName("Unarmed") && a.GetCurrentAnimatorClipInfo(0).Any(c => c.clip.name == "Run" && c.weight > .9f)),
@@ -140,6 +142,7 @@ public static class PaceAudioChecks
                 Physics.SyncTransforms(); Next(3, 10); return;
             case 3:
                 if (age < 3) return;
+                Check("idle movement audio stops", !footsteps.isPlaying);
                 Check("truck wheels contact surface", player.drive.wheels.Count(w => w.isGrounded) >= 2);
                 Check("parked truck silent", !engine.isPlaying);
                 player.SetDriving(true); maxSpeed = 0; Next(4, 15); return;
@@ -161,6 +164,8 @@ public static class PaceAudioChecks
                 player.drive.body.linearVelocity = Vector3.forward * 8;
                 if (age < .3f) return;
                 Check("unoccupied rolling truck silent", !player.drive.IsDriven && !engine.isPlaying && engine.volume == 0);
+                AudioSystemAudit.CheckTimeline();
+                Check("extended audio component checks", AudioSystemAudit.LastPassed);
                 Finish(null); return;
         }
     }

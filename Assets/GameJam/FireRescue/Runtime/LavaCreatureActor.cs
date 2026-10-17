@@ -10,6 +10,7 @@ namespace GameJam.FireRescue
         public LavaCreatureAutoJump jump;
         [Min(1f)] public float maxHealth = 100f;
         [Min(0f)] public float waterDamagePerLitre = 2f;
+        public AudioClip bulletImpactClip;
 
         [Header("Death feedback")]
         [Tooltip("Delay between the poff sound and its small fire cloud.")]
@@ -84,7 +85,7 @@ namespace GameJam.FireRescue
                 nextWaterFeedback = Time.time + .13f;
                 flashUntil = Time.time + .095f;
                 if (spiritVisual && spiritVisual.IsBuilt) spiritVisual.Impact(point, direction);
-                LavaCombatEffects.Hit(point, direction, bullet);
+                LavaCombatEffects.Hit(point, direction, bullet, bulletImpactClip);
                 if (bullet && combat && health > 0f) combat.Stagger(direction);
             }
             if (health <= 0f) Defeat(point, direction);

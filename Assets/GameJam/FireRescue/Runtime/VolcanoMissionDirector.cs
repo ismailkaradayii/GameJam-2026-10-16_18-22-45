@@ -78,6 +78,7 @@ namespace GameJam.FireRescue
             if (!EruptionTriggered)
             {
                 PreparationRemaining = Mathf.Max(0f, PreparationRemaining - Time.deltaTime);
+                if (PreparationRemaining <= 2f) sequence.BeginExplosionAudio();
                 if (PreparationRemaining <= 0f) TriggerDeadline();
                 else TickPreparation();
                 return;
@@ -143,6 +144,8 @@ namespace GameJam.FireRescue
             if (evacuation && !evacuation.IsActive && !evacuation.IsComplete) evacuation.BeginMission();
             State = FlowState.VolcanoCinematic; SetPhase(MissionPhase.Cinematic);
             sequence.BeginEruption(true);
+            sequence.BeginExplosionAudio();
+            sequence.NotifyExplosionAudioEvent();
             if (cinematic) cinematic.BeginShot();
         }
         void SetPhase(MissionPhase next)

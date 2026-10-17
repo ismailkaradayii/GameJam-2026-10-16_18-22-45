@@ -15,6 +15,7 @@ public static class VolcanoRescuePolishSetup
 {
     const string ScenePath = "Assets/BK/PureNature_Volcano/Scenes/Volcano_Demo.unity";
     const string PanelPath = "Assets/Art/UI/AshfallSettingsPanel.png";
+    const string HudPanelPath = "Assets/Art/UI/VOLKANOVSKı-removebg-preview.png";
     const string ButtonPath = "Assets/Art/UI/AshfallMenuButton.png";
     static readonly Color PanelTint = new Color(1f, 1f, 1f, .98f);
     static readonly Color Accent = new Color(1f, .39f, .12f, 1f);
@@ -22,7 +23,38 @@ public static class VolcanoRescuePolishSetup
     static readonly Color TextColor = new Color(.96f, .92f, .86f, 1f);
     static readonly Color MutedText = new Color(.73f, .68f, .62f, 1f);
     static Font font;
-    static Sprite panelSprite, buttonSprite;
+    static Sprite panelSprite, hudPanelSprite, buttonSprite;
+
+    [MenuItem("ASHFALL/UI/Apply VOLKANOVSKI HUD Cards")]
+    public static void ApplyVolkanovskiHudCards()
+    {
+        if (EditorApplication.isPlayingOrWillChangePlaymode)
+            throw new InvalidOperationException("Stop Play Mode before updating HUD card artwork.");
+
+        Scene scene = EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single);
+        Sprite sprite = AssetDatabase.LoadAssetAtPath<Sprite>(HudPanelPath);
+        if (!sprite) throw new InvalidOperationException("VOLKANOVSKı HUD frame is not imported as a Sprite.");
+
+        string[] cardNames = { "QuestPanel", "StatusPanel", "VolcanoBadge", "PlayerBadge", "PlayerHealth", "ActionBar", "PauseHint", "TargetFire", "LowWaterWarning", "RescueToast", "MissionSubtitle" };
+        int changed = 0;
+        foreach (string cardName in cardNames)
+        {
+            GameObject card = GameObject.Find(cardName);
+            if (!card || card.scene != scene) continue;
+            Image image = card.GetComponent<Image>();
+            if (!image) continue;
+            image.sprite = sprite;
+            image.type = Image.Type.Sliced;
+            image.pixelsPerUnitMultiplier = card.GetComponent<RectTransform>().rect.height < 120f ? 6f : 3f;
+            image.color = Color.white;
+            EditorUtility.SetDirty(image);
+            changed++;
+        }
+        EditorSceneManager.MarkSceneDirty(scene);
+        EditorSceneManager.SaveScene(scene);
+        AssetDatabase.SaveAssets();
+        Debug.Log("VOLKANOVSKI_HUD_CARDS_READY: " + changed + " gameplay HUD cards updated. Pause, Settings and How To Play were not changed.");
+    }
 
     [MenuItem("GameJam/Integration/Build rescue objective and HUD")]
     public static void Run()
@@ -39,8 +71,9 @@ public static class VolcanoRescuePolishSetup
     public static void ConfigureScene(Scene scene)
     {
         panelSprite = AssetDatabase.LoadAssetAtPath<Sprite>(PanelPath);
+        hudPanelSprite = AssetDatabase.LoadAssetAtPath<Sprite>(HudPanelPath);
         buttonSprite = AssetDatabase.LoadAssetAtPath<Sprite>(ButtonPath);
-        if (!panelSprite || !buttonSprite) throw new InvalidOperationException("Volcanic UI sprites are missing from Assets/Art/UI.");
+        if (!panelSprite || !hudPanelSprite || !buttonSprite) throw new InvalidOperationException("Volcanic UI sprites are missing from Assets/Art/UI.");
         var player = Object.FindFirstObjectByType<FireRescuePlayer>();
         var eruption = Object.FindFirstObjectByType<VolcanoEruptionSequence>();
         var evacuation = Object.FindFirstObjectByType<EvacuationMission>();
@@ -64,6 +97,9 @@ public static class VolcanoRescuePolishSetup
 
         var flow = root.AddComponent<RescueGameFlow>(); flow.player = player; flow.targetBuildings = houses;
         var hud = root.AddComponent<RescueHUD>();
+        var hudData = new SerializedObject(hud);
+        hudData.FindProperty("pauseClickClip").objectReferenceValue = AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Art/sesdosya/click.mp3");
+        hudData.ApplyModifiedPropertiesWithoutUndo();
         hud.flow = flow; hud.player = player; hud.hose = player.hose; hud.drive = player.drive; hud.cannon = player.cannon;
         hud.eruption = eruption; hud.missionDirector = missionDirector; hud.survivalObjective = survivalObjective; hud.evacuation = evacuation; hud.canvas = canvas;
         hud.vitals = survivalObjective && survivalObjective.vitals ? survivalObjective.vitals : vitals;
@@ -96,7 +132,7 @@ public static class VolcanoRescuePolishSetup
 
     static void BuildLiveHud(Transform parent, RescueHUD hud)
     {
-        var quest = RockPanel(parent, "QuestPanel", new Vector2(0, 1), new Vector2(0, 1), new Vector2(28, -26), new Vector2(560, 236));
+        var quest = HudPanel(parent, "QuestPanel", new Vector2(0, 1), new Vector2(0, 1), new Vector2(28, -26), new Vector2(560, 236));
         ConfigureFrame(quest, 520, 188);
         Label(quest, "QuestKicker", "ASHFALL  /  GÖREV", 13, new Vector2(52, -24), new Vector2(450, 24), TextAnchor.MiddleLeft, Accent);
         hud.questTitleText = Label(quest, "QuestTitle", "GÖREV  ·  HALKI TAHLİYE ET", 21, new Vector2(52, -49), new Vector2(450, 34), TextAnchor.MiddleLeft, HotAccent);
@@ -106,7 +142,7 @@ public static class VolcanoRescuePolishSetup
         hud.questHintText = Label(quest, "QuestHint", "Q  HERKES DIŞARIYA!  ·  EN YAKIN EV: 212 m", 14, new Vector2(52, -182), new Vector2(456, 27), TextAnchor.MiddleLeft, MutedText);
         quest.GetComponent<VolcanicRockFrameSizer>().SetVerticalFlow(hud.questBodyText, questTrack, hud.questHintText.rectTransform);
 
-        var resources = RockPanel(parent, "StatusPanel", Vector2.one, Vector2.one, new Vector2(-28, -26), new Vector2(425, 221));
+        var resources = HudPanel(parent, "StatusPanel", Vector2.one, Vector2.one, new Vector2(-28, -26), new Vector2(425, 221));
         ConfigureFrame(resources, 400, 172);
         Label(resources, "StatusKicker", "KASABA DURUMU", 13, new Vector2(38, -24), new Vector2(345, 23), TextAnchor.MiddleLeft, Accent);
         hud.objectiveText = Label(resources, "SavedHouses", "KURTARILAN EVLER   0 / 5", 19, new Vector2(38, -51), new Vector2(348, 31), TextAnchor.MiddleLeft, TextColor);
@@ -118,17 +154,17 @@ public static class VolcanoRescuePolishSetup
         hud.waterFill = Fill(waterTrack, "WaterFill", Accent);
         hud.pumpText = Label(resources, "WaterStatus", "Hortum araçta.", 14, new Vector2(38, -138), new Vector2(348, 36), TextAnchor.MiddleLeft, MutedText);
 
-        var volcano = RockPanel(parent, "VolcanoBadge", new Vector2(1, 1), new Vector2(1, 1), new Vector2(-30, -262), new Vector2(350, 96));
+        var volcano = HudPanel(parent, "VolcanoBadge", new Vector2(1, 1), new Vector2(1, 1), new Vector2(-30, -262), new Vector2(350, 96));
         hud.eruptionText = Label(volcano, "Text", "VOLKAN  ·  HAZIRLIK", 16, new Vector2(38, -29), new Vector2(276, 45), TextAnchor.MiddleLeft, HotAccent);
         ConfigureFrame(volcano, 250, 66, hud.eruptionText);
         volcano.GetComponent<VolcanicRockFrameSizer>().maxWidthOfParent = .32f;
-        var speed = RockPanel(parent, "PlayerBadge", Vector2.zero, Vector2.zero, new Vector2(28, 28), new Vector2(208, 74));
+        var speed = HudPanel(parent, "PlayerBadge", Vector2.zero, Vector2.zero, new Vector2(28, 28), new Vector2(208, 74));
         var speedKicker = Label(speed, "Kicker", "Oyuncu", 14, new Vector2(24, -18), new Vector2(130, 20), TextAnchor.MiddleLeft, MutedText);
         hud.speedText = Label(speed, "Text", "Yaya", 20, new Vector2(24, -40), new Vector2(145, 27), TextAnchor.MiddleLeft, TextColor);
         ConfigureFrame(speed, 148, 58, speedKicker, hud.speedText);
         speed.GetComponent<VolcanicRockFrameSizer>().maxWidthOfParent = .2f;
 
-        var health = RockPanel(parent, "PlayerHealth", Vector2.zero, Vector2.zero, new Vector2(28, 132), new Vector2(236, 72));
+        var health = HudPanel(parent, "PlayerHealth", Vector2.zero, Vector2.zero, new Vector2(28, 132), new Vector2(236, 72));
         hud.healthPanel = health.gameObject;
         Label(health, "HealthKicker", "Can", 14, new Vector2(24, -18), new Vector2(70, 24), TextAnchor.MiddleLeft, MutedText);
         hud.healthText = Label(health, "HealthValue", "100 / 100", 18, new Vector2(-24, -18), new Vector2(100, 24), TextAnchor.MiddleRight, TextColor);
@@ -140,7 +176,7 @@ public static class VolcanoRescuePolishSetup
         health.GetComponent<VolcanicRockFrameSizer>().maxWidthOfParent = .24f;
         health.gameObject.SetActive(false);
 
-        var action = RockPanel(parent, "ActionBar", new Vector2(.5f, 0), new Vector2(.5f, 0), new Vector2(0, 28), new Vector2(1040, 76));
+        var action = HudPanel(parent, "ActionBar", new Vector2(.5f, 0), new Vector2(.5f, 0), new Vector2(0, 28), new Vector2(1040, 76));
         ConfigureFrame(action, 760, 68);
         action.GetComponent<VolcanicRockFrameSizer>().maxWidthOfParent = .88f;
         Label(action, "ActionKicker", "ETKİLEŞİM", 12, new Vector2(28, -18), new Vector2(120, 18), TextAnchor.MiddleLeft, Accent);
@@ -149,31 +185,31 @@ public static class VolcanoRescuePolishSetup
         action.GetComponent<VolcanicRockFrameSizer>().maxWidthOfParent = .58f;
         action.GetComponent<VolcanicRockFrameSizer>().widthFitTexts = new[] { hud.promptText };
 
-        var hint = RockPanel(parent, "PauseHint", new Vector2(1, 0), new Vector2(1, 0), new Vector2(-28, 28), new Vector2(220, 62));
+        var hint = HudPanel(parent, "PauseHint", new Vector2(1, 0), new Vector2(1, 0), new Vector2(-28, 28), new Vector2(220, 62));
         var pauseHintText = Label(hint, "Text", "ESC  ·  Duraklat", 17, new Vector2(24, -18), new Vector2(172, 30), TextAnchor.MiddleCenter, TextColor);
         ConfigureFrame(hint, 160, 48, pauseHintText);
         hint.GetComponent<VolcanicRockFrameSizer>().maxWidthOfParent = .2f;
 
-        var target = RockPanel(parent, "TargetFire", new Vector2(.5f, 0), new Vector2(.5f, 0), new Vector2(0, 124), new Vector2(394, 86));
+        var target = HudPanel(parent, "TargetFire", new Vector2(.5f, 0), new Vector2(.5f, 0), new Vector2(0, 124), new Vector2(394, 86));
         ConfigureFrame(target, 340, 68);
         hud.targetGroup = target.gameObject;
         hud.targetText = Label(target, "Text", "YANGIN SÖNDÜRÜLÜYOR", 15, new Vector2(32, -16), new Vector2(330, 28), TextAnchor.MiddleCenter, TextColor);
         var targetTrack = Box(target, "ProgressTrack", new Vector2(0, 1), new Vector2(0, 1), new Vector2(32, -55), new Vector2(330, 8), new Color(.06f, .045f, .035f, 1));
         hud.targetFill = Fill(targetTrack, "ProgressFill", Accent); target.gameObject.SetActive(false);
 
-        var warning = RockPanel(parent, "LowWaterWarning", new Vector2(1, 0), new Vector2(1, 0), new Vector2(-28, 116), new Vector2(370, 64));
+        var warning = HudPanel(parent, "LowWaterWarning", new Vector2(1, 0), new Vector2(1, 0), new Vector2(-28, 116), new Vector2(370, 64));
         hud.lowWaterWarning = warning.gameObject;
         hud.lowWaterText = Label(warning, "Text", "Su az · Gölden doldur", 18, new Vector2(24, -18), new Vector2(310, 30), TextAnchor.MiddleCenter, TextColor);
         ConfigureFrame(warning, 280, 52, hud.lowWaterText);
         warning.GetComponent<VolcanicRockFrameSizer>().maxWidthOfParent = .3f;
         hud.lowWaterBackground = warning.GetComponent<Image>(); warning.gameObject.SetActive(false);
 
-        var toast = RockPanel(parent, "RescueToast", new Vector2(.5f, 1), new Vector2(.5f, 1), new Vector2(0, -274), new Vector2(440, 58));
+        var toast = HudPanel(parent, "RescueToast", new Vector2(.5f, 1), new Vector2(.5f, 1), new Vector2(0, -274), new Vector2(440, 58));
         hud.toastText = Label(toast, "Text", "", 18, new Vector2(24, -18), new Vector2(370, 34), TextAnchor.MiddleCenter, TextColor);
         ConfigureFrame(toast, 220, 48, hud.toastText);
         toast.GetComponent<VolcanicRockFrameSizer>().maxWidthOfParent = .46f;
         toast.gameObject.SetActive(false);
-        var subtitle = RockPanel(parent, "MissionSubtitle", new Vector2(.5f, 1), new Vector2(.5f, 1), new Vector2(0, -348), new Vector2(690, 84));
+        var subtitle = HudPanel(parent, "MissionSubtitle", new Vector2(.5f, 1), new Vector2(.5f, 1), new Vector2(0, -348), new Vector2(690, 84));
         hud.subtitleText = Label(subtitle, "Text", "", 17, new Vector2(42, -18), new Vector2(606, 50), TextAnchor.MiddleCenter, TextColor);
         ConfigureFrame(subtitle, 360, 64, hud.subtitleText);
         subtitle.GetComponent<VolcanicRockFrameSizer>().maxWidthOfParent = .7f;
@@ -288,6 +324,18 @@ public static class VolcanoRescuePolishSetup
         var sizer = rect.gameObject.AddComponent<VolcanicRockFrameSizer>(); sizer.frame = rect;
         var core = Box(rect, "ObsidianCore", Vector2.zero, Vector2.zero, Vector2.zero, Vector2.zero, new Color(.018f, .021f, .024f, .76f));
         Stretch(core); Vector2 inset = size.y < 120 ? new Vector2(18, 14) : new Vector2(28, 26); core.offsetMin = inset; core.offsetMax = -inset;
+        return rect;
+    }
+
+    // Gameplay HUD only. Pause, settings, help and outcome pages continue using the existing panel artwork.
+    static RectTransform HudPanel(Transform parent, string name, Vector2 anchor, Vector2 pivot, Vector2 position, Vector2 size)
+    {
+        var rect = RockPanel(parent, name, anchor, pivot, position, size);
+        var image = rect.GetComponent<Image>();
+        image.sprite = buttonSprite;
+        image.type = Image.Type.Sliced;
+        image.pixelsPerUnitMultiplier = size.y < 120 ? 9f : 6f;
+        image.color = Color.white;
         return rect;
     }
 

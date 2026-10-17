@@ -150,7 +150,7 @@ namespace Itfaiye
             if (shotVolume>0f && shotClips != null && shotClips.Length>0)
             {
                 var clip=shotClips[shotIndex%shotClips.Length];
-                if (clip != null) { shotAudio.pitch=Random.Range(.97f,1.03f); shotAudio.PlayOneShot(clip,shotVolume); }
+                if (clip != null) { shotAudio.pitch=Random.Range(.97f,1.03f); shotAudio.PlayOneShot(clip,shotVolume * SfxGain); }
             }
             shotIndex++;
             if (gamepadRumble && Gamepad.current != null && Application.isFocused)
@@ -179,9 +179,9 @@ namespace Itfaiye
                 if (confirmation && creatureConfirmVolume > 0f)
                 {
                     confirmAudio.pitch = killingHit ? 1f : Random.Range(.96f, 1.04f);
-                    confirmAudio.PlayOneShot(confirmation, creatureConfirmVolume * (killingHit ? 1.15f : 1f));
+                    confirmAudio.PlayOneShot(confirmation, creatureConfirmVolume * (killingHit ? 1.15f : 1f) * SfxGain);
                 }
-                PlayTargetImpact(hit.point);
+                // The actor owns its one spatial impact voice; this component only adds HUD confirmation.
                 return;
             }
             SpawnMark(hit, LastSurface);
@@ -280,15 +280,10 @@ namespace Itfaiye
             for(int i=0;i<(surface==ItfaiyeSurfaceKind.Metal?15:8);i++)
                 Emit(effect.chips,hit,Random.Range(1.1f,3.7f),Random.Range(.012f,.028f),Random.Range(.13f,.32f),surface==ItfaiyeSurfaceKind.Metal?new Color(2.5f,1.45f,.35f,1):dustColor);
             var clip=surface==ItfaiyeSurfaceKind.Metal?(targetImpactClip?targetImpactClip:metalImpact):surface==ItfaiyeSurfaceKind.Wood?woodImpact:surface==ItfaiyeSurfaceKind.Dirt?dirtImpact:concreteImpact;
-            effect.audio.clip=clip; effect.audio.volume=impactVolume; effect.audio.pitch=Random.Range(.9f,1.1f);
+            effect.audio.clip=clip; effect.audio.volume=impactVolume * SfxGain; effect.audio.pitch=Random.Range(.9f,1.1f);
             if(clip!=null && impactVolume>0f) effect.audio.Play();
         }
-        void PlayTargetImpact(Vector3 point)
-        {
-            if (!targetImpactClip || impactVolume <= 0f) return;
-            float sfx = Mathf.Clamp01(PlayerPrefs.GetFloat("Ashfall.SfxVolume", 1f));
-            AudioSource.PlayClipAtPoint(targetImpactClip, point, impactVolume * sfx);
-        }
+        static float SfxGain => Mathf.Clamp01(PlayerPrefs.GetFloat("Ashfall.SfxVolume", 1f));
         static ParticleSystem CreateParticles(string name,Transform parent,Material material)
         {
             var go=new GameObject(name); go.transform.SetParent(parent,false);

@@ -8,6 +8,7 @@ namespace GameJam.FireRescue
     {
         private const string SfxVolumeKey = "Ashfall.SfxVolume";
         private static FireAudioAmbience activeInstance;
+        private bool paused;
 
         [SerializeField] private AudioSource ambienceSource;
         [SerializeField] private AudioClip fireLoop;
@@ -51,6 +52,13 @@ namespace GameJam.FireRescue
         private void Update()
         {
             if (ambienceSource == null || ambienceSource.clip == null) return;
+            if (Time.timeScale <= 0f)
+            {
+                if (!paused && ambienceSource.isPlaying) ambienceSource.Pause();
+                paused = true;
+                return;
+            }
+            if (paused) { ambienceSource.UnPause(); paused = false; }
             float sfxVolume = Mathf.Clamp01(PlayerPrefs.GetFloat(SfxVolumeKey, 1f));
             float effectiveTarget = targetVolume * sfxVolume;
             if (effectiveTarget > 0f && !ambienceSource.isPlaying)
@@ -74,6 +82,7 @@ namespace GameJam.FireRescue
         private void OnDisable()
         {
             BurnableBuilding.FireStateChanged -= RefreshTargetVolume;
+            paused = false;
             if (ambienceSource != null) ambienceSource.Stop();
         }
 

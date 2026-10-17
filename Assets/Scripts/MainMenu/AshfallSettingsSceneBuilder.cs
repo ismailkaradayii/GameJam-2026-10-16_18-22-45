@@ -19,6 +19,7 @@ public static class AshfallSettingsSceneBuilder
     private static readonly Color MutedText = Hex("AAA19A");
     private const string LavaPlatePath = "Assets/Art/UI/AshfallMenuButton.png";
     private const string SettingsPanelPath = "Assets/Art/UI/AshfallSettingsPanel.png";
+    private const string VolumeHandlePath = "Assets/Art/UI/slotkaydırma.png";
     private static Font uiFont;
 
     [MenuItem("ASHFALL/Refresh Volcano Gameplay Help")]
@@ -163,36 +164,36 @@ public static class AshfallSettingsSceneBuilder
 
     private static void BuildHowToContents(Transform panel)
     {
-        Text title = MakeText("HowToTitle", panel, "NASIL OYNANIR", 34, MainText, TextAnchor.MiddleLeft);
+        Text title = MakeText("HowToTitle", panel, "HOW TO PLAY", 34, MainText, TextAnchor.MiddleLeft);
         Anchored(title.rectTransform, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(44f, -82f), new Vector2(-44f, -34f), new Vector2(0.5f, 1f));
-        Text subtitle = MakeText("HowToSubtitle", panel, "Hazırlanmak için 120 saniyen var. Ardından köyü savun.", 16, MutedText, TextAnchor.MiddleLeft);
+        Text subtitle = MakeText("HowToSubtitle", panel, "You have 120 seconds to prepare. Then defend the village.", 16, MutedText, TextAnchor.MiddleLeft);
         Anchored(subtitle.rectTransform, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(44f, -124f), new Vector2(-44f, -84f), new Vector2(0.5f, 1f));
         MakeRule("HowToTitleRule", panel, Accent, new Vector2(44f, -148f), new Vector2(-44f, -147f));
 
         ScrollRect scroll = CreateScrollView("HowToScrollView", panel, new Vector2(44f, 100f), new Vector2(-44f, -164f));
         Transform content = scroll.content;
-        Text status = MakeInfoCard(content, "VOLCANO DEMO — KASABAYI KORU", "Yatak odasındaki tabancayı E ile al ve evden çık. Q ile köylüleri çağır; YEŞİL halkalı sığınağa götür. Evin arkasındaki itfaiyeye bin, MAVİ göl işaretinde E ile depoyu doldur. 120 saniye dolunca hazırlığın bitmese de volkan patlar. Üç alev ruhu dalgasını durdur, yanan evleri söndür. En az bir ev ayakta kalırsa kazanırsın; bütün evler yıkılırsa kaybedersin. Sıcak lavdan uzak dur.");
+        Text status = MakeInfoCard(content, "VOLCANO DEMO — DEFEND THE TOWN", "Take the pistol from your bedroom with E and leave the house. Call villagers with Q and lead them to the GREEN shelter ring. Enter the fire truck behind the house and fill its tank with E at the BLUE lake marker. The volcano erupts after 120 seconds, even if preparations are incomplete. Stop three waves of fire spirits and extinguish burning houses. You win if at least one house survives; you lose if all are destroyed. Stay away from hot lava.");
         status.fontSize = 17;
         var missionCardLayout = status.transform.parent.GetComponent<LayoutElement>();
         missionCardLayout.preferredHeight = -1f; missionCardLayout.minHeight = 138f;
-        AddSectionTitle(content, "HAREKET VE ARAÇ");
-        AddControlRow(content, "HAREKET", "WASD", "Yaya hareket / araç sürüşü. Fareyle etrafa bak.", true);
-        AddControlRow(content, "KOŞ", "SHIFT", "Yaya halde koş.", false);
-        AddControlRow(content, "BİN / İN", "E / F", "Sürücü kapısında E ile bin; durduktan sonra F ile in.", false);
-        AddControlRow(content, "FREN / ZIPLA", "SPACE", "Araçta fren; yaya halde silah çekiliyken zıpla.", false);
-        AddSectionTitle(content, "HORTUM VE SU");
-        AddControlRow(content, "DEPOYU DOLDUR", "E", "Araçla MAVİ göl halkasında dur. E bağlantıyı kurar; depo dolunca hortum otomatik toplanır.", false);
-        AddControlRow(content, "MANUEL HORTUM", "E / P", "İstersen yaya halde aracın arkasından hortumu al, ucunu göle bırak ve P ile pompayı aç.", false);
-        AddControlRow(content, "TOPLA", "R", "Aracın arkasında hortumu topla; sonra araca binebilirsin.", false);
-        AddControlRow(content, "SU TOPU", "RMB", "Araçtayken sağ tık basılı tut. Evleri söndür, lavları soğut ve ruhlara su sık. İşaret suyun tahmini çarpma noktasını gösterir; suyun hedefe ulaşmasını bekle.", false);
-        AddSectionTitle(content, "SİLAH");
-        AddControlRow(content, "AL / SEÇ", "E / 1", "Komodindeki tabancayı E ile al. 1 silahı çek/kaldır, 0 silahı kaldır. Araçtan inince silah geri gelir.", false);
-        AddControlRow(content, "ATEŞ / NİŞAN", "LMB / RMB", "Yaya halde sol tık ateş, sağ tık nişan al.", false);
-        AddControlRow(content, "ŞARJÖR", "R", "Arka hortum etkileşimi yokken şarjör değiştir.", false);
-        AddControlRow(content, "ÇÖMEL", "C", "Silah çekiliyken çömel / kalk.", false);
-        AddSectionTitle(content, "DİĞER");
-        AddControlRow(content, "DURAKLAT", "ESC", "Oyunu duraklat; Devam Et ile sürdür veya ana menüye dön.", false);
-        AddControlRow(content, "TAHLİYE", "Q", "Evlerin yakınında 'Herkes dışarıya!' diye seslen. Halkı sığınağa götür.", false);
+        AddSectionTitle(content, "MOVEMENT AND VEHICLE");
+        AddControlRow(content, "MOVE", "WASD", "Move on foot or drive. Look around with the mouse.", true);
+        AddControlRow(content, "SPRINT", "SHIFT", "Sprint on foot.", false);
+        AddControlRow(content, "ENTER / EXIT", "E / F", "Press E at the driver's door to enter; stop and press F to exit.", false);
+        AddControlRow(content, "BRAKE / JUMP", "SPACE", "Brake in the vehicle; jump on foot with the weapon drawn.", false);
+        AddSectionTitle(content, "HOSE AND WATER");
+        AddControlRow(content, "FILL TANK", "E", "Stop in the BLUE lake ring and press E to connect. The hose retracts when the tank is full.", false);
+        AddControlRow(content, "MANUAL HOSE", "E / P", "On foot, take the hose from the rear of the truck, drop its intake in the lake, and press P to start the pump.", false);
+        AddControlRow(content, "RETRACT", "R", "Retract the hose at the rear before entering the truck.", false);
+        AddControlRow(content, "WATER CANNON", "RMB", "Hold right click in the truck to extinguish houses, cool lava, and spray spirits. The marker shows the predicted impact point; allow time for the water to reach it.", false);
+        AddSectionTitle(content, "WEAPON");
+        AddControlRow(content, "PICK UP / SELECT", "E / 1", "Press E to take the bedside pistol. Press 1 to draw or holster it, or 0 to holster. Your weapon returns after exiting the truck.", false);
+        AddControlRow(content, "FIRE / AIM", "LMB / RMB", "On foot, left click to fire and right click to aim.", false);
+        AddControlRow(content, "RELOAD", "R", "Reload when the rear hose interaction is unavailable.", false);
+        AddControlRow(content, "CROUCH", "C", "Crouch or stand with the weapon drawn.", false);
+        AddSectionTitle(content, "OTHER");
+        AddControlRow(content, "PAUSE", "ESC", "Pause the game; resume or return to the main menu.", false);
+        AddControlRow(content, "EVACUATE", "Q", "Call out near the houses and lead the villagers to shelter.", false);
 
         Button back = MakeButton("HowToBackButton", panel, "BACK", Card, MainText, 58f);
         StylePanelButton(back, true);
@@ -420,25 +421,13 @@ public static class AshfallSettingsSceneBuilder
         RectTransform handle = MakeRect("Handle", handleArea);
         handle.anchorMin = handle.anchorMax = new Vector2(0.5f, 0.5f);
         handle.pivot = new Vector2(0.5f, 0.5f);
-        handle.sizeDelta = new Vector2(28f, 36f);
+        handle.sizeDelta = new Vector2(38f, 46f);
         Image handleImage = handle.gameObject.AddComponent<Image>();
-        handleImage.sprite = AssetDatabase.LoadAssetAtPath<Sprite>(LavaPlatePath);
-        handleImage.type = Image.Type.Sliced;
-        handleImage.pixelsPerUnitMultiplier = 12f;
-        handleImage.color = new Color(.65f, .60f, .55f);
+        handleImage.sprite = AssetDatabase.LoadAssetAtPath<Sprite>(VolumeHandlePath);
+        handleImage.type = Image.Type.Simple;
+        handleImage.preserveAspect = true;
+        handleImage.color = Color.white;
         handleImage.raycastTarget = true;
-        AddOutline(handleImage, new Color(0.88f, 0.76f, 0.64f, 0.9f), 1.25f);
-        RectTransform handleCore = MakeRect("MetalCore", handle).GetComponent<RectTransform>();
-        Anchored(handleCore, Vector2.zero, Vector2.one, new Vector2(4f, 4f), new Vector2(-4f, -4f), new Vector2(0.5f, 0.5f));
-        Image handleCoreImage = handleCore.gameObject.AddComponent<Image>();
-        handleCoreImage.color = Hex("292421");
-        handleCoreImage.raycastTarget = false;
-        AddOutline(handleCoreImage, new Color(0.58f, 0.50f, 0.44f, 0.85f), 0.8f);
-        RectTransform handleGlow = MakeRect("LavaHighlight", handleCore).GetComponent<RectTransform>();
-        Anchored(handleGlow, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(-3f, -7f), new Vector2(3f, -4f), new Vector2(0.5f, 1f));
-        Image handleGlowImage = handleGlow.gameObject.AddComponent<Image>();
-        handleGlowImage.color = AccentLight;
-        handleGlowImage.raycastTarget = false;
         slider.fillRect = fill;
         slider.handleRect = handle;
         slider.targetGraphic = handleImage;

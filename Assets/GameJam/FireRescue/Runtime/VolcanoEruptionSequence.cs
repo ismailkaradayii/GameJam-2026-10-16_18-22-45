@@ -106,6 +106,19 @@ namespace GameJam.FireRescue
             Initialized = true;
         }
 
+        // The mission countdown can own the audible pre-impact window independently of visual warning duration.
+        public void BeginExplosionAudio()
+        {
+            InitializeSequence();
+            if (audioTimeline) audioTimeline.BeginExplosionSound();
+        }
+
+        public void NotifyExplosionAudioEvent()
+        {
+            InitializeSequence();
+            if (audioTimeline) audioTimeline.NotifyExplosionEvent();
+        }
+
         public bool BeginEruption(bool ignorePreparation = false)
         {
             InitializeSequence();
@@ -255,10 +268,10 @@ namespace GameJam.FireRescue
             GUI.DrawTexture(new Rect(x,y,316,92),Texture2D.whiteTexture);
             GUI.color=Color.white;
             string title, detail;
-            if(Stage==EruptionStage.Waiting){title="VOLKAN · HAZIRLIK";detail=WaitingForEvacuation?"Önce halkı sığınağa götür.\nTahliye: "+evacuation.RescuedCount+" / "+evacuation.TotalCount:autoErupt?"Patlamaya "+Mathf.CeilToInt(Countdown)+" sn\nV: Patlamayı şimdi başlat":"V: Volkan patlamasını başlat";}
-            else if(Stage==EruptionStage.Warning){title="YER SARSILIYOR";detail="Volkan patlamak üzere!\nİtfaiyeyi kasabaya götür.";}
-            else if(Stage==EruptionStage.Erupting){title="VOLKAN PATLADI";detail="Lav akışı başlıyor.\nKasabadaki evleri koru.";}
-            else {int burning=0;foreach(var house in BurnableBuilding.ActiveBuildings)if(house&&house.IsBurning)burning++;title="LAV KASABAYA İLERLİYOR";detail="Yanan ev: "+burning+"\nSağ tıkla su püskürterek söndür.";}
+            if(Stage==EruptionStage.Waiting){title="VOLCANO · PREPARATION";detail=WaitingForEvacuation?"First lead the villagers to shelter.\nEvacuated: "+evacuation.RescuedCount+" / "+evacuation.TotalCount:autoErupt?"Eruption in "+Mathf.CeilToInt(Countdown)+" sec\nV: Start eruption now":"V: Start eruption";}
+            else if(Stage==EruptionStage.Warning){title="THE GROUND IS SHAKING";detail="The volcano is about to erupt!\nTake the fire truck to town.";}
+            else if(Stage==EruptionStage.Erupting){title="VOLCANO ERUPTED";detail="Lava is beginning to flow.\nProtect the houses.";}
+            else {int burning=0;foreach(var house in BurnableBuilding.ActiveBuildings)if(house&&house.IsBurning)burning++;title="LAVA ADVANCING";detail="Burning houses: "+burning+"\nRight click to spray water.";}
             GUI.Label(new Rect(x+12,y+9,292,24),title,heading);
             GUI.Label(new Rect(x+12,y+35,292,50),detail,body);
             GUI.matrix=oldMatrix;GUI.color=oldColor;

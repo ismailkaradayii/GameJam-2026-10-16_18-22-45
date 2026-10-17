@@ -29,6 +29,8 @@ namespace GameJam.FireRescue
                 if (!painSource) painSource = painAudio.gameObject.AddComponent<AudioSource>();
             }
             painSource.playOnAwake = false;
+            painSource.loop = false;
+            painSource.volume = 1f;
             painSource.spatialBlend = 0f;
             painSource.dopplerLevel = 0f;
             if (painClip) painClip.LoadAudioData();
@@ -47,7 +49,8 @@ namespace GameJam.FireRescue
         public void TickContact(float dt)
         {
             InHotLava = false;
-            if (!body || !body.enabled || !health || (player && (player.IsDriving || player.CinematicLocked))) return;
+            if (!body || !body.enabled || !health || Time.timeScale <= 0f || (player && (player.IsDriving || player.GameplaySuspended)))
+            { if (painSource) painSource.Stop(); return; }
             Vector3 feet = new Vector3(body.bounds.center.x, body.bounds.min.y, body.bounds.center.z);
             foreach (var source in LavaIgnitionSource.ActiveSources)
             {
@@ -63,9 +66,10 @@ namespace GameJam.FireRescue
             if (!takingHeatDamage)
             {
                 nextPainAt = Time.time;
+                if (painSource) painSource.Stop();
                 return;
             }
-            if (painClip && painSource && Time.time >= nextPainAt)
+            if (painClip && painSource && !painSource.isPlaying && Time.time >= nextPainAt)
             {
                 painSource.PlayOneShot(painClip, painVolume * Mathf.Clamp01(PlayerPrefs.GetFloat("Ashfall.SfxVolume", 1f)));
                 nextPainAt = Time.time + Mathf.Max(.1f, painRepeatInterval);

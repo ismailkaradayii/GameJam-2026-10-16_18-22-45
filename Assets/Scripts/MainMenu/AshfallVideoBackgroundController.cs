@@ -20,6 +20,7 @@ namespace Ashfall.MainMenu
         private bool waitingForLoopFrame;
         private bool failed;
         private Coroutine blendRoutine;
+        private bool started;
 
         private void Awake()
         {
@@ -36,10 +37,18 @@ namespace Ashfall.MainMenu
             videoPlayer.errorReceived += OnErrorReceived;
             videoPlayer.frameReady += OnFrameReady;
             videoPlayer.loopPointReached += OnLoopPointReached;
+            if (started) BeginPlayback();
         }
 
         private void Start()
         {
+            started = true;
+            BeginPlayback();
+        }
+
+        private void BeginPlayback()
+        {
+            failed = hasDisplayedFrame = waitingForLoopFrame = false;
             if (videoPlayer == null || videoPlayer.clip == null || videoPlayer.targetTexture == null)
             {
                 ShowFallback("Video clip or RenderTexture is not assigned.");
@@ -149,11 +158,17 @@ namespace Ashfall.MainMenu
 
         private void OnDisable()
         {
+            StopAllCoroutines();
+            blendRoutine = null;
+            if (videoBackground) videoBackground.enabled = false;
+            SetBlendAlpha(0f);
+            if (loopBlendImage) loopBlendImage.enabled = false;
             if (videoPlayer == null) return;
             videoPlayer.prepareCompleted -= OnPrepared;
             videoPlayer.errorReceived -= OnErrorReceived;
             videoPlayer.frameReady -= OnFrameReady;
             videoPlayer.loopPointReached -= OnLoopPointReached;
+            videoPlayer.Stop();
         }
     }
 }

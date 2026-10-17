@@ -34,7 +34,9 @@ namespace GameJam.FireRescue
             if (spraySource.clip) spraySource.clip.LoadAudioData();
             spraySource.playOnAwake = false;
             spraySource.loop = true;
-            spraySource.spatialBlend = 1f;
+            // The cannon is operated from the vehicle camera, which can sit tens
+            // of metres away from the muzzle on the enlarged truck.
+            spraySource.spatialBlend = 0f;
             spraySource.dopplerLevel = 0f;
             spraySource.rolloffMode = AudioRolloffMode.Logarithmic;
             spraySource.minDistance = 3f;
