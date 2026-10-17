@@ -20,6 +20,7 @@ namespace GameJam.FireRescue
         [SerializeField, Range(0.5f, 2f)] private float maximumPitch = 1.2f;
 
         private FireTruckDrive drive;
+        private bool paused;
 
         private void Awake()
         {
@@ -44,6 +45,13 @@ namespace GameJam.FireRescue
         private void Update()
         {
             if (engineSource == null || engineSource.clip == null || drive == null) return;
+            if (Time.timeScale <= 0f)
+            {
+                if (!paused && engineSource.isPlaying) engineSource.Pause();
+                paused = true;
+                return;
+            }
+            if (paused) { engineSource.UnPause(); paused = false; }
 
             // An unattended truck can still roll or settle on its suspension.
             // Only the occupied vehicle should produce the driving loop.
@@ -54,7 +62,9 @@ namespace GameJam.FireRescue
             }
 
             float speedKph = drive.SpeedKph;
-            float movement = speedKph <= minimumSpeedKph ? 0f :
+            // A spawned truck can inherit a tiny settling velocity before the player takes control.
+            // Do not start the loop until the drive controller has actually engaged the vehicle.
+            float movement = !drive.IsDriven || speedKph <= minimumSpeedKph ? 0f :
                 Mathf.InverseLerp(minimumSpeedKph, Mathf.Max(minimumSpeedKph + 0.1f, fullIntensitySpeedKph), speedKph);
             float sfxVolume = Mathf.Clamp01(PlayerPrefs.GetFloat(SfxVolumeKey, 1f));
             float targetVolume = movement > 0f
@@ -74,6 +84,7 @@ namespace GameJam.FireRescue
 
         private void StopEngine()
         {
+            paused = false;
             if (engineSource != null)
             {
                 engineSource.volume = 0f;

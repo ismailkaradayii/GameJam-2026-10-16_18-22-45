@@ -299,10 +299,15 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   source: {fileID: 267291601}
+  explosionSound: {fileID: 0}
   windLoop: {fileID: 8300000, guid: 5fba547e39074924c9940e1a3056a77e, type: 3}
-  waitForExplosionSequence: 0
+  waitForExplosionSequence: 1
+  explosionVolume: 0.85
   minimumVolume: 0.08
   maximumVolume: 0.42
+  explosionFadeDuration: 0.8
+  windFadeDuration: 2
+  postExplosionSeconds: 4
   shortestSwellingInterval: 8
   longestSwellingInterval: 15
   swellDuration: 4
@@ -319,15 +324,15 @@ AudioSource:
   OutputAudioMixerGroup: {fileID: 0}
   m_audioClip: {fileID: 0}
   m_Resource: {fileID: 0}
-  m_PlayOnAwake: 1
-  m_Volume: 1
+  m_PlayOnAwake: 0
+  m_Volume: 0
   m_Pitch: 1
   Loop: 0
   Mute: 0
   Spatialize: 0
   SpatializePostEffects: 0
   Priority: 128
-  DopplerLevel: 1
+  DopplerLevel: 0
   MinDistance: 1
   MaxDistance: 500
   Pan2D: 0
@@ -735,6 +740,14 @@ PrefabInstance:
       propertyPath: aimCamera
       value: 
       objectReference: {fileID: 1579299370}
+    - target: {fileID: 5205177616743375653, guid: 0bf90fd8a8763a543bd98f4e87b67dba, type: 3}
+      propertyPath: Loop
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 5205177616743375653, guid: 0bf90fd8a8763a543bd98f4e87b67dba, type: 3}
+      propertyPath: panLevelCustomCurve.m_Curve.Array.data[0].value
+      value: 1
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -1156,6 +1169,7 @@ MonoBehaviour:
   hand: {fileID: 1200692292}
   driverDoor: {fileID: 524237207}
   exitPoint: {fileID: 524237206}
+  gameFlow: {fileID: 0}
   firstPerson: {fileID: 0}
   pistol: {fileID: 0}
   startDriving: 1
@@ -1168,6 +1182,8 @@ MonoBehaviour:
   mouseSensitivity: 0.12
   followDistance: 14
   followHeight: 3.6
+  minFollowDistance: 5
+  maxFollowDistance: 14
   cannonCameraLift: 2.8
 --- !u!143 &894814552
 CharacterController:
@@ -6715,6 +6731,7 @@ MonoBehaviour:
   litresToExtinguish: 100
   wetProtectionSeconds: 2
   extinguishedCooldownSeconds: 5
+  secondsToCollapse: 90
   heat: 0
 --- !u!1 &1447093437
 GameObject:

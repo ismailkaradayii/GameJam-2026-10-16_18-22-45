@@ -7,6 +7,7 @@ using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 using UnityEngine.Video;
+using Itfaiye;
 
 namespace GameJam.FireRescue.Editor
 {
@@ -22,6 +23,12 @@ namespace GameJam.FireRescue.Editor
         private const string FireClipPath = "Assets/Art/sesdosya/fire.wav";
         private const string WindClipPath = "Assets/Art/sesdosya/wind.wav";
         private const string FootstepClipPath = "Assets/Art/sesdosya/walksound.mp3";
+        private const string LavaBubblingClipPath = "Assets/Art/sesdosya/volkanbubbling.wav";
+        private const string PlayerPainClipPath = "Assets/Art/sesdosya/acı cekmek.mp3";
+        private const string CrowdPanicClipPath = "Assets/Art/sesdosya/crowdpanic.mp3";
+        private const string TargetImpactClipPath = "Assets/Art/sesdosya/çarpmases.mp3";
+        private const string WaterSprayClipPath = "Assets/Art/sesdosya/Fire Hose Spray Water.mp3";
+        private const string PlayerPrefabPath = "Assets/Itfaiye/Prefabs/ItfaiyeFirstPersonPlayer.prefab";
         private const string CompatibleVideoPath = "Assets/Art/BackGround/arkaplan_UnityBaseline.mp4";
         private const string BackgroundRenderTexturePath = "Assets/Art/BackGround/RT_ASHFALL_Background.renderTexture";
 
@@ -34,6 +41,11 @@ namespace GameJam.FireRescue.Editor
             AudioClip windClip = AssetDatabase.LoadAssetAtPath<AudioClip>(WindClipPath);
             AudioClip explosionClip = FindExistingExplosionClip();
             AudioClip footstepClip = AssetDatabase.LoadAssetAtPath<AudioClip>(FootstepClipPath);
+            AudioClip bubblingClip = AssetDatabase.LoadAssetAtPath<AudioClip>(LavaBubblingClipPath);
+            AudioClip painClip = AssetDatabase.LoadAssetAtPath<AudioClip>(PlayerPainClipPath);
+            AudioClip crowdClip = AssetDatabase.LoadAssetAtPath<AudioClip>(CrowdPanicClipPath);
+            AudioClip impactClip = AssetDatabase.LoadAssetAtPath<AudioClip>(TargetImpactClipPath);
+            AudioClip sprayClip = AssetDatabase.LoadAssetAtPath<AudioClip>(WaterSprayClipPath);
             if (clickClip == null || engineClip == null || fireClip == null)
             {
                 Debug.LogError("ASHFALL audio integration stopped. Missing clip(s): " +
@@ -43,7 +55,8 @@ namespace GameJam.FireRescue.Editor
                 return;
             }
 
-            ConfigureTruckPrefab(engineClip);
+            ConfigureTruckPrefab(engineClip, sprayClip);
+            ConfigurePlayerPrefab(painClip, impactClip);
 
             Scene originalScene = SceneManager.GetActiveScene();
             if (originalScene.IsValid() && originalScene.isDirty)
@@ -53,12 +66,12 @@ namespace GameJam.FireRescue.Editor
             OpenAndInstallScene(VolcanoScenePath, scene =>
             {
                 ConfigureFireAmbience(scene, fireClip);
-                ConfigureGameplayAudio(scene, windClip, footstepClip, explosionClip);
+                ConfigureGameplayAudio(scene, windClip, footstepClip, explosionClip, bubblingClip, painClip, crowdClip, impactClip, sprayClip);
             });
             OpenAndInstallScene(FireRescueScenePath, scene =>
             {
                 ConfigureFireAmbience(scene, fireClip);
-                ConfigureGameplayAudio(scene, windClip, footstepClip, null);
+                ConfigureGameplayAudio(scene, windClip, footstepClip, null, bubblingClip, painClip, crowdClip, impactClip, sprayClip);
             });
 
             EditorSceneManager.OpenScene(MainMenuPath, OpenSceneMode.Single);
@@ -72,6 +85,11 @@ namespace GameJam.FireRescue.Editor
                 Debug.LogWarning("ASHFALL: Footsteps are ready for a clip, but no walksound file was found at " + FootstepClipPath + ". Add it and rerun ASHFALL/Integrate Audio Systems.");
             if (explosionClip == null)
                 Debug.LogWarning("ASHFALL: No existing AudioClip named 'explode' was found in Assets. The post-explosion wind timeline is wired, but the explosion sound must be added and assigned on WindAudioAmbience > Wind Audio Pulse.");
+            WarnMissing(LavaBubblingClipPath, bubblingClip);
+            WarnMissing(PlayerPainClipPath, painClip);
+            WarnMissing(CrowdPanicClipPath, crowdClip);
+            WarnMissing(TargetImpactClipPath, impactClip);
+            WarnMissing(WaterSprayClipPath, sprayClip);
         }
 
         [MenuItem("ASHFALL/Integrate Explosion Wind Timeline")]
@@ -105,7 +123,7 @@ namespace GameJam.FireRescue.Editor
             return null;
         }
 
-        private static void ConfigureTruckPrefab(AudioClip engineClip)
+        private static void ConfigureTruckPrefab(AudioClip engineClip, AudioClip sprayClip)
         {
             GameObject root = PrefabUtility.LoadPrefabContents(TruckPrefabPath);
             try
@@ -131,12 +149,71 @@ namespace GameJam.FireRescue.Editor
                 serialized.FindProperty("engineSource").objectReferenceValue = source;
                 serialized.FindProperty("engineLoop").objectReferenceValue = engineClip;
                 serialized.ApplyModifiedPropertiesWithoutUndo();
+
+                FireTruckWaterCannon cannon = root.GetComponentInChildren<FireTruckWaterCannon>(true);
+                if (cannon && sprayClip)
+                {
+                    FireTruckSprayAudio spray = root.GetComponent<FireTruckSprayAudio>();
+                    if (!spray) spray = root.AddComponent<FireTruckSprayAudio>();
+                    Transform emitter = cannon.muzzle ? cannon.muzzle.Find("Water Spray Audio") : root.transform.Find("Water Spray Audio");
+                    if (!emitter)
+                    {
+                        GameObject emitterObject = new GameObject("Water Spray Audio");
+                        emitter = emitterObject.transform;
+                        emitter.SetParent(cannon.muzzle ? cannon.muzzle : root.transform, false);
+                    }
+                    AudioSource spraySource = emitter.GetComponent<AudioSource>();
+                    if (!spraySource) spraySource = emitter.gameObject.AddComponent<AudioSource>();
+                    Configure3DSource(spraySource, true, 0f, 3f, 50f);
+                    SerializedObject sprayData = new SerializedObject(spray);
+                    sprayData.FindProperty("cannon").objectReferenceValue = cannon;
+                    sprayData.FindProperty("spraySource").objectReferenceValue = spraySource;
+                    sprayData.FindProperty("sprayLoop").objectReferenceValue = sprayClip;
+                    sprayData.FindProperty("volume").floatValue = .65f;
+                    sprayData.ApplyModifiedPropertiesWithoutUndo();
+                    EditorUtility.SetDirty(spray);
+                }
                 PrefabUtility.SaveAsPrefabAsset(root, TruckPrefabPath);
             }
             finally
             {
                 PrefabUtility.UnloadPrefabContents(root);
             }
+        }
+
+        private static void ConfigurePlayerPrefab(AudioClip painClip, AudioClip impactClip)
+        {
+            GameObject root = PrefabUtility.LoadPrefabContents(PlayerPrefabPath);
+            try
+            {
+                LavaPlayerContact contact = root.GetComponent<LavaPlayerContact>();
+                if (contact)
+                {
+                    Transform audioEmitter = root.transform.Find("Player Pain Audio");
+                    if (!audioEmitter)
+                    {
+                        GameObject child = new GameObject("Player Pain Audio");
+                        audioEmitter = child.transform;
+                        audioEmitter.SetParent(root.transform, false);
+                    }
+                    AudioSource painSource = audioEmitter.GetComponent<AudioSource>();
+                    if (!painSource) painSource = audioEmitter.gameObject.AddComponent<AudioSource>();
+                    Configure3DSource(painSource, false, 0f, 1f, 15f);
+                    SerializedObject contactData = new SerializedObject(contact);
+                    contactData.FindProperty("painSource").objectReferenceValue = painSource;
+                    contactData.FindProperty("painClip").objectReferenceValue = painClip;
+                    contactData.ApplyModifiedPropertiesWithoutUndo();
+                    EditorUtility.SetDirty(contact);
+                }
+                ItfaiyePistolFeedback pistol = root.GetComponentInChildren<ItfaiyePistolFeedback>(true);
+                if (pistol)
+                {
+                    pistol.targetImpactClip = impactClip;
+                    EditorUtility.SetDirty(pistol);
+                }
+                PrefabUtility.SaveAsPrefabAsset(root, PlayerPrefabPath);
+            }
+            finally { PrefabUtility.UnloadPrefabContents(root); }
         }
 
         private static void ConfigureMenu(Scene scene, AudioClip clickClip)
@@ -223,9 +300,87 @@ namespace GameJam.FireRescue.Editor
             EditorSceneManager.SaveScene(scene);
         }
 
-        private static void ConfigureGameplayAudio(Scene scene, AudioClip windClip, AudioClip footstepClip, AudioClip explosionClip)
+        private static void ConfigureGameplayAudio(Scene scene, AudioClip windClip, AudioClip footstepClip, AudioClip explosionClip,
+            AudioClip bubblingClip, AudioClip painClip, AudioClip crowdClip, AudioClip impactClip, AudioClip sprayClip)
         {
             ConfigureWindAudio(scene, windClip, explosionClip);
+
+            foreach (ProgressiveLavaFlow flow in Object.FindObjectsByType<ProgressiveLavaFlow>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+            {
+                if (!bubblingClip) continue;
+                AudioSource source = flow.GetComponent<AudioSource>();
+                if (!source) source = flow.gameObject.AddComponent<AudioSource>();
+                Configure3DSource(source, true, 0f, 8f, 70f);
+                SerializedObject flowData = new SerializedObject(flow);
+                flowData.FindProperty("flowAudioSource").objectReferenceValue = source;
+                flowData.FindProperty("bubblingClip").objectReferenceValue = bubblingClip;
+                flowData.FindProperty("bubblingVolume").floatValue = .5f;
+                flowData.ApplyModifiedPropertiesWithoutUndo();
+                EditorUtility.SetDirty(flow);
+                EditorUtility.SetDirty(source);
+                PrefabUtility.RecordPrefabInstancePropertyModifications(flow);
+            }
+
+            foreach (LavaPlayerContact contact in Object.FindObjectsByType<LavaPlayerContact>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+            {
+                Transform emitter = contact.transform.Find("Player Pain Audio");
+                if (!emitter) { var child = new GameObject("Player Pain Audio"); emitter = child.transform; emitter.SetParent(contact.transform, false); }
+                AudioSource source = emitter.GetComponent<AudioSource>();
+                if (!source) source = emitter.gameObject.AddComponent<AudioSource>();
+                Configure3DSource(source, false, 0f, 1f, 15f);
+                SerializedObject contactData = new SerializedObject(contact);
+                contactData.FindProperty("painSource").objectReferenceValue = source;
+                contactData.FindProperty("painClip").objectReferenceValue = painClip;
+                contactData.ApplyModifiedPropertiesWithoutUndo();
+                EditorUtility.SetDirty(contact);
+                EditorUtility.SetDirty(source);
+                PrefabUtility.RecordPrefabInstancePropertyModifications(contact);
+            }
+
+            foreach (EvacuationMission mission in Object.FindObjectsByType<EvacuationMission>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+            {
+                if (!crowdClip) continue;
+                Transform emitter = mission.transform.Find("Crowd Panic Ambience");
+                if (!emitter) { var child = new GameObject("Crowd Panic Ambience"); emitter = child.transform; emitter.SetParent(mission.transform, false); }
+                AudioSource source = emitter.GetComponent<AudioSource>();
+                if (!source) source = emitter.gameObject.AddComponent<AudioSource>();
+                Configure3DSource(source, true, 0f, 8f, 65f);
+                SerializedObject missionData = new SerializedObject(mission);
+                missionData.FindProperty("crowdPanicLoop").objectReferenceValue = crowdClip;
+                missionData.FindProperty("crowdSource").objectReferenceValue = source;
+                missionData.FindProperty("crowdPanicVolume").floatValue = .45f;
+                missionData.ApplyModifiedPropertiesWithoutUndo();
+                EditorUtility.SetDirty(mission);
+                EditorUtility.SetDirty(source);
+                PrefabUtility.RecordPrefabInstancePropertyModifications(mission);
+            }
+
+            foreach (ItfaiyePistolFeedback pistol in Object.FindObjectsByType<ItfaiyePistolFeedback>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+            {
+                if (impactClip) pistol.targetImpactClip = impactClip;
+                EditorUtility.SetDirty(pistol);
+                PrefabUtility.RecordPrefabInstancePropertyModifications(pistol);
+            }
+
+            foreach (FireTruckWaterCannon cannon in Object.FindObjectsByType<FireTruckWaterCannon>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+            {
+                if (!sprayClip) continue;
+                FireTruckSprayAudio spray = cannon.GetComponent<FireTruckSprayAudio>();
+                if (!spray) spray = cannon.gameObject.AddComponent<FireTruckSprayAudio>();
+                Transform emitter = cannon.muzzle ? cannon.muzzle.Find("Water Spray Audio") : cannon.transform.Find("Water Spray Audio");
+                if (!emitter) { var child = new GameObject("Water Spray Audio"); emitter = child.transform; emitter.SetParent(cannon.muzzle ? cannon.muzzle : cannon.transform, false); }
+                AudioSource source = emitter.GetComponent<AudioSource>();
+                if (!source) source = emitter.gameObject.AddComponent<AudioSource>();
+                Configure3DSource(source, true, 0f, 3f, 50f);
+                SerializedObject sprayData = new SerializedObject(spray);
+                sprayData.FindProperty("cannon").objectReferenceValue = cannon;
+                sprayData.FindProperty("spraySource").objectReferenceValue = source;
+                sprayData.FindProperty("sprayLoop").objectReferenceValue = sprayClip;
+                sprayData.ApplyModifiedPropertiesWithoutUndo();
+                EditorUtility.SetDirty(spray);
+                EditorUtility.SetDirty(source);
+                PrefabUtility.RecordPrefabInstancePropertyModifications(spray);
+            }
 
             FireRescuePlayer[] players = Object.FindObjectsByType<FireRescuePlayer>(FindObjectsInactive.Include, FindObjectsSortMode.None);
             foreach (FireRescuePlayer player in players)
@@ -265,6 +420,23 @@ namespace GameJam.FireRescue.Editor
             EditorSceneManager.SaveScene(scene);
         }
 
+        private static void Configure3DSource(AudioSource source, bool loop, float volume, float minDistance, float maxDistance)
+        {
+            source.playOnAwake = false;
+            source.loop = loop;
+            source.volume = volume;
+            source.spatialBlend = loop ? 1f : 0f;
+            source.dopplerLevel = 0f;
+            source.rolloffMode = AudioRolloffMode.Logarithmic;
+            source.minDistance = minDistance;
+            source.maxDistance = maxDistance;
+        }
+
+        private static void WarnMissing(string path, AudioClip clip)
+        {
+            if (!clip) Debug.LogWarning("ASHFALL audio integration: missing clip at " + path);
+        }
+
         private static void ConfigureWindAudio(Scene scene, AudioClip windClip, AudioClip explosionClip)
         {
             if (windClip == null)
@@ -293,7 +465,8 @@ namespace GameJam.FireRescue.Editor
             windData.FindProperty("source").objectReferenceValue = windSource;
             windData.FindProperty("explosionSound").objectReferenceValue = explosionClip;
             windData.FindProperty("windLoop").objectReferenceValue = windClip;
-            windData.FindProperty("waitForExplosionSequence").boolValue = Object.FindFirstObjectByType<VolcanoEruptionSequence>(FindObjectsInactive.Include) != null;
+            // This loop is a post-impact ambience everywhere; a scene without the volcano sequencer stays silent.
+            windData.FindProperty("waitForExplosionSequence").boolValue = true;
             windData.FindProperty("explosionVolume").floatValue = 0.85f;
             windData.FindProperty("minimumVolume").floatValue = 0.08f;
             windData.FindProperty("maximumVolume").floatValue = 0.42f;
