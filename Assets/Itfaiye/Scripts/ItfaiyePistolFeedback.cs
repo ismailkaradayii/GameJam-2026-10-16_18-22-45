@@ -27,6 +27,9 @@ namespace Itfaiye
         public AudioClip concreteImpact, metalImpact, woodImpact, dirtImpact;
         [Range(0f, 1f)] public float shotVolume = .65f;
         [Range(0f, 1f)] public float impactVolume = .65f;
+        [Header("Creature hit confirmation")]
+        [Range(0f, 1f)] public float creatureConfirmVolume = .34f;
+        [Range(0f, 1f)] public float creatureImpactKick = .46f;
 
         public int TotalImpacts { get; private set; }
         public int ActiveMarkCount { get { int n=0; if (marks != null) foreach (var m in marks) if (m != null && m.root != null && m.root.activeSelf) n++; return n; } }
@@ -39,8 +42,11 @@ namespace Itfaiye
             {
                 if (!isActiveAndEnabled) return Quaternion.identity;
                 float age = Time.time - lastShotTime;
-                float envelope = age < .025f ? Mathf.SmoothStep(0, 1, age/.025f) : 1-Mathf.SmoothStep(0,1,(age-.025f)/Mathf.Max(.05f,kickRecovery-.025f));
-                return Quaternion.Euler(-kickStrength * envelope, kickSide * kickStrength * .12f * envelope, kickSide * kickStrength * .09f * envelope);
+                float envelope = pistol != null ? pistol.SampleRecoil(kickRecovery / .23f) : ItfaiyePistol.ShotImpulse(age);
+                float impactAge = Mathf.Max(0f, Time.time - confirmTime);
+                float impact = Mathf.Sin(impactAge * 62f) * Mathf.Exp(-impactAge * 24f) * creatureImpactKick * (killingHit ? 1.35f : 1f);
+                return Quaternion.Euler(-kickStrength * envelope - impact, kickSide * kickStrength * .12f * envelope,
+                    kickSide * kickStrength * .09f * envelope + impact * .32f);
             }
         }
 
@@ -75,13 +81,16 @@ namespace Itfaiye
         Tracer[] tracers;
         ImpactEffect lastEffect;
         Transform effectRoot;
-        AudioSource shotAudio;
+        AudioSource shotAudio, confirmAudio;
+        AudioClip hitConfirm, killConfirm;
         ItfaiyePistol pistol;
         int markIndex, effectIndex, tracerIndex, shotIndex;
         float lastShotTime=-100f, hitTime=-100f, kickStrength, kickSide;
+        float confirmTime = -100f;
         Vector3 hitPoint;
         Transform hitTransform;
         Vector3 localHitPoint;
+        bool creatureHit, killingHit;
 
         void Awake()
         {
@@ -92,6 +101,10 @@ namespace Itfaiye
             effectRoot = new GameObject("Pistol World Effects").transform;
             shotAudio = gameObject.AddComponent<AudioSource>();
             shotAudio.playOnAwake=false; shotAudio.spatialBlend=0f; shotAudio.volume=1f;
+            confirmAudio = gameObject.AddComponent<AudioSource>();
+            confirmAudio.playOnAwake = false; confirmAudio.spatialBlend = 0f;
+            hitConfirm = Resources.Load<AudioClip>("LavaCombat/SpiritConfirm");
+            killConfirm = Resources.Load<AudioClip>("LavaCombat/SpiritKillConfirm");
         }
 
         public void PlayShot(Ray ray, Vector3 end, RaycastHit hit, float aimAmount, bool obstructed)
@@ -111,6 +124,23 @@ namespace Itfaiye
             TotalImpacts++;
             LastSurface=ResolveSurface(hit.collider);
             hitTime=Time.time; hitPoint=hit.point; hitTransform=hit.collider.transform; localHitPoint=hitTransform.InverseTransformPoint(hit.point);
+            var creature = hit.collider.GetComponentInParent<GameJam.FireRescue.LavaCreatureActor>();
+            creatureHit = creature != null;
+            killingHit = creatureHit && creature.IsDefeated;
+            if (creatureHit)
+            {
+                // Animated bodies get molten impacts from the actor, not concrete decals/dust.
+                LastMark = null;
+                if (killingHit) hitTransform = null;
+                confirmTime = Time.time;
+                var confirmation = killingHit ? killConfirm : hitConfirm;
+                if (confirmation && creatureConfirmVolume > 0f)
+                {
+                    confirmAudio.pitch = killingHit ? 1f : Random.Range(.96f, 1.04f);
+                    confirmAudio.PlayOneShot(confirmation, creatureConfirmVolume * (killingHit ? 1.15f : 1f));
+                }
+                return;
+            }
             SpawnMark(hit, LastSurface);
             SpawnImpact(hit, LastSurface);
         }
@@ -269,22 +299,37 @@ namespace Itfaiye
         void OnGUI()
         {
             float age=Time.time-hitTime;
-            if(!showHitMarker||age>.14f||pistol==null||!pistol.showHud||!pistol.Equipped||!pistol.player.InputCaptured) return;
+            float lifetime = killingHit ? .46f : creatureHit ? .27f : .14f;
+            if(!showHitMarker||age>lifetime||pistol==null||!pistol.showHud||!pistol.Equipped||!pistol.player.InputCaptured) return;
             Vector3 screen=pistol.player.playerCamera.WorldToScreenPoint(hitTransform!=null?hitTransform.TransformPoint(localHitPoint):hitPoint);
             if(screen.z<=0) return;
             var center=new Vector2(screen.x,Screen.height-screen.y); var matrix=GUI.matrix; var color=GUI.color;
-            GUI.color=new Color(1f,.93f,.79f,.7f*(1-age/.14f)); GUIUtility.RotateAroundPivot(45,center);
+            float fade = creatureHit ? 1f - Mathf.SmoothStep(0f, 1f, (age - .075f) / (lifetime - .075f)) : 1f - age / lifetime;
+            Color ink = killingHit ? new Color(1f, .38f, .085f, fade) : new Color(1f, .97f, .87f, (creatureHit ? 1f : .7f) * fade);
+            float pop = Mathf.Exp(-age * 32f);
+            float spread = killingHit ? 8f + pop * 5f + age * 7f : creatureHit ? 6f + pop * 4f : 7f;
+            float length = killingHit ? 10f : creatureHit ? 7f : 4f;
+            float thickness = creatureHit ? 2.2f : 1.3f;
+            GUIUtility.RotateAroundPivot(45,center);
             for(int sign=-1;sign<=1;sign+=2)
             {
-                GUI.DrawTexture(new Rect(center.x+sign*7-2,center.y-.65f,4,1.3f),Texture2D.whiteTexture);
-                GUI.DrawTexture(new Rect(center.x-.65f,center.y+sign*7-2,1.3f,4),Texture2D.whiteTexture);
+                if (creatureHit)
+                {
+                    GUI.color = new Color(.08f, .025f, .012f, fade * .9f);
+                    GUI.DrawTexture(new Rect(center.x+sign*spread-length*.5f-1,center.y-thickness*.5f-1,length+2,thickness+2),Texture2D.whiteTexture);
+                    GUI.DrawTexture(new Rect(center.x-thickness*.5f-1,center.y+sign*spread-length*.5f-1,thickness+2,length+2),Texture2D.whiteTexture);
+                }
+                GUI.color = ink;
+                GUI.DrawTexture(new Rect(center.x+sign*spread-length*.5f,center.y-thickness*.5f,length,thickness),Texture2D.whiteTexture);
+                GUI.DrawTexture(new Rect(center.x-thickness*.5f,center.y+sign*spread-length*.5f,thickness,length),Texture2D.whiteTexture);
             }
             GUI.matrix=matrix; GUI.color=color;
         }
         void OnDisable()
         {
-            lastShotTime=hitTime=-100f;
+            lastShotTime=hitTime=confirmTime=-100f;
             if(shotAudio!=null) shotAudio.Stop();
+            if(confirmAudio!=null) confirmAudio.Stop();
             if(effects!=null) foreach(var e in effects) if(e!=null)
             {
                 if(e.dust!=null) e.dust.Stop(true,ParticleSystemStopBehavior.StopEmittingAndClear);
@@ -298,6 +343,7 @@ namespace Itfaiye
             if(marks!=null) foreach(var m in marks) if(m!=null) { if(m.root!=null) Destroy(m.root); if(m.mesh!=null) Destroy(m.mesh); }
             if(effectRoot!=null) Destroy(effectRoot.gameObject);
             if(shotAudio!=null) Destroy(shotAudio);
+            if(confirmAudio!=null) Destroy(confirmAudio);
         }
     }
 }

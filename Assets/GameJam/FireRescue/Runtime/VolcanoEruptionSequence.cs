@@ -19,6 +19,7 @@ namespace GameJam.FireRescue
         [Serializable] public sealed class Pool
         {
             public LavaIgnitionSource source;
+            public bool beginsWithEruption;
             public ProgressiveLavaFlow feed;
             [Range(0f, 1f)] public float feedProgress = 1f;
             [Min(0f)] public float startDelay;
@@ -56,6 +57,12 @@ namespace GameJam.FireRescue
         [Min(0f)] public float lavaReleaseDelay = 4f;
         public bool enableCameraShake = true;
         public bool showHud = true;
+        [Header("Pre-eruption objective")]
+        public EvacuationMission evacuation;
+        public VolcanoMissionDirector missionDirector;
+        public VolcanoCinematic cinematic;
+        public bool WaitingForEvacuation => evacuation && !evacuation.IsComplete;
+        public bool WaitingForPreparation => WaitingForEvacuation || (missionDirector && !missionDirector.PreparationComplete);
 
         public EruptionStage Stage { get; private set; }
         public float FlowElapsed { get; private set; }
@@ -99,7 +106,7 @@ namespace GameJam.FireRescue
         public bool BeginEruption()
         {
             InitializeSequence();
-            if (Stage != EruptionStage.Waiting) return false;
+            if (Stage != EruptionStage.Waiting || WaitingForPreparation) return false;
             Stage = EruptionStage.Warning;
             StageElapsed = 0f;
             if (enableCameraShake && cameraShake) cameraShake.Shake(warningSeconds, .07f);
@@ -122,6 +129,7 @@ namespace GameJam.FireRescue
 
         void TickStep(float step)
         {
+            if (Stage == EruptionStage.Waiting && WaitingForPreparation) return;
             StageElapsed += step;
             if (Stage == EruptionStage.Waiting)
             {
@@ -135,14 +143,22 @@ namespace GameJam.FireRescue
                     Stage = EruptionStage.Erupting;
                     StageElapsed = 0f;
                     if (effects) effects.BeginEruption();
+                    if (cinematic) cinematic.BeginShot();
                     if (enableCameraShake && cameraShake) cameraShake.Shake(8f, .35f);
                 }
                 return;
             }
             if (effects) effects.TickEffect(step);
+            if (cinematic && cinematic.IsPlaying) cinematic.TickShot(step);
             if (Stage == EruptionStage.Erupting)
             {
-                if (StageElapsed >= Mathf.Max(0f, lavaReleaseDelay))
+                foreach (Pool pool in pools)
+                    if (pool != null && pool.beginsWithEruption) TickPool(pool, step, StageElapsed);
+                // The crater's authored glow lights the eruption while downhill lava stays gated.
+                foreach (LavaLight glow in lavaLights)
+                    if (glow?.light && effects && (glow.light.transform.position - effects.transform.position).sqrMagnitude < 40000f)
+                        glow.light.enabled = glow.wasEnabled;
+                if (StageElapsed >= Mathf.Max(0f, lavaReleaseDelay) && (!cinematic || !cinematic.IsPlaying))
                 {
                     Stage = EruptionStage.Flowing;
                     StageElapsed = FlowElapsed = 0f;
@@ -157,13 +173,7 @@ namespace GameJam.FireRescue
                 route.flow.Advance(step);
             }
             foreach (Pool pool in pools)
-            {
-                if (pool?.source == null || FlowElapsed < pool.startDelay || !Fed(pool.feed, pool.feedProgress)) continue;
-                pool.filling += step;
-                float scale = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(pool.filling / Mathf.Max(.1f, pool.fillSeconds)));
-                pool.source.transform.localScale = Vector3.Scale(pool.originalScale, new Vector3(Mathf.Max(.002f, scale), 1f, Mathf.Max(.002f, scale)));
-                SetPoolActive(pool, scale > .001f);
-            }
+                TickPool(pool, step, pool != null && pool.beginsWithEruption ? FlowElapsed + lavaReleaseDelay : FlowElapsed);
             foreach (AmbientEffect fx in ambientEffects)
             {
                 if (fx == null || fx.started || !fx.particles || FlowElapsed < fx.startDelay || !Fed(fx.feed, fx.feedProgress)) continue;
@@ -175,6 +185,15 @@ namespace GameJam.FireRescue
 
         static bool Fed(ProgressiveLavaFlow feed, float progress) =>
             !feed || (feed.VisibleDistance > 0f && feed.VisibleDistance + .005f >= feed.Length * Mathf.Clamp01(progress));
+
+        static void TickPool(Pool pool, float step, float elapsed)
+        {
+            if (pool?.source == null || elapsed < pool.startDelay || !Fed(pool.feed, pool.feedProgress)) return;
+            pool.filling += step;
+            float scale = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(pool.filling / Mathf.Max(.1f, pool.fillSeconds)));
+            pool.source.transform.localScale = Vector3.Scale(pool.originalScale, new Vector3(Mathf.Max(.002f, scale), 1f, Mathf.Max(.002f, scale)));
+            SetPoolActive(pool, scale > .001f);
+        }
 
         static void SetPoolActive(Pool pool, bool active)
         {
@@ -206,7 +225,7 @@ namespace GameJam.FireRescue
 
         void OnGUI()
         {
-            if (!showHud || !Initialized) return;
+            if (!showHud || !Initialized || VolcanoCinematic.IsPlayingAny) return;
             if (heading == null)
             {
                 heading = new GUIStyle(GUI.skin.label) {fontSize=16,fontStyle=FontStyle.Bold};
@@ -224,7 +243,7 @@ namespace GameJam.FireRescue
             GUI.DrawTexture(new Rect(x,y,316,92),Texture2D.whiteTexture);
             GUI.color=Color.white;
             string title, detail;
-            if(Stage==EruptionStage.Waiting){title="VOLKAN · HAZIRLIK";detail=autoErupt?"Patlamaya "+Mathf.CeilToInt(Countdown)+" sn\nV: Patlamayı şimdi başlat":"V: Volkan patlamasını başlat";}
+            if(Stage==EruptionStage.Waiting){title="VOLKAN · HAZIRLIK";detail=WaitingForEvacuation?"Önce halkı sığınağa götür.\nTahliye: "+evacuation.RescuedCount+" / "+evacuation.TotalCount:autoErupt?"Patlamaya "+Mathf.CeilToInt(Countdown)+" sn\nV: Patlamayı şimdi başlat":"V: Volkan patlamasını başlat";}
             else if(Stage==EruptionStage.Warning){title="YER SARSILIYOR";detail="Volkan patlamak üzere!\nİtfaiyeyi kasabaya götür.";}
             else if(Stage==EruptionStage.Erupting){title="VOLKAN PATLADI";detail="Lav akışı başlıyor.\nKasabadaki evleri koru.";}
             else {int burning=0;foreach(var house in BurnableBuilding.ActiveBuildings)if(house&&house.IsBurning)burning++;title="LAV KASABAYA İLERLİYOR";detail="Yanan ev: "+burning+"\nSağ tıkla su püskürterek söndür.";}

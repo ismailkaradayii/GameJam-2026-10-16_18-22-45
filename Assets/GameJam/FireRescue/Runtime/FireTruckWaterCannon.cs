@@ -26,6 +26,7 @@ namespace GameJam.FireRescue
         public bool IsSpraying { get; private set; }
         public Vector3 AimPoint { get; private set; }
         public BurnableBuilding HitFire { get; private set; }
+        public LavaCoolingSurface HitLava { get; private set; }
         public BurnableBuilding PredictedTarget { get; private set; }
         public bool HasPredictedImpact { get; private set; }
         public bool HasReachableAim { get; private set; }
@@ -75,6 +76,7 @@ namespace GameJam.FireRescue
         public void TickSpray(float deltaTime)
         {
             HitFire = null;
+            HitLava = null;
             if (!muzzle || !IsFinite(maxRange) || maxRange <= 0f || !IsFinite(muzzleSpeed) || muzzleSpeed <= 0f)
             {
                 IsSpraying = false;
@@ -167,6 +169,12 @@ namespace GameJam.FireRescue
             {
                 HitFire = building;
                 building.ApplyWater(litres);
+            }
+            LavaCoolingSurface lava = surface.GetComponentInParent<LavaCoolingSurface>();
+            if (lava)
+            {
+                HitLava = lava;
+                lava.ApplyWater(point, litres);
             }
             LavaCreatureActor creature = surface.GetComponentInParent<LavaCreatureActor>();
             if (creature) creature.ApplyWater(litres);

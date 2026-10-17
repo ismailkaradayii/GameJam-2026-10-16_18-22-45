@@ -246,6 +246,12 @@ public static class VolcanoIntegrationChecks
         player = players[0]; firstPerson = footPlayers[0]; pistol = player.pistol; drive = player.drive; hose = player.hose;
         sequence = Object.FindFirstObjectByType<VolcanoEruptionSequence>();
         encounter = Object.FindFirstObjectByType<LavaCreatureEncounter>();
+        if (encounter)
+        {
+            encounter.enableWaves = false;
+            var objective = encounter.GetComponent<VolcanoSurvivalObjective>();
+            if (objective) objective.enabled = false;
+        }
         if (!pistol || !drive || !hose || !sequence || !encounter || !player.playerBody)
             throw new InvalidOperationException("Required player/truck/hose/sequence/encounter references are missing.");
         Add("single_external_input_owner", player.firstPerson == firstPerson && firstPerson.externalControl && pistol.externalControl &&
@@ -541,6 +547,8 @@ public static class VolcanoIntegrationChecks
 
     static void CheckHoseAndEquipment()
     {
+        // This fixture isolates equipment behavior after preparation has unlocked the pump.
+        hose.fillingUnlocked = true;
         MoveFoot(hose.hoseSocket.position, footRotation);
         bool picked = hose.TryPickup(player.hand);
         player.RefreshEquipmentState();
@@ -627,12 +635,16 @@ public static class VolcanoIntegrationChecks
     {
         var spawn = encounter.spawns.First(s => s != null && s.creature && s.feed);
         sequence.enableCameraShake = false;
+        // Stage the combat review after evacuation; this is a temporary Play Mode fixture.
+        sequence.evacuation = null;
+        sequence.missionDirector = null; sequence.cinematic = null;
         sequence.BeginEruption();
         sequence.TickSequence(sequence.warningSeconds + sequence.lavaReleaseDelay + .3f);
         spawn.feed.SetDistance(0f); encounter.TickEncounter(1f);
         Add("creature_stays_hidden_before_local_lava", !spawn.creature.gameObject.activeSelf,
             "stage=" + sequence.Stage + "; localVisible=" + spawn.feed.VisibleDistance);
-        float threshold = spawn.feed.Length * Mathf.Clamp01(spawn.feedProgress);
+        float threshold = Mathf.Min(spawn.feed.Length, spawn.feed.Length * Mathf.Clamp01(spawn.feedProgress) +
+            (spawn.descendFromLava ? LavaCreatureEncounter.EmergenceLavaMargin : 0f));
         if (threshold > .03f)
         {
             spawn.feed.SetDistance(Mathf.Max(0f, threshold - .03f)); encounter.TickEncounter(1f);

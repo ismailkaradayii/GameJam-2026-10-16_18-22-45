@@ -1,4 +1,5 @@
 using UnityEngine;
+using System.Collections.Generic;
 
 namespace GameJam.FireRescue
 {
@@ -17,6 +18,12 @@ namespace GameJam.FireRescue
         public LayerMask buildingLayers = ~0;
 
         private float untilNextScan;
+        static readonly List<LavaIgnitionSource> sources = new List<LavaIgnitionSource>();
+        public static IReadOnlyList<LavaIgnitionSource> ActiveSources => sources;
+        public bool IsHotSurfaceActive => CanHeat;
+        LavaCoolingSurface cooling;
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        static void ResetSources() => sources.Clear();
         private bool CanHeat => heatEnabled && isActiveAndEnabled && heatCollider != null &&
             heatCollider.enabled && heatCollider.gameObject.activeInHierarchy &&
             (surfaceRenderer == null || (surfaceRenderer.enabled && surfaceRenderer.gameObject.activeInHierarchy));
@@ -25,6 +32,8 @@ namespace GameJam.FireRescue
 
         private void OnEnable()
         {
+            if (!sources.Contains(this)) sources.Add(this);
+            cooling = GetComponent<LavaCoolingSurface>();
             if (heatCollider == null)
                 heatCollider = GetComponent<Collider>();
             if (surfaceMesh == null)
@@ -33,6 +42,12 @@ namespace GameJam.FireRescue
                 surfaceRenderer = surfaceMesh != null ? surfaceMesh.GetComponent<Renderer>() : GetComponent<Renderer>();
             RefreshSurfaceMesh();
             untilNextScan = 0f;
+        }
+        void OnDisable() => sources.Remove(this);
+        public bool IsHotAt(Vector3 point)
+        {
+            if (!cooling) cooling = GetComponent<LavaCoolingSurface>();
+            return CanHeat && (!cooling || cooling.IsHotAt(point));
         }
 
         private void Update()
@@ -90,6 +105,8 @@ namespace GameJam.FireRescue
                     out _, out _))
                 return false;
 
+            if (!cooling) cooling = GetComponent<LavaCoolingSurface>();
+            if (cooling && !cooling.HasHotContact(contact.bounds)) return false;
             building.Ignite();
             return building.IsBurning;
         }

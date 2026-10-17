@@ -17,6 +17,10 @@ namespace GameJam.FireRescue
         [Min(1f)] public float litresToExtinguish = 100f;
         [Min(0f)] public float wetProtectionSeconds = 2f;
         [Min(0f)] public float extinguishedCooldownSeconds = 5f;
+        [Min(5f)] public float secondsToCollapse = 90f;
+        public bool IsBurnedOut { get; private set; }
+        public float BurnDamage { get; private set; }
+        public float SecondsUntilCollapse => IsBurning ? Mathf.Max(0, secondsToCollapse - BurnDamage) / Mathf.Max(.1f, heat) : float.PositiveInfinity;
 
         [SerializeField, Range(0f, 1f)] private float heat;
         private float wetSecondsRemaining;
@@ -75,7 +79,7 @@ namespace GameJam.FireRescue
         /// <summary>Repeated lava contact never refills an already burning building's heat.</summary>
         public void Ignite()
         {
-            if (!isActiveAndEnabled || IsBurning || IgnitionBlocked)
+            if (!isActiveAndEnabled || IsBurnedOut || IsBurning || IgnitionBlocked)
                 return;
             heat = 1f;
             UpdateVisuals();
@@ -83,7 +87,7 @@ namespace GameJam.FireRescue
 
         public void ApplyWater(float litres)
         {
-            if (!isActiveAndEnabled || litres <= 0f || float.IsNaN(litres) || float.IsInfinity(litres))
+            if (!isActiveAndEnabled || IsBurnedOut || litres <= 0f || float.IsNaN(litres) || float.IsInfinity(litres))
                 return;
             wetSecondsRemaining = Mathf.Max(wetSecondsRemaining, wetProtectionSeconds);
             bool wasBurning = IsBurning;
@@ -107,6 +111,17 @@ namespace GameJam.FireRescue
                 return;
             wetSecondsRemaining = Mathf.Max(0f, wetSecondsRemaining - deltaTime);
             cooldownSecondsRemaining = Mathf.Max(0f, cooldownSecondsRemaining - deltaTime);
+            if (IsBurning && !IsBurnedOut)
+            {
+                BurnDamage += deltaTime * heat;
+                if (BurnDamage >= secondsToCollapse)
+                {
+                    IsBurnedOut = true; heat = 0;
+                    var ruin = GetComponent<BuildingRuinVisual>();
+                    if (!ruin) ruin = gameObject.AddComponent<BuildingRuinVisual>();
+                    ruin.Collapse(this);
+                }
+            }
             UpdateVisuals();
         }
 

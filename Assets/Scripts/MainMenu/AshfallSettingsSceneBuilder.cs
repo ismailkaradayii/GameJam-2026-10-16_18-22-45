@@ -165,14 +165,16 @@ public static class AshfallSettingsSceneBuilder
     {
         Text title = MakeText("HowToTitle", panel, "NASIL OYNANIR", 34, MainText, TextAnchor.MiddleLeft);
         Anchored(title.rectTransform, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(18f, -52f), new Vector2(-18f, -4f), new Vector2(0.5f, 1f));
-        Text subtitle = MakeText("HowToSubtitle", panel, "Kasabayı yangından koru; gölden su çek ve lav yaratıklarını durdur.", 16, MutedText, TextAnchor.MiddleLeft);
+        Text subtitle = MakeText("HowToSubtitle", panel, "Önce halkı sığınağa götür; ardından kasabayı yangından koru.", 16, MutedText, TextAnchor.MiddleLeft);
         Anchored(subtitle.rectTransform, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(18f, -88f), new Vector2(-18f, -54f), new Vector2(0.5f, 1f));
         MakeRule("HowToTitleRule", panel, Accent, new Vector2(18f, -150f), new Vector2(-18f, -147f));
 
         ScrollRect scroll = CreateScrollView("HowToScrollView", panel, new Vector2(18f, 82f), new Vector2(-18f, -150f));
         Transform content = scroll.content;
-        Text status = MakeInfoCard(content, "VOLCANO DEMO — 5 EVİ KURTAR", "250 litre suyla başlarsın. Gölden depoyu doldur, kasabaya ulaş ve lavların yaktığı beş evi söndür. Kurtardığın evler tekrar yanmaz. 5/5 ev kurtarıldığında kazanırsın.");
+        Text status = MakeInfoCard(content, "VOLCANO DEMO — KASABAYI KORU", "Önce evlere yaklaş, Q ile seslen ve 7 sivili SHELTER tabelalı sığınağa götür. Sonra itfaiyenin deposunu gölden doldur. 10 saniyelik patlama sahnesinden sonra alev ruhlarını durdur. 250 litre suyla başlarsın. Beş evi tamamen söndürünce kazanırsın; kurtarılan ev tekrar yanmaz. Yanan evleri 90 saniye içinde söndür; yaklaşan lavları suyla soğut. Sıcak lava girersen canın azalır.");
         status.fontSize = 14;
+        var missionCardLayout = status.transform.parent.GetComponent<LayoutElement>();
+        missionCardLayout.preferredHeight = missionCardLayout.minHeight = 138f;
         AddSectionTitle(content, "HAREKET VE ARAÇ");
         AddControlRow(content, "HAREKET", "WASD", "Yaya hareket / araç sürüşü. Fareyle etrafa bak.", true);
         AddControlRow(content, "KOŞ", "SHIFT", "Yaya halde koş.", false);
@@ -182,7 +184,7 @@ public static class AshfallSettingsSceneBuilder
         AddControlRow(content, "HORTUM", "E", "Aracın arkasından hortumu al; göle bakıp ucunu bırak.", false);
         AddControlRow(content, "POMPA", "P", "Hortum ucu göldeyken depoyu doldurmak için pompayı aç.", false);
         AddControlRow(content, "TOPLA", "R", "Aracın arkasında hortumu topla; sonra araca binebilirsin.", false);
-        AddControlRow(content, "SU TOPU", "RMB", "Araçtayken sağ tık basılı tut. İşaret suyun tahmini çarpma noktasını gösterir; suyun hedefe ulaşmasını bekle.", false);
+        AddControlRow(content, "SU TOPU", "RMB", "Araçtayken sağ tık basılı tut. Evleri söndür, lavları soğut ve ruhlara su sık. İşaret suyun tahmini çarpma noktasını gösterir; suyun hedefe ulaşmasını bekle.", false);
         AddSectionTitle(content, "SİLAH");
         AddControlRow(content, "ÇEK / KALDIR", "1 / 0", "1 silahı çek/kaldır, 0 silahı kaldır. Hortum taşırken silah kapanır.", false);
         AddControlRow(content, "ATEŞ / NİŞAN", "LMB / RMB", "Yaya halde sol tık ateş, sağ tık nişan al.", false);
@@ -190,7 +192,7 @@ public static class AshfallSettingsSceneBuilder
         AddControlRow(content, "ÇÖMEL", "C", "Silah çekiliyken çömel / kalk.", false);
         AddSectionTitle(content, "DİĞER");
         AddControlRow(content, "DURAKLAT", "ESC", "Oyunu duraklat; Devam Et ile sürdür veya ana menüye dön.", false);
-        AddControlRow(content, "PATLAMA", "V", "Patlamayı erkenden başlat. Beklersen volkan kendiliğinden patlar.", false);
+        AddControlRow(content, "TAHLİYE", "Q", "Evlerin yakınında 'Herkes dışarıya!' diye seslen. Halkı sığınağa götür.", false);
 
         Button back = MakeButton("HowToBackButton", panel, "BACK", Card, MainText, 58f);
         StylePanelButton(back, true);

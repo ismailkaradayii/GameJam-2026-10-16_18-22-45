@@ -19715,9 +19715,8 @@ MonoBehaviour:
     m_VerticalOverflow: 0
     m_LineSpacing: 1
   m_Text: "250 litre suyla ba\u015Flars\u0131n. G\xF6lden depoyu doldur, kasabaya
-    ula\u015F ve lavlar\u0131n yakt\u0131\u011F\u0131 be\u015F evi s\xF6nd\xFCr.
-    Kurtard\u0131\u011F\u0131n evler tekrar yanmaz. 5/5 ev kurtar\u0131ld\u0131\u011F\u0131nda
-    kazan\u0131rs\u0131n."
+    ula\u015F ve lavlar\u0131n yakt\u0131\u011F\u0131 be\u015F evi s\xF6nd\xFCr. Kurtard\u0131\u011F\u0131n
+    evler tekrar yanmaz. 5/5 ev kurtar\u0131ld\u0131\u011F\u0131nda kazan\u0131rs\u0131n."
 --- !u!222 &1688598105
 CanvasRenderer:
   m_ObjectHideFlags: 0

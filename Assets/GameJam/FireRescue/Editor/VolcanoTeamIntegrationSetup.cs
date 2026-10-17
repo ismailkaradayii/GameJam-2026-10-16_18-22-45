@@ -204,6 +204,7 @@ public static class VolcanoTeamIntegrationSetup
         }
         Directory.CreateDirectory("Logs");
         File.WriteAllText("Logs/CreaturePlacementAdjustments.json", JsonUtility.ToJson(placementReport, true));
+        VolcanoCreatureDescentSetup.Configure(encounter);
     }
 
     static void MoveHitboxUnderVisual(LavaCreatureActor actor)

@@ -41,9 +41,20 @@ namespace GameJam.FireRescue
         [Min(0f)] public float cannonCameraLift = 2.8f;
 
         public bool IsDriving { get; private set; }
-        public bool GameplaySuspended => gameplaySuspended || (gameFlow && gameFlow.BlocksGameplay);
+        public bool GameplaySuspended => CinematicLocked || gameplaySuspended || (gameFlow && gameFlow.BlocksGameplay);
         public string InteractionPrompt => GetPrompt();
         public string WaterStatus => GetWaterStatus();
+        public bool CinematicLocked { get; private set; }
+        public void SetCinematicLocked(bool locked)
+        {
+            CinematicLocked = locked;
+            SetCannonActive(false);
+            if (drive) drive.SetInput(0, 0, true);
+            if (firstPerson) firstPerson.SuspendExternalMovement();
+            if (pistol) { pistol.SetExternalInput(false, false, false, false, false, false); pistol.SetAvailable(!locked && !IsDriving && (!hose || !hose.IsCarried)); }
+            equipmentStateKnown = false;
+            if (!locked) RefreshEquipmentState();
+        }
 
         float lookYaw;
         float lookPitch = 16f;
@@ -67,9 +78,11 @@ namespace GameJam.FireRescue
         GUIStyle textStyle;
         GUIStyle promptStyle;
         readonly RaycastHit[] doorHits = new RaycastHit[32];
+        LavaPlayerContact lavaContact;
 
         void Awake()
         {
+            lavaContact = GetComponent<LavaPlayerContact>();
             if (!firstPerson) firstPerson = GetComponent<Itfaiye.ItfaiyeFirstPersonController>();
             if (firstPerson)
             {
@@ -101,6 +114,7 @@ namespace GameJam.FireRescue
 
         void Update()
         {
+            if (CinematicLocked) return;
             Keyboard keyboard = Keyboard.current;
             Mouse mouse = Mouse.current;
             if (GameplaySuspended)
@@ -185,7 +199,7 @@ namespace GameJam.FireRescue
 
         void LateUpdate()
         {
-            if (GameplaySuspended) return;
+            if (GameplaySuspended || CinematicLocked) return;
             // Keep the unified character/creature target with the vehicle while its motor is disabled.
             if (IsDriving && firstPerson && drive && playerBody)
                 playerBody.transform.position = drive.transform.position;
@@ -298,6 +312,7 @@ namespace GameJam.FireRescue
         void MoveOnFoot(Vector2 input, bool sprint, bool jump = false, bool kneel = false, bool captured = true)
         {
             if (!playerBody || !playerBody.enabled) return;
+            if (lavaContact) input *= lavaContact.MovementMultiplier;
             playerBody.transform.rotation = Quaternion.Euler(0f, lookYaw, 0f);
             UpdateFootCamera();
             if (firstPerson)
@@ -434,8 +449,9 @@ namespace GameJam.FireRescue
 
         bool IsClearExit(Vector3 point)
         {
-            float radius = playerBody.radius;
-            float height = Mathf.Max(playerBody.height, radius * 2f);
+            float size = Mathf.Abs(playerBody.transform.lossyScale.y);
+            float radius = playerBody.radius * size;
+            float height = Mathf.Max(playerBody.height * size, radius * 2f);
             Vector3 bottom = point + Vector3.up * (radius + 0.04f);
             Vector3 top = point + Vector3.up * (height - radius);
             Collider[] overlaps = Physics.OverlapCapsule(bottom, top, radius, ~0, QueryTriggerInteraction.Ignore);
@@ -567,7 +583,7 @@ namespace GameJam.FireRescue
 
         void OnGUI()
         {
-            if (!showHud || GameplaySuspended) return;
+            if (!showHud || GameplaySuspended || CinematicLocked) return;
             if (textStyle == null)
             {
                 titleStyle = new GUIStyle(GUI.skin.label) { fontSize = 18, fontStyle = FontStyle.Bold };

@@ -65,6 +65,12 @@ namespace Itfaiye
             spawnRotation = transform.rotation;
             standingHeight = motor.height;
             if (playerCamera != null) cameraRest = playerCamera.transform.localPosition;
+            if (bodyAnimator != null && bodyAnimator.isHuman)
+            {
+                var legs = bodyAnimator.GetComponent<ItfaiyeLegStabilizer>();
+                if (legs == null) legs = bodyAnimator.gameObject.AddComponent<ItfaiyeLegStabilizer>();
+                legs.player = this;
+            }
         }
 
         void Start() { if (!externalControl) SetInputCaptured(true); }
@@ -186,8 +192,9 @@ namespace Itfaiye
             var local = transform.InverseTransformDirection((transform.position - previous) / dt);
             LocalVelocity = new Vector2(local.x, local.z);
             // Use actual displacement, so the feet stop when a wall blocks the player.
-            if (bodyAnimator != null) bodyAnimator.SetFloat(SpeedId, CurrentSpeed, .10f, dt);
-            if (handsAnimator != null) handsAnimator.SetFloat(SpeedId, CurrentSpeed, .10f, dt);
+            float animationSpeed = AuthoredMovementSpeed(CurrentSpeed);
+            if (bodyAnimator != null) bodyAnimator.SetFloat(SpeedId, animationSpeed, .10f, dt);
+            if (handsAnimator != null) handsAnimator.SetFloat(SpeedId, animationSpeed, .10f, dt);
             if (pistol != null)
             {
                 UpdatePistolAnimator(bodyAnimator, dt);
@@ -263,11 +270,20 @@ namespace Itfaiye
         void UpdatePistolAnimator(Animator animator, float dt)
         {
             if (animator == null) return;
-            animator.SetFloat("MoveX", LocalVelocity.x, .10f, dt);
-            animator.SetFloat("MoveY", LocalVelocity.y, .10f, dt);
+            float factor = CurrentSpeed > .001f ? AuthoredMovementSpeed(CurrentSpeed) / CurrentSpeed : 0f;
+            animator.SetFloat("MoveX", LocalVelocity.x * factor, .10f, dt);
+            animator.SetFloat("MoveY", LocalVelocity.y * factor, .10f, dt);
             animator.SetBool("Equipped", pistol.Equipped);
             animator.SetBool("Kneeling", IsKneeling);
             animator.SetBool("Grounded", motor.isGrounded && pendingJump < 0f && Time.time - lastJump > .25f);
+        }
+
+        // The directional clips are authored at 1.87/4.57 m/s. Gameplay speed
+        // changes must not make ordinary walking select the sprint animations.
+        float AuthoredMovementSpeed(float speed)
+        {
+            if (speed <= walkSpeed) return speed / Mathf.Max(.1f, walkSpeed) * 1.87f;
+            return Mathf.Lerp(1.87f, 4.57f, Mathf.InverseLerp(walkSpeed, Mathf.Max(walkSpeed + .1f, runSpeed), speed));
         }
 
         public bool SetKneeling(bool kneeling)
@@ -275,8 +291,9 @@ namespace Itfaiye
             if (!kneeling && (IsKneeling || KneelAmount > .02f))
             {
                 // Only test the extra headroom: the current capsule must not block itself.
-                var hits = Physics.OverlapCapsule(transform.position + Vector3.up * 1.2f,
-                    transform.position + Vector3.up * (standingHeight - motor.radius), motor.radius * .94f,
+                float size = Mathf.Abs(transform.lossyScale.y);
+                var hits = Physics.OverlapCapsule(transform.position + Vector3.up * (1.2f * size),
+                    transform.position + Vector3.up * ((standingHeight - motor.radius) * size), motor.radius * size * .94f,
                     Physics.DefaultRaycastLayers & ~(1 << LayerMask.NameToLayer("FirstPersonHands")), QueryTriggerInteraction.Ignore);
                 foreach (var hit in hits) if (!hit.transform.IsChildOf(transform)) return false;
             }

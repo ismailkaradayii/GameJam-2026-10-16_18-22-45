@@ -35,6 +35,7 @@ namespace GameJam.FireRescue
         public float Tank01 => Mathf.Clamp01(tankLitres / Mathf.Max(1f, tankCapacityLitres));
         public string Status { get; private set; } = "Hortum araçta.";
         public WaterSourceVolume CurrentWaterSource { get; private set; }
+        [System.NonSerialized] public bool fillingUnlocked = true;
 
         private void Awake()
         {
@@ -148,6 +149,7 @@ namespace GameJam.FireRescue
         {
             IsPumping = false;
             CurrentWaterSource = null;
+            if (!fillingUnlocked) { Status = "Önce evlerdeki yedi kişiyi sığınağa götür."; return; }
             if (hoseSocket == null || nozzle == null)
             {
                 Status = "Hortum bağlantıları eksik.";

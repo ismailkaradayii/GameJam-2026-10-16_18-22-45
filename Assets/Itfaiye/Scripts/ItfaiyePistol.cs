@@ -15,6 +15,11 @@ namespace Itfaiye
         public int magazineSize = 12;
         public int reserveAmmo = 48;
         public float shotInterval = .18f;
+        [Header("Shot feel")]
+        [Range(0f, .15f)] public float triggerBuffer = .10f;
+        [Range(1f, 12f)] public float recoilAngle = 7.2f;
+        [Range(.01f, .08f)] public float recoilTravel = .042f;
+        [Range(.3f, 1f)] public float aimedRecoil = .68f;
         [Tooltip("Kosarken atistan sonra silahin dogrulmus kaldigi sure. Sonra kosu pozuna doner.")]
         [Range(.15f, .6f)] public float sprintShotHoldDuration = .32f;
         public float reloadDuration = 3.2f;
@@ -48,7 +53,7 @@ namespace Itfaiye
         public ItfaiyePistolReloadPose ReloadPose => ItfaiyePistolReloadPose.Sample(ReloadProgress, MagazineBase, reloadWasEmpty, Hands);
         public Vector3 MagazineBase => Vector3.Scale(magazineRest, weapon.transform.localScale);
         public Vector3 PoseOffset => new Vector3(-.025f * ReloadWeight, -.48f * (1f - DrawAmount) + .055f * ReloadWeight,
-            -.12f * (1f - DrawAmount) - .08f * ReloadWeight - Recoil * .025f);
+            -.12f * (1f - DrawAmount) - .08f * ReloadWeight - Recoil * recoilTravel);
         public Quaternion PoseRotation
         {
             get
@@ -57,7 +62,7 @@ namespace Itfaiye
                 float weight = IsReloading ? pose.weaponWeight : 0f;
                 var reloadRotation = Quaternion.Slerp(Quaternion.Euler(Hands.magazineWeaponEuler),
                     Quaternion.Euler(Hands.slideWeaponEuler), pose.slideTilt);
-                return Quaternion.Euler(-Recoil * 4.3f, Recoil * recoilSide * .5f, Recoil * recoilSide * .4f)
+                return Quaternion.Euler(-Recoil * recoilAngle, Recoil * recoilSide * .65f, Recoil * recoilSide * .55f)
                     * Quaternion.Slerp(Quaternion.identity, reloadRotation, weight);
             }
         }
@@ -78,6 +83,10 @@ namespace Itfaiye
         RaycastHit aimHit;
         float nextShot, reloadStarted, shotStarted = -100f, flashUntil, recoilSide = 1f;
         float raisedUntil;
+        float queuedShotUntil;
+        readonly float[] recoilTimes = { -100f, -100f, -100f, -100f };
+        readonly float[] recoilWeights = new float[4];
+        int recoilIndex;
         bool sprintShotQueued;
         bool holsterRequested, previouslyCaptured, pendingShot, reloadWasEmpty;
         bool externalCaptured, externalAim, externalFire, externalToggle, externalHolster, externalReload;
@@ -151,8 +160,7 @@ namespace Itfaiye
             if (!captured || !Ready) CancelSprintShot();
             IsAiming = captured && Ready && aim && !player.IsSprinting;
             AimAmount = Mathf.MoveTowards(AimAmount, IsAiming ? 1f : 0f, Time.deltaTime / .18f);
-            float age = ShotAge;
-            Recoil = age < .035f ? ItfaiyePistolReloadPose.Ease(0f, .035f, age) : 1f - ItfaiyePistolReloadPose.Ease(.035f, .24f, age);
+            Recoil = SampleRecoil(1f);
             if (captured && previouslyCaptured && fire) Fire();
             previouslyCaptured = captured;
         }
@@ -160,8 +168,14 @@ namespace Itfaiye
         void LateUpdate()
         {
             if (!Available || player == null || weapon == null || muzzle == null) return;
+            if (sprintShotQueued && Time.time > queuedShotUntil) CancelSprintShot();
             UpdateMechanics();
-            if (Equipped) UpdateAim();
+            if (Equipped)
+            {
+                // Fast hopping hitboxes must match the current rendered pose when firing.
+                Physics.SyncTransforms();
+                UpdateAim();
+            }
             // Hands have already applied this frame's pose. Do not spend ammo or
             // emit effects until the walking or sprint tilt has cleared.
             if (sprintShotQueued && Ready && player.InputCaptured && Ammo > 0
@@ -177,7 +191,7 @@ namespace Itfaiye
                 if (LastShotCollider != null)
                 {
                     var creature = LastShotCollider.GetComponentInParent<GameJam.FireRescue.LavaCreatureActor>();
-                    if (creature != null) creature.ApplyDamage(creatureDamage);
+                    if (creature != null) creature.ApplyBulletDamage(creatureDamage, aimHit.point, AimRay.direction);
                 }
                 if (Feedback != null) Feedback.PlayShot(AimRay, AimPoint, aimHit, AimAmount, MuzzleObstructed);
                 if (AimCollider != null && AimCollider.attachedRigidbody != null && !AimCollider.attachedRigidbody.isKinematic)
@@ -185,6 +199,9 @@ namespace Itfaiye
                 // The shot uses this frame's posed barrel. Recoil begins after that ray,
                 // rather than moving the gun before deciding where the bullet went.
                 shotStarted = Time.time;
+                recoilTimes[recoilIndex] = Time.time;
+                recoilWeights[recoilIndex] = Mathf.Lerp(1f, aimedRecoil, AimAmount);
+                recoilIndex = (recoilIndex + 1) % recoilTimes.Length;
                 if (Casings != null) Casings.QueueEjection();
                 recoilSide = ShotsFired % 2 == 0 ? -.6f : 1f;
                 flashUntil = Time.time + .045f;
@@ -305,10 +322,14 @@ namespace Itfaiye
         }
         public bool Fire()
         {
-            if (!Ready || pendingShot || sprintShotQueued || Time.time < nextShot || Ammo <= 0) return false;
-            if (Hands != null && !Hands.IsMovementPoseRaised)
+            if (!Ready || pendingShot || sprintShotQueued || Ammo <= 0) return false;
+            // Keep a single deliberate click just before the next shot is ready.
+            // Holding fire still cannot turn this semiautomatic pistol into an automatic.
+            if (Time.time < nextShot - triggerBuffer) return false;
+            if (Time.time < nextShot || (Hands != null && !Hands.IsMovementPoseRaised))
             {
                 sprintShotQueued = true;
+                queuedShotUntil = Mathf.Max(Time.time, nextShot) + .22f;
                 return true;
             }
             CommitShot();
@@ -327,6 +348,23 @@ namespace Itfaiye
         {
             sprintShotQueued = false;
             raisedUntil = 0f;
+            queuedShotUntil = 0f;
+        }
+
+        // Difference of two decays: a fast mechanical impulse followed by a
+        // damped return. Pulses add, so a second shot never snaps recoil to zero.
+        public static float ShotImpulse(float age)
+        {
+            if (age < 0f || age > .65f) return 0f;
+            return (Mathf.Exp(-age / .065f) - Mathf.Exp(-age / .009f)) * 1.60f;
+        }
+
+        public float SampleRecoil(float recoveryScale)
+        {
+            float value = 0f;
+            for (int i = 0; i < recoilTimes.Length; i++)
+                value += ShotImpulse((Time.time - recoilTimes[i]) / Mathf.Max(.1f, recoveryScale)) * recoilWeights[i];
+            return Mathf.Min(value, 1.45f);
         }
 
         void OnDisable()
@@ -338,6 +376,8 @@ namespace Itfaiye
         {
             CancelSprintShot();
             IsAiming = false; IsReloading = false; pendingShot = false;
+            Recoil = 0f;
+            for (int i = 0; i < recoilTimes.Length; i++) { recoilTimes[i] = -100f; recoilWeights[i] = 0f; }
             if (muzzleLight != null) muzzleLight.enabled = false;
             if (muzzleFlash != null) muzzleFlash.Clear();
             if (muzzleSmoke != null) muzzleSmoke.Clear();

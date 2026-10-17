@@ -98,6 +98,8 @@ namespace Itfaiye
         public float MovementLowerAngle => movementPitch;
         public bool IsMovementPoseRaised => movementPitch <= .75f;
         bool fingerPoseDirty;
+        Vector3 inertiaPosition, inertiaVelocity, previousVelocity;
+        float breathPhase;
 
         void OnValidate() { fingerPoseDirty = true; }
 
@@ -212,7 +214,12 @@ namespace Itfaiye
             float aim = Mathf.SmoothStep(0f, 1f, pistol.AimAmount);
             float scale = pistol.weapon.transform.localScale.x;
             var aimPosition = new Vector3(-RearSight.x * scale, -RearSight.y * scale, pistolAimDistance);
-            var position = Vector3.Lerp(pistolHipPosition, aimPosition, aim) + animatedMotion * (1f - aim) + pistol.PoseOffset + CurrentSwayOffset + CurrentLocomotionOffset;
+            UpdateInertia();
+            breathPhase += Mathf.Min(Time.deltaTime, .05f) * 1.65f;
+            float breathing = (1f - aim) * (1f - gaitWeight) * (pistol.IsReloading ? 0f : 1f) * pistol.DrawAmount;
+            var breath = new Vector3(Mathf.Sin(breathPhase * .5f) * .0006f, Mathf.Sin(breathPhase) * .0012f, 0f) * breathing;
+            var position = Vector3.Lerp(pistolHipPosition, aimPosition, aim) + animatedMotion * (.35f * (1f - aim))
+                + pistol.PoseOffset + CurrentSwayOffset + CurrentLocomotionOffset + inertiaPosition * Mathf.Lerp(1f, .15f, aim) + breath;
             var heldRotation = pistol.PoseRotation * Quaternion.Slerp(Quaternion.Euler(pistolHipEuler), Quaternion.identity, aim);
             var motionEuler = CurrentSwayEuler + CurrentLocomotionEuler;
             var rotation = Quaternion.Euler(motionEuler) * heldRotation;
@@ -221,6 +228,10 @@ namespace Itfaiye
             var beforeMovementTilt = Quaternion.Euler(motionEuler - Vector3.right * movementPitch) * heldRotation;
             var gripCentre = (RightGrip + LeftGrip) * .5f;
             position += beforeMovementTilt * gripCentre - rotation * gripCentre;
+            // Recoil rotates about the wrists as well as translating backwards.
+            // Both palms therefore remain planted instead of circling the mesh origin.
+            var withoutRecoil = Quaternion.Euler(motionEuler) * Quaternion.Euler(pistol.Recoil * pistol.recoilAngle, 0f, 0f) * heldRotation;
+            position += withoutRecoil * gripCentre - rotation * gripCentre;
             pistol.weapon.transform.SetPositionAndRotation(view.TransformPoint(position), view.rotation * rotation);
             PoseArm(false, position + rotation * RightGrip, view.rotation * rotation * RightGripRotation);
             var reload = pistol.ReloadPose;
@@ -266,6 +277,7 @@ namespace Itfaiye
                 swayEuler = Vector3.SmoothDamp(swayEuler, targetEuler, ref swayRotationVelocity, smoothing, Mathf.Infinity, dt);
             }
             float weight = weaponSway && pistol != null ? pistol.DrawAmount * Mathf.Lerp(1f, aimSwayMultiplier, Mathf.SmoothStep(0f, 1f, pistol.AimAmount)) : 0f;
+            if (pistol != null && pistol.KeepRaisedForShot) weight *= .45f;
             CurrentSwayOffset = swayPosition * weight;
             CurrentSwayEuler = swayEuler * weight;
         }
@@ -288,10 +300,20 @@ namespace Itfaiye
             // lowered pose fades out; neither the saved grip nor run speed changes.
             bool raisingForShot = pistol.KeepRaisedForShot;
             float poseSmoothing = raisingForShot ? Mathf.Max(.04f, sprintRaiseSmoothTime) : smoothing;
-            sprintLowering = Mathf.SmoothDamp(sprintLowering, raisingForShot ? 0f : targetSprint,
+            if (raisingForShot)
+            {
+                sprintLowering = Mathf.MoveTowards(sprintLowering, 0f, dt / Mathf.Clamp(sprintRaiseSmoothTime, .04f, .12f));
+                sprintLowerVelocity = 0f;
+            }
+            else sprintLowering = Mathf.SmoothDamp(sprintLowering, targetSprint,
                 ref sprintLowerVelocity, poseSmoothing, Mathf.Infinity, dt);
             float targetWalk = moving && !player.IsSprinting && !pistol.IsAiming ? targetGait : 0f;
-            walkLowering = Mathf.SmoothDamp(walkLowering, raisingForShot ? 0f : targetWalk,
+            if (raisingForShot)
+            {
+                walkLowering = Mathf.MoveTowards(walkLowering, 0f, dt / .045f);
+                walkLowerVelocity = 0f;
+            }
+            else walkLowering = Mathf.SmoothDamp(walkLowering, targetWalk,
                 ref walkLowerVelocity, poseSmoothing, Mathf.Infinity, dt);
             if (moving)
             {
@@ -310,12 +332,26 @@ namespace Itfaiye
             float aim = Mathf.SmoothStep(0f, 1f, pistol.AimAmount);
             float visible = weaponSway ? pistol.DrawAmount : 0f;
             float bobWeight = visible * Mathf.Lerp(1f, aimSwayMultiplier, aim);
+            if (raisingForShot) bobWeight *= .35f;
             float lowerWeight = visible * sprintLowering * (1f - aim);
             float walkWeight = visible * walkLowering * (1f - aim);
             movementPitch = sprintLowerAngle * lowerWeight + walkLowerAngle * walkWeight;
             CurrentLocomotionOffset = bobPosition * bobWeight + new Vector3(0f, -sprintLowerDistance, -.02f) * lowerWeight
                 + Vector3.down * (walkLowerDistance * walkWeight);
             CurrentLocomotionEuler = bobEuler * bobWeight + Vector3.right * movementPitch;
+        }
+
+        void UpdateInertia()
+        {
+            var player = pistol.player;
+            float dt = Time.deltaTime;
+            if (player == null || dt <= 0f) return;
+            var velocity = new Vector3(player.LocalVelocity.x, 0f, player.LocalVelocity.y);
+            var acceleration = Vector3.ClampMagnitude((velocity - previousVelocity) / Mathf.Max(dt, .001f), 20f);
+            previousVelocity = velocity;
+            var target = weaponSway && player.InputCaptured && !pistol.IsReloading
+                ? new Vector3(-acceleration.x * .00035f, 0f, -acceleration.z * .00028f) : Vector3.zero;
+            inertiaPosition = Vector3.SmoothDamp(inertiaPosition, target, ref inertiaVelocity, .10f, .3f, dt);
         }
 
         void PoseArm(bool left, Vector3 wrist, Quaternion wristRotation)
@@ -333,7 +369,8 @@ namespace Itfaiye
             Vector3 direction = target - upper.position;
             // Let the shoulder follow a small forward reach instead of letting the
             // wrist slip off the gun when stride motion extends the arm fully.
-            float shoulderReach = Mathf.Clamp(direction.magnitude - (upperLength + lowerLength - .025f), 0f, .12f);
+            float viewScale = Mathf.Max(.01f, view.lossyScale.y);
+            float shoulderReach = Mathf.Clamp(direction.magnitude - (upperLength + lowerLength - .025f * viewScale), 0f, .12f * viewScale);
             upper.position += direction.normalized * shoulderReach;
             direction = target - upper.position;
             float distance = Mathf.Clamp(direction.magnitude, .01f, upperLength + lowerLength - .001f);
