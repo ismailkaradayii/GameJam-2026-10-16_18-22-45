@@ -84,6 +84,9 @@ public static class WaterRealismChecks
             player = character.GetComponent<ItfaiyeFirstPersonController>(); player.externalControl = true; player.recoverFromFall = false;
             player.walkSpeed = 4; player.runSpeed = 6; player.pistol.externalControl = true; player.pistol.showHud = false;
             container.SetActive(true); driver = container.AddComponent<WaterReviewDriver>(); driver.player = player;
+            // Match the 960x720 review captures instead of inheriting a narrow docked Game View.
+            player.playerCamera.aspect = 4f / 3f;
+            if (player.handsCamera) player.handsCamera.aspect = 4f / 3f;
             var data = player.playerCamera.GetUniversalAdditionalCameraData(); data.requiresDepthTexture = true; data.requiresColorTexture = true; data.renderPostProcessing = true;
             player.playerCamera.clearFlags = CameraClearFlags.SolidColor; player.playerCamera.backgroundColor = new Color(.26f, .35f, .4f);
             reviewCamera = new GameObject("Water review camera").AddComponent<Camera>(); reviewCamera.enabled = false;

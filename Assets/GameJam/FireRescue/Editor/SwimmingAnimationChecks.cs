@@ -76,6 +76,9 @@ public static class SwimmingAnimationChecks
             player = coordinator.firstPerson; motor = coordinator.playerBody; motor.enabled = true;
             player.externalControl = true; player.recoverFromFall = false;
             player.pistol.externalControl = true; player.pistol.showHud = false;
+            // Visibility samples and 960x720 captures must use the same projection.
+            player.playerCamera.aspect = 4f / 3f;
+            if (player.handsCamera) player.handsCamera.aspect = 4f / 3f;
             originalScale = player.transform.localScale.y;
             water = practice.GetRootGameObjects().SelectMany(r => r.GetComponentsInChildren<WaterSourceVolume>()).Single();
             var go = new GameObject("Authored swimming review driver"); driver = go.AddComponent<AuthoredSwimmingReviewDriver>(); driver.player = player;

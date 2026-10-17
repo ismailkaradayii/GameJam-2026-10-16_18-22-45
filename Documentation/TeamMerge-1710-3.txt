@@ -1,0 +1,59 @@
+17 Ekim 2026 — üç ekip branch'inin main üzerinde birleşimi
+
+Kaynaklar:
+ismail1710-3: 43c7c34aa31ff12584cfdcae1e3382fd6476f326
+osman1710-3: a7422d4ab760f6ae37bc0b68bbd92615f8aed4b0
+soneylul: 76b02ec8f52889c98ef02484f541780a23097757
+Önceki main: 1ab0c4bf0535a3da909254c6c955a18bc4fa3fbc
+
+Kaynak branch'lerin geçmişi korunarak iki merge commit'i oluşturuldu.
+Volcano_Demo sahnesi GameObject/fileID bazında üç yönlü birleştirildi.
+Alarm butonu, 28 bağlamsal etkileşim hedefi, 7 köylü, 5 ev, hızlı araç,
+120 saniyelik bağımsız sayaç ve gelişmiş volkan/sprint efektleri korundu.
+Osman'ın su, yüzme, dış mekân ruh navigasyonu ve savaş geliştirmeleri;
+Eylül'ün ses, menü, video, yazı tipi ve İngilizce ana HUD düzenlemeleri eklendi.
+
+Ortak alanlardaki kararlar:
+- El riginde alarm tokadı, yüzme animasyonu ve silah pozları ayrı koşullarda sürer.
+- Yüzmede silah kapanır; sprint FOV ve alarm kamera eğilmesi korunur.
+- Ev yangınında mevcut fitted sunum önceliklidir; BuildingFireVisual yedektir.
+  İki sunum aynı yangın parçacıklarını eşzamanlı yönetmez. Sağlamlaştırılmış
+  çökme, pencere ışığı temizliği ve kısa çökme tozu birleştirildi.
+- Güçlü savaş geri bildirimi korunurken yeni etki sesleri ve SFX gain uygulandı.
+- Kaydedilmiş HUD ölçüleri korundu; sahnenin bir tarafı toptan ezilmedi.
+- Yerel GameJam.sln ayarı korundu.
+- Su/yüzme test kameraları 960x720 çekimlerle aynı 4:3 projeksiyonu kullanır.
+  Dar editör paneline bağlı yanlış görünürlük sonuçları giderildi;
+  test koşulları gevşetilmedi ve bu düzeltme oynanış kamerasını değiştirmez.
+
+Birleşmiş sürümde Unity 6000.0.58f2 ile yapılan kontroller:
+- Alarm: 30/30 Play Mode kontrolü.
+- Bağlamsal etkileşim ve görev/UI entegrasyonu: 59/59.
+- Oyuncu/araç hız ve ses kontrolleri: 20/20.
+- Ses zaman çizelgesi ve bağlı ses kaynakları: 22/22.
+- Kaydedilmiş su sahneleri, referanslar ve URP shader'ları: 17/17.
+- Su fiziği, dalma/çıkma ve basınçlı su görselleri: 28/28.
+- İçe aktarılmış yüzme animasyonları ve havuz kenarı/ölçek senaryoları: 38/38.
+- Birleşmiş ana sahne: 0 eksik script, 7 köylü, 5 ev, tek oyun yöneticisi/HUD.
+- Statik sahne incelemesi: tekrarlanan fileID yok, kopuk yerel referans yok,
+  çakışan asset GUID'i yok, çözülmemiş Git LFS pointer dosyası yok.
+
+Test kapsamı:
+Gerçek Unity Play Mode frame'leri, sentetik E girdisi ve mevcut controller API'ları
+kullanıldı. Bazı kontroller geçici zemin, su ve kamera fixture'ları kullanır.
+Bu birleşim için baştan sona fiziksel klavyeyle manuel köy/sürüş turu veya
+dağıtılabilir oyuncu build'i yapıldığı iddia edilmez. Sesler elle dinlenmedi.
+
+Ayrıntılı yerel raporlar (Logs klasörü sürüm kontrolünde tutulmaz):
+Logs/VillageAlarm/checks.txt
+Logs/ContextualInteraction/checks.txt
+Logs/PaceAudioChecks.txt
+Logs/AudioTimelineChecks_Volcano_Demo.txt
+Logs/WaterRealism-scenes.json
+Logs/WaterRealismReview/report.json
+Logs/SwimmingAnimationReview/report.json
+Logs/BranchMerge/validation.txt
+Logs/FinalLoop-validation.txt
+Logs/TeamMerge-1710-3/structural-audit.json
+
+Ek Inspector kurulumu gerekmez. Volcano_Demo'da Play ile başlanabilir.
