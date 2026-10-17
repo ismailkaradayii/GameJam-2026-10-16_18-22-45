@@ -7,18 +7,13 @@ using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
-[InitializeOnLoad]
+// Supplied assets must not be regenerated on Editor load; rebuild only on explicit request.
 public static class LavaCreatureInstaller
 {
     const string ModelPath = "Assets/LavaCreature/Models/lava_creature_animated.fbx";
     const string ControllerPath = "Assets/LavaCreature/Animations/LavaCreature.controller";
     const string PrefabPath = "Assets/LavaCreature/Prefabs/LavaCreature.prefab";
     const string SessionKey = "LavaCreatureInstaller_20261016_v17_local_frontflip";
-
-    static LavaCreatureInstaller()
-    {
-        EditorApplication.delayCall += InstallOnce;
-    }
 
     [MenuItem("Tools/Lava Creature/Rebuild Unity Assets")]
     public static void Rebuild()
