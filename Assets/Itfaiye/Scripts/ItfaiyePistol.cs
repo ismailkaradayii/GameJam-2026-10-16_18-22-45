@@ -85,6 +85,8 @@ namespace Itfaiye
 
         readonly RaycastHit[] hits = new RaycastHit[32];
         RaycastHit aimHit;
+        GameJam.FireRescue.WaterSourceVolume aimWater;
+        public GameJam.FireRescue.WaterSourceVolume LastShotWater { get; private set; }
         float nextShot, reloadStarted, shotStarted = -100f, flashUntil, recoilSide = 1f;
         float raisedUntil;
         float queuedShotUntil;
@@ -197,13 +199,15 @@ namespace Itfaiye
                 LastShotPoint = AimPoint;
                 LastShotCollider = AimCollider;
                 LastShotHit = aimHit;
-                if (LastShotCollider != null)
+                LastShotWater = aimWater;
+                if (aimWater) aimWater.Effects.Bullet(AimPoint, AimRay.direction);
+                if (LastShotCollider != null && !aimWater)
                 {
                     var creature = LastShotCollider.GetComponentInParent<GameJam.FireRescue.LavaCreatureActor>();
                     if (creature != null) creature.ApplyBulletDamage(creatureDamage, aimHit.point, AimRay.direction);
                 }
                 if (Feedback != null) Feedback.PlayShot(AimRay, AimPoint, aimHit, AimAmount, MuzzleObstructed);
-                if (AimCollider != null && AimCollider.attachedRigidbody != null && !AimCollider.attachedRigidbody.isKinematic)
+                if (!aimWater && AimCollider != null && AimCollider.attachedRigidbody != null && !AimCollider.attachedRigidbody.isKinematic)
                     AimCollider.attachedRigidbody.AddForceAtPosition(AimRay.direction * 12f, AimPoint, ForceMode.Impulse);
                 // The shot uses this frame's posed barrel. Recoil begins after that ray,
                 // rather than moving the gun before deciding where the bullet went.
@@ -246,6 +250,7 @@ namespace Itfaiye
 
         void UpdateAim()
         {
+            aimWater = null;
             AimRay = new Ray(muzzle.position, muzzle.forward);
             var cameraToMuzzle = muzzle.position - player.playerCamera.transform.position;
             MuzzleObstructed = Raycast(new Ray(player.playerCamera.transform.position, cameraToMuzzle.normalized), cameraToMuzzle.magnitude, out var hit);
@@ -259,6 +264,13 @@ namespace Itfaiye
             {
                 AimPoint = AimRay.GetPoint(range);
                 AimCollider = null;
+                aimHit = default;
+            }
+            if (!MuzzleObstructed && GameJam.FireRescue.WaterSurfaceInteraction.Raycast(AimRay,
+                Vector3.Distance(AimRay.origin, AimPoint) + .002f, out var water, out var waterPoint))
+            {
+                aimWater = water; AimPoint = waterPoint; AimCollider = water.volume;
+                // No solid hit is passed to feedback, so water never spawns bullet holes or concrete dust.
                 aimHit = default;
             }
         }

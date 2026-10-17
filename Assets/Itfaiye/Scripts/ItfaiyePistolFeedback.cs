@@ -58,7 +58,7 @@ namespace Itfaiye
                 // a separate aimed multiplier and must not attenuate the camera twice.
                 float envelope = ItfaiyePistol.ShotImpulse(age / Mathf.Max(.1f, kickRecovery / .23f));
                 float impactAge = Mathf.Max(0f, Time.time - confirmTime);
-                float impact = Mathf.Sin(impactAge * 62f) * Mathf.Exp(-impactAge * 24f) * creatureImpactKick * (killingHit ? 1.35f : 1f);
+                float impact = Mathf.Sin(impactAge * 58f) * Mathf.Exp(-impactAge * 21f) * creatureImpactKick * (killingHit ? 1.55f : 1.18f);
                 float shudder = Mathf.Sin(age * 155f) * Mathf.Exp(-Mathf.Max(0, age) * 32f) * shotShake * shotWeight;
                 return Quaternion.Euler(-kickStrength * envelope - impact + shudder * .3f, kickSide * (kickStrength * .12f * envelope + shudder),
                     kickSide * kickStrength * .14f * envelope + impact * .32f + shudder * .7f);
@@ -179,7 +179,7 @@ namespace Itfaiye
                 if (confirmation && creatureConfirmVolume > 0f)
                 {
                     confirmAudio.pitch = killingHit ? 1f : Random.Range(.96f, 1.04f);
-                    confirmAudio.PlayOneShot(confirmation, creatureConfirmVolume * (killingHit ? 1.15f : 1f));
+                    confirmAudio.PlayOneShot(confirmation, Mathf.Min(1f, creatureConfirmVolume * (killingHit ? 1.35f : 1.15f)));
                 }
                 PlayTargetImpact(hit.point);
                 return;
@@ -350,7 +350,7 @@ namespace Itfaiye
         void OnGUI()
         {
             float age=Time.time-hitTime;
-            float lifetime = killingHit ? .46f : creatureHit ? .27f : .14f;
+            float lifetime = killingHit ? .46f : creatureHit ? .32f : .14f;
             if(!showHitMarker||age>lifetime||pistol==null||!pistol.showHud||!pistol.Equipped||!pistol.player.InputCaptured) return;
             Vector3 screen=pistol.player.playerCamera.WorldToScreenPoint(hitTransform!=null?hitTransform.TransformPoint(localHitPoint):hitPoint);
             if(screen.z<=0) return;

@@ -335,7 +335,8 @@ namespace GameJam.FireRescue
         {
             bool carrying = hose && hose.IsCarried;
             bool available = !IsDriving && !carrying && !CinematicLocked;
-            if (pistol) pistol.SetAvailable(available && HasPistol);
+            bool swimming = firstPerson && firstPerson.IsSwimming;
+            if (pistol) pistol.SetAvailable(available && HasPistol && !swimming);
             if (equipmentStateKnown && previousDriving == IsDriving && previousCarrying == carrying) return;
             equipmentStateKnown = true;
             previousDriving = IsDriving;
@@ -371,7 +372,9 @@ namespace GameJam.FireRescue
             if (firstPerson)
             {
                 firstPerson.SimulateExternalMovement(input, sprint, jump, kneel, captured, lookPitch, lookAngularVelocity,
-                    hose && hose.IsCarried && hand && hose.hoseSocket ? hoseTravelConstraint : null);
+                    hose && hose.IsCarried && hand && hose.hoseSocket ? hoseTravelConstraint : null,
+                    captured && Keyboard.current != null ? (Keyboard.current.spaceKey.isPressed ? 1f : 0f) -
+                    (Keyboard.current.leftCtrlKey.isPressed || Keyboard.current.cKey.isPressed ? 1f : 0f) : 0f);
                 return;
             }
             Vector3 travel = playerBody.transform.TransformDirection(new Vector3(input.x, 0f, input.y));
@@ -714,6 +717,7 @@ namespace GameJam.FireRescue
 
         string GetPrompt()
         {
+            if (firstPerson && firstPerson.IsSwimming) return "WASD: Swim  |  SHIFT: Fast swim  |  SPACE: Surface / climb out  |  CTRL: Dive";
             if (Time.unscaledTime < noticeUntil) return notice;
             if (mission && mission.weaponPickup && mission.weaponPickup.CanPickUp) return "Press E to Pick Up";
             if (IsDriving)

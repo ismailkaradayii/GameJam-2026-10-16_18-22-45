@@ -107,12 +107,14 @@ namespace Itfaiye
         bool fingerPoseDirty;
         Vector3 inertiaPosition, inertiaVelocity, previousVelocity;
         float breathPhase;
+        ItfaiyeFirstPersonController swimmingPlayer;
 
         void OnValidate() { fingerPoseDirty = true; }
 
         void Awake()
         {
             animator = GetComponent<Animator>();
+            swimmingPlayer = GetComponentInParent<ItfaiyeFirstPersonController>();
             if (!animator.isHuman) return;
             CacheGrip();
         }
@@ -158,6 +160,7 @@ namespace Itfaiye
                         value = Mathf.Clamp(value, -1f, 1f);
                     }
                 }
+                else if (poseIndex == 1) value = spread ? .05f : thumb ? .25f : .7f;
                 else if (poseIndex == 4 && name.Contains("Index") && !spread) value -= first ? .08f : .20f;
                 pose.muscles[i] = value;
             }
@@ -196,6 +199,14 @@ namespace Itfaiye
         void OnAnimatorIK(int layerIndex)
         {
             if (view == null || animator == null || !animator.isHuman) return;
+            if (swimmingPlayer && swimmingPlayer.IsSwimming)
+            {
+                animator.SetIKPositionWeight(AvatarIKGoal.LeftHand, 0);
+                animator.SetIKPositionWeight(AvatarIKGoal.RightHand, 0);
+                animator.SetIKRotationWeight(AvatarIKGoal.LeftHand, 0);
+                animator.SetIKRotationWeight(AvatarIKGoal.RightHand, 0);
+                return;
+            }
             if (pistol != null && pistol.DrawAmount > .001f)
             {
                 var right = animator.GetBoneTransform(HumanBodyBones.RightHand);
@@ -216,6 +227,11 @@ namespace Itfaiye
         {
             UpdateSway();
             UpdateLocomotion();
+            if (swimmingPlayer && swimmingPlayer.Swimming && swimmingPlayer.Swimming.Blend > .001f && view && animator && animator.isHuman)
+            {
+                PresentSwimmingAnimation();
+                if (swimmingPlayer.IsSwimming) return;
+            }
             if (view == null || pistol == null || pistol.weapon == null || pistol.DrawAmount <= .001f || animator == null || !animator.isHuman) return;
             if (fingerPoseDirty) CacheGrip();
             float aim = Mathf.SmoothStep(0f, 1f, pistol.AimAmount);
@@ -375,8 +391,9 @@ namespace Itfaiye
             float lowerLength = Vector3.Distance(lower.position, hand.position);
             float side = left ? -1f : 1f;
             // Camera-space shoulders keep the viewmodel within reach during kneeling and jumps.
-            var reach = left && pistol.IsReloading ? new Vector3(-.015f, .015f, .035f) * pistol.ReloadPose.weaponWeight : Vector3.zero;
-            upper.position = view.TransformPoint(new Vector3(side * .17f, -.18f, -.06f) + pistol.PoseOffset * .4f + reach);
+            bool swimming = swimmingPlayer && swimmingPlayer.IsSwimming;
+            var reach = left && pistol && pistol.IsReloading && !swimming ? new Vector3(-.015f, .015f, .035f) * pistol.ReloadPose.weaponWeight : Vector3.zero;
+            upper.position = view.TransformPoint(new Vector3(side * .17f, -.18f, -.06f) + (pistol && !swimming ? pistol.PoseOffset * .4f : Vector3.zero) + reach);
             Vector3 target = view.TransformPoint(wrist);
             Vector3 direction = target - upper.position;
             // Let the shoulder follow a small forward reach instead of letting the
@@ -396,6 +413,28 @@ namespace Itfaiye
             upper.rotation = Quaternion.FromToRotation(wristRotation * lower.localPosition, elbow - upper.position) * wristRotation;
             lower.rotation = Quaternion.FromToRotation(wristRotation * hand.localPosition, target - lower.position) * wristRotation;
             hand.rotation = wristRotation;
+        }
+
+        void PresentSwimmingAnimation()
+        {
+            var swim = swimmingPlayer.Swimming;
+            if (!swim.UsesAuthoredAnimations) return;
+            // Retarget the clip's reach into the first-person view. The cut shoulders stay behind
+            // the camera; elbow bends, wrists and fingers keep their imported local animation.
+            for (int i = 0; i < 2; i++)
+            {
+                bool left = i == 0; float side = left ? -1f : 1f;
+                var upper = animator.GetBoneTransform(left ? HumanBodyBones.LeftUpperArm : HumanBodyBones.RightUpperArm);
+                var hand = animator.GetBoneTransform(left ? HumanBodyBones.LeftHand : HumanBodyBones.RightHand);
+                if (!upper || !hand) continue;
+                Vector3 arm = hand.position - upper.position;
+                Vector3 native = swimmingPlayer.transform.InverseTransformVector(arm);
+                Vector3 direction = new Vector3(native.x * .5f, .1f + native.y * .15f, Mathf.Max(.1f, .4f + native.z * .4f)).normalized;
+                Quaternion rotation = Quaternion.FromToRotation(arm, view.TransformDirection(direction)) * upper.rotation;
+                Vector3 position = view.TransformPoint(new Vector3(side * .16f, -.19f, -.04f));
+                upper.position = Vector3.Lerp(upper.position, position, swim.Blend);
+                upper.rotation = Quaternion.Slerp(upper.rotation, rotation, swim.Blend);
+            }
         }
 
         void PresentHand(AvatarIKGoal goal, HumanBodyBones bone, Vector3 rest)

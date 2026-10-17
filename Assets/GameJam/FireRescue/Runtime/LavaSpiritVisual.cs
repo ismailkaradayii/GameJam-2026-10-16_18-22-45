@@ -32,7 +32,7 @@ namespace GameJam.FireRescue
         bool built, dying;
 
         public bool IsBuilt => built;
-        public float ImpactFlash => Mathf.Clamp01(1f - Mathf.Max(0f, Time.time - impactAt - .045f) / .13f);
+        public float ImpactFlash => Mathf.Clamp01(1f - Mathf.Max(0f, Time.time - impactAt - .055f) / .18f);
         public Transform VisualRoot => rig;
 
         public static LavaSpiritVisual Ensure(LavaCreatureActor owner)
@@ -144,13 +144,13 @@ namespace GameJam.FireRescue
         void Animate()
         {
             float t = Time.time, age = Mathf.Max(0f, t - impactAt);
-            float kick = Mathf.Sin(Mathf.Min(age, .5f) * 30f) * Mathf.Exp(-age * 11f);
+            float kick = Mathf.Sin(Mathf.Min(age, .55f) * 26f) * Mathf.Exp(-age * 8.5f);
             float flash = ImpactFlash;
             float landing = Mathf.Exp(-Mathf.Max(0f, t - landingAt) * 18f);
             float breathe = Mathf.Sin(t * 4.4f + phase) * .022f;
-            float squash = flash * .22f + landing * .1f;
-            rig.localPosition = restPosition + ModelBasis * (localShot * (.27f * kick) + Vector3.up * breathe) * restScale.x;
-            rig.localRotation = ModelBasis * Quaternion.Euler(localShot.z * kick * 15f, 0, -localShot.x * kick * 18f);
+            float squash = flash * .28f + landing * .1f;
+            rig.localPosition = restPosition + ModelBasis * (localShot * (.4f * kick) + Vector3.up * breathe) * restScale.x;
+            rig.localRotation = ModelBasis * Quaternion.Euler(localShot.z * kick * 22f, 0, -localShot.x * kick * 25f);
             rig.localScale = Vector3.Scale(restScale, new Vector3(1f + squash, 1f - squash + breathe, 1f + squash * .35f));
             float charge = combat ? combat.AttackCharge * 1.8f : 0f;
             block.SetFloat(HitId, flash);
