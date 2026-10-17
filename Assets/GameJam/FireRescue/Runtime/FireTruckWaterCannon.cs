@@ -92,6 +92,11 @@ namespace GameJam.FireRescue
                 consumed = tank.ConsumeWater(flowLitresPerSecond * deltaTime);
                 if (consumed > 0f && HitFire != null)
                     HitFire.ApplyWater(consumed);
+                if (consumed > 0f && hitCollider != null)
+                {
+                    var creature = hitCollider.GetComponentInParent<LavaCreatureActor>();
+                    if (creature != null) creature.ApplyWater(consumed);
+                }
             }
 
             // Apply the final partial amount, then show the empty-tank state immediately.

@@ -36,8 +36,10 @@ namespace Ashfall.MainMenu
         [SerializeField] private AudioSource eruptionSource;
 
         [Header("Navigation")]
-        [SerializeField] private string gameplaySceneName = "eylul";
+        [SerializeField] private string gameplaySceneName = "Volcano_Demo";
         [SerializeField] private AshfallSettingsController settingsController;
+
+        public string GameplaySceneName => gameplaySceneName;
 
         private Vector3 cameraRestPosition;
         private bool panelOpen;
@@ -47,6 +49,9 @@ namespace Ashfall.MainMenu
 
         private void Awake()
         {
+            Time.timeScale = 1f;
+            Cursor.lockState = CursorLockMode.None;
+            Cursor.visible = true;
             WireButtonCallbacks();
             if (cameraTransform != null) cameraRestPosition = cameraTransform.localPosition;
             if (ambientEmbers != null && !ambientEmbers.isPlaying) ambientEmbers.Play();
@@ -142,7 +147,10 @@ namespace Ashfall.MainMenu
         public void NewGame()
         {
             if (Application.CanStreamedLevelBeLoaded(gameplaySceneName))
+            {
+                Time.timeScale = 1f;
                 SceneManager.LoadScene(gameplaySceneName);
+            }
             else
                 Debug.LogError($"ASHFALL: Gameplay scene '{gameplaySceneName}' is not included in Build Settings.", this);
         }

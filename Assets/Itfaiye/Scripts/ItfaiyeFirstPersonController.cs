@@ -14,6 +14,8 @@ namespace Itfaiye
         public Animator bodyAnimator;
         public Animator handsAnimator;
         public ItfaiyePistol pistol;
+        [Tooltip("A gameplay coordinator supplies movement and view input instead of this component polling devices.")]
+        public bool externalControl;
 
         [Header("Movement (metres per second)")]
         [Min(.1f)] public float walkSpeed = 1.87f;
@@ -62,15 +64,16 @@ namespace Itfaiye
             spawnPosition = transform.position;
             spawnRotation = transform.rotation;
             standingHeight = motor.height;
-            cameraRest = playerCamera.transform.localPosition;
+            if (playerCamera != null) cameraRest = playerCamera.transform.localPosition;
         }
 
-        void Start() { SetInputCaptured(true); }
+        void Start() { if (!externalControl) SetInputCaptured(true); }
 
         public void SetInputCaptured(bool captured)
         {
             if (captured && !InputCaptured) ignoreLookFrames = 2;
             InputCaptured = captured;
+            if (externalControl) return;
             Cursor.lockState = captured ? CursorLockMode.Locked : CursorLockMode.None;
             Cursor.visible = !captured;
         }
@@ -84,6 +87,7 @@ namespace Itfaiye
 
         void Update()
         {
+            if (externalControl) return;
             LookAngularVelocity = Vector2.zero;
             if (playerCamera == null || motor == null) return;
             var keyboard = Keyboard.current;
@@ -116,15 +120,35 @@ namespace Itfaiye
                     sprint = keyboard.leftShiftKey.isPressed || keyboard.rightShiftKey.isPressed;
                 }
             }
+            SimulateMovement(move, sprint, keyboard != null && keyboard.spaceKey.wasPressedThisFrame,
+                keyboard != null && keyboard.cKey.wasPressedThisFrame, null);
+        }
+
+        /// <summary>One coordinator owns input; this component retains the authored locomotion and animation.</summary>
+        public void SimulateExternalMovement(Vector2 move, bool sprint, bool jump, bool kneel,
+            bool captured, float viewPitch, Vector2 lookVelocity, System.Func<Vector3, Vector3> constrainTravel = null)
+        {
+            if (!externalControl) return;
+            InputCaptured = captured;
+            pitch = Mathf.Clamp(viewPitch, -maximumPitch, maximumPitch);
+            LookAngularVelocity = captured ? lookVelocity : Vector2.zero;
+            SimulateMovement(captured ? move : Vector2.zero, captured && sprint,
+                captured && jump, captured && kneel, constrainTravel);
+            AdvancePosture();
+        }
+
+        void SimulateMovement(Vector2 move, bool sprint, bool jump, bool kneel, System.Func<Vector3, Vector3> constrainTravel)
+        {
+            if (motor == null || !motor.enabled) return;
             move = Vector2.ClampMagnitude(move, 1f);
             float dt = Time.deltaTime;
             if (dt <= 0f) return;
             bool armed = pistol != null && pistol.Equipped;
-            if (InputCaptured && keyboard != null && armed)
+            if (InputCaptured && armed)
             {
-                if (keyboard.cKey.wasPressedThisFrame && motor.isGrounded) SetKneeling(!IsKneeling);
+                if (kneel && motor.isGrounded) SetKneeling(!IsKneeling);
                 if (move.sqrMagnitude > .01f && IsKneeling) SetKneeling(false);
-                if (keyboard.spaceKey.wasPressedThisFrame && motor.isGrounded && pendingJump < 0f && Time.time - lastJump > .6f)
+                if (jump && motor.isGrounded && pendingJump < 0f && Time.time - lastJump > .6f)
                 {
                     if (IsKneeling || KneelAmount > .02f) SetKneeling(false);
                     else if (!PostureTransition)
@@ -133,6 +157,7 @@ namespace Itfaiye
                         lastJump = Time.time;
                         foreach (var anim in new[] { bodyAnimator, handsAnimator })
                         {
+                            if (anim == null) continue;
                             anim.SetBool("MovingJump", move.sqrMagnitude > .01f);
                             anim.SetTrigger("Jump");
                         }
@@ -152,7 +177,9 @@ namespace Itfaiye
             }
             verticalVelocity = Mathf.Max(verticalVelocity + gravity * dt, -45f);
             var previous = transform.position;
-            var collisions = motor.Move((planarVelocity + Vector3.up * verticalVelocity) * dt);
+            Vector3 travel = planarVelocity * dt;
+            if (constrainTravel != null) travel = constrainTravel(travel);
+            var collisions = motor.Move(travel + Vector3.up * verticalVelocity * dt);
             if ((collisions & CollisionFlags.Above) != 0 && verticalVelocity > 0f) verticalVelocity = 0f;
             if ((collisions & CollisionFlags.Below) != 0) verticalVelocity = -2f;
             CurrentSpeed = Vector3.ProjectOnPlane(transform.position - previous, Vector3.up).magnitude / dt;
@@ -171,15 +198,57 @@ namespace Itfaiye
 
         void LateUpdate()
         {
+            if (externalControl) return;
+            AdvancePosture();
+            ApplyView();
+        }
+
+        void AdvancePosture()
+        {
+            if (motor == null) return;
+            KneelAmount = Mathf.MoveTowards(KneelAmount, IsKneeling ? 1f : 0f, Time.deltaTime / (IsKneeling ? .65f : .9f));
+            motor.height = Mathf.Lerp(standingHeight, 1.18f, KneelAmount);
+            motor.center = Vector3.up * (motor.height * .5f);
+        }
+
+        /// <summary>Idempotent camera pose; calling before an interaction ray does not advance animations.</summary>
+        public void ApplyExternalView()
+        {
+            if (externalControl) ApplyView();
+        }
+
+        public void SuspendExternalMovement()
+        {
+            if (!externalControl) return;
+            InputCaptured = false;
+            planarVelocity = Vector3.zero;
+            verticalVelocity = -2f;
+            pendingJump = -1f;
+            CurrentSpeed = 0f;
+            LocalVelocity = LookAngularVelocity = Vector2.zero;
+            IsSprinting = IsKneeling = false;
+            KneelAmount = 0f;
+            if (motor != null)
+            {
+                motor.height = standingHeight;
+                motor.center = Vector3.up * (standingHeight * .5f);
+            }
+            foreach (var animator in new[] { bodyAnimator, handsAnimator })
+            {
+                if (animator == null) continue;
+                animator.SetFloat(SpeedId, 0f);
+                if (pistol != null) UpdatePistolAnimator(animator, Time.deltaTime);
+            }
+        }
+
+        void ApplyView()
+        {
             if (playerCamera == null) return;
             playerCamera.transform.localRotation = Quaternion.Euler(pitch, 0f, 0f);
             // Apply before the hand pose and muzzle ray are evaluated, keeping the
             // rendered view, crosshair and shot on the same camera transform.
             if (pistol != null && pistol.Feedback != null)
                 playerCamera.transform.localRotation *= pistol.Feedback.CameraRotation;
-            KneelAmount = Mathf.MoveTowards(KneelAmount, IsKneeling ? 1f : 0f, Time.deltaTime / (IsKneeling ? .65f : .9f));
-            motor.height = Mathf.Lerp(standingHeight, 1.18f, KneelAmount);
-            motor.center = Vector3.up * (motor.height * .5f);
             playerCamera.transform.localPosition = cameraRest + Vector3.down * (.52f * Mathf.SmoothStep(0f, 1f, KneelAmount));
             float hipFov = fieldOfView;
             if (pistol != null && pistol.Hands != null)

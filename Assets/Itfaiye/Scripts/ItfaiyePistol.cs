@@ -20,7 +20,11 @@ namespace Itfaiye
         public float reloadDuration = 3.2f;
         public float range = 100f;
         public bool showHud = true;
+        [Tooltip("Read commands from the gameplay coordinator instead of polling keyboard and mouse.")]
+        public bool externalControl;
+        [Min(0f)] public float creatureDamage = 34f;
 
+        public bool Available { get; private set; } = true;
         public bool Equipped { get; private set; }
         public bool IsReloading { get; private set; }
         public bool IsAiming { get; private set; }
@@ -30,7 +34,7 @@ namespace Itfaiye
         public int Ammo { get; private set; }
         public int ShotsFired { get; private set; }
         public float ReloadProgress => IsReloading ? Mathf.Clamp01((Time.time - reloadStarted) / reloadDuration) : 0f;
-        public bool Ready => Equipped && DrawAmount > .98f && !IsReloading && !holsterRequested;
+        public bool Ready => Available && Equipped && DrawAmount > .98f && !IsReloading && !holsterRequested;
         public bool SprintShotQueued => sprintShotQueued;
         public bool KeepRaisedForShot => sprintShotQueued || Time.time < raisedUntil;
         public float ShotAge => Time.time - shotStarted;
@@ -76,6 +80,7 @@ namespace Itfaiye
         float raisedUntil;
         bool sprintShotQueued;
         bool holsterRequested, previouslyCaptured, pendingShot, reloadWasEmpty;
+        bool externalCaptured, externalAim, externalFire, externalToggle, externalHolster, externalReload;
         Vector3 slideRest, magazineRest;
         Quaternion magazineRestRotation, triggerRest;
         Transform replacementMagazine;
@@ -83,7 +88,8 @@ namespace Itfaiye
 
         void Awake()
         {
-            Hands = player.handsAnimator.GetComponent<ItfaiyeFirstPersonHands>();
+            if (player != null && player.handsAnimator != null)
+                Hands = player.handsAnimator.GetComponent<ItfaiyeFirstPersonHands>();
             Feedback = GetComponent<ItfaiyePistolFeedback>();
             Casings = GetComponent<ItfaiyePistolCasings>();
             Ammo = magazineSize;
@@ -103,15 +109,25 @@ namespace Itfaiye
 
         void Update()
         {
-            bool captured = player.InputCaptured;
+            if (!Available || player == null) return;
+            bool captured = player.InputCaptured && (!externalControl || externalCaptured);
             var keys = Keyboard.current;
             var mouse = Mouse.current;
-            if (captured && keys != null)
+            bool aim = externalControl ? externalAim : mouse != null && mouse.rightButton.isPressed;
+            bool fire = externalControl ? externalFire : mouse != null && mouse.leftButton.wasPressedThisFrame;
+            if (captured && externalControl)
+            {
+                if (externalToggle) Toggle();
+                if (externalHolster) Holster();
+                if (externalReload) Reload();
+            }
+            else if (captured && keys != null)
             {
                 if (keys.digit1Key.wasPressedThisFrame) Toggle();
                 if (keys.digit0Key.wasPressedThisFrame) Holster();
                 if (keys.rKey.wasPressedThisFrame) Reload();
             }
+            externalFire = externalToggle = externalHolster = externalReload = false;
             if (IsReloading)
             {
                 if (!ReloadCommitted && ReloadProgress >= ItfaiyePistolReloadPose.InsertedAt)
@@ -133,17 +149,17 @@ namespace Itfaiye
             DrawAmount = Mathf.MoveTowards(DrawAmount, Equipped ? 1f : 0f, Time.deltaTime / .28f);
             if (weapon != null) weapon.SetActive(DrawAmount > .05f);
             if (!captured || !Ready) CancelSprintShot();
-            IsAiming = captured && Ready && mouse != null && mouse.rightButton.isPressed && !player.IsSprinting;
+            IsAiming = captured && Ready && aim && !player.IsSprinting;
             AimAmount = Mathf.MoveTowards(AimAmount, IsAiming ? 1f : 0f, Time.deltaTime / .18f);
             float age = ShotAge;
             Recoil = age < .035f ? ItfaiyePistolReloadPose.Ease(0f, .035f, age) : 1f - ItfaiyePistolReloadPose.Ease(.035f, .24f, age);
-            if (captured && previouslyCaptured && mouse != null && mouse.leftButton.wasPressedThisFrame) Fire();
+            if (captured && previouslyCaptured && fire) Fire();
             previouslyCaptured = captured;
         }
 
         void LateUpdate()
         {
-            if (weapon == null || muzzle == null) return;
+            if (!Available || player == null || weapon == null || muzzle == null) return;
             UpdateMechanics();
             if (Equipped) UpdateAim();
             // Hands have already applied this frame's pose. Do not spend ammo or
@@ -158,6 +174,11 @@ namespace Itfaiye
                 LastShotPoint = AimPoint;
                 LastShotCollider = AimCollider;
                 LastShotHit = aimHit;
+                if (LastShotCollider != null)
+                {
+                    var creature = LastShotCollider.GetComponentInParent<GameJam.FireRescue.LavaCreatureActor>();
+                    if (creature != null) creature.ApplyDamage(creatureDamage);
+                }
                 if (Feedback != null) Feedback.PlayShot(AimRay, AimPoint, aimHit, AimAmount, MuzzleObstructed);
                 if (AimCollider != null && AimCollider.attachedRigidbody != null && !AimCollider.attachedRigidbody.isKinematic)
                     AimCollider.attachedRigidbody.AddForceAtPosition(AimRay.direction * 12f, AimPoint, ForceMode.Impulse);
@@ -229,8 +250,41 @@ namespace Itfaiye
             return nearest < float.PositiveInfinity;
         }
 
-        public void Toggle() { if (Equipped && !holsterRequested) Holster(); else Equip(); }
-        public void Equip() { holsterRequested = false; Equipped = true; }
+        public void SetExternalInput(bool captured, bool aim, bool fire, bool toggle, bool holster, bool reload)
+        {
+            bool lostCapture = externalCaptured && !captured;
+            externalCaptured = captured && Available;
+            externalAim = externalCaptured && aim;
+            externalFire = externalCaptured && fire;
+            externalToggle = externalCaptured && toggle;
+            externalHolster = externalCaptured && holster;
+            externalReload = externalCaptured && reload;
+            if (!externalCaptured)
+            {
+                CancelSprintShot();
+                if (lostCapture) pendingShot = false;
+                IsAiming = false;
+                previouslyCaptured = false;
+            }
+        }
+
+        /// <summary>Vehicle and hose use require both hands and cancel all weapon actions immediately.</summary>
+        public void SetAvailable(bool available)
+        {
+            if (Available == available) return;
+            Available = available;
+            if (available) return;
+            if (player != null) player.SetKneeling(false);
+            Equipped = false;
+            holsterRequested = previouslyCaptured = false;
+            DrawAmount = AimAmount = Recoil = 0f;
+            SetExternalInput(false, false, false, false, false, false);
+            ClearActionsAndEffects();
+            if (weapon != null) weapon.SetActive(false);
+        }
+
+        public void Toggle() { if (!Available) return; if (Equipped && !holsterRequested) Holster(); else Equip(); }
+        public void Equip() { if (!Available) return; holsterRequested = false; Equipped = true; }
         public void Holster()
         {
             if (!Equipped) return;
@@ -277,6 +331,11 @@ namespace Itfaiye
 
         void OnDisable()
         {
+            ClearActionsAndEffects();
+        }
+
+        void ClearActionsAndEffects()
+        {
             CancelSprintShot();
             IsAiming = false; IsReloading = false; pendingShot = false;
             if (muzzleLight != null) muzzleLight.enabled = false;
@@ -295,7 +354,7 @@ namespace Itfaiye
 
         void OnGUI()
         {
-            if (!showHud || !Equipped) return;
+            if (!Available || !showHud || !Equipped) return;
             if (label == null) label = new GUIStyle(GUI.skin.label) { fontSize = 17, alignment = TextAnchor.LowerRight };
             GUI.color = new Color(1f, 1f, 1f, .85f);
             GUI.Label(new Rect(Screen.width - 230, Screen.height - 58, 204, 32),

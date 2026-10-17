@@ -21,6 +21,26 @@ public static class AshfallSettingsSceneBuilder
     private const string SettingsPanelPath = "Assets/Art/UI/AshfallSettingsPanel.png";
     private static Font uiFont;
 
+    [MenuItem("ASHFALL/Refresh Volcano Gameplay Help")]
+    public static void RefreshGameplayHelp()
+    {
+        Scene scene = EditorSceneManager.OpenScene("Assets/Scenes/MainMenu.unity", OpenSceneMode.Single);
+        Transform canvas = GameObject.Find("Canvas")?.transform;
+        Transform panel = canvas != null ? FindChild(canvas, "HowToPlayPanel") : null;
+        AshfallMenuController menu = Object.FindFirstObjectByType<AshfallMenuController>();
+        if (panel == null || menu == null) throw new System.Exception("Main menu help panel is missing.");
+        ClearChildren(panel);
+        BuildHowToContents(panel);
+        Button back = FindChild(panel, "HowToBackButton").GetComponent<Button>();
+        var serialized = new SerializedObject(menu);
+        serialized.FindProperty("howToPlayBackButton").objectReferenceValue = back;
+        serialized.FindProperty("howToPlayInitialSelection").objectReferenceValue = back;
+        serialized.ApplyModifiedPropertiesWithoutUndo();
+        HideGroup(Ensure<CanvasGroup>(panel.gameObject));
+        EditorSceneManager.MarkSceneDirty(scene);
+        EditorSceneManager.SaveScene(scene);
+    }
+
     [MenuItem("ASHFALL/Build Settings and How to Play UI")]
     public static void Build()
     {
@@ -143,26 +163,34 @@ public static class AshfallSettingsSceneBuilder
 
     private static void BuildHowToContents(Transform panel)
     {
-        Text title = MakeText("HowToTitle", panel, "HOW TO PLAY", 34, MainText, TextAnchor.MiddleLeft);
+        Text title = MakeText("HowToTitle", panel, "NASIL OYNANIR", 34, MainText, TextAnchor.MiddleLeft);
         Anchored(title.rectTransform, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(18f, -52f), new Vector2(-18f, -4f), new Vector2(0.5f, 1f));
-        Text subtitle = MakeText("HowToSubtitle", panel, "Learn the planned controls for surviving the volcanic aftermath.", 16, MutedText, TextAnchor.MiddleLeft);
+        Text subtitle = MakeText("HowToSubtitle", panel, "Kasabayı yangından koru; gölden su çek ve lav yaratıklarını durdur.", 16, MutedText, TextAnchor.MiddleLeft);
         Anchored(subtitle.rectTransform, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(18f, -88f), new Vector2(-18f, -54f), new Vector2(0.5f, 1f));
         MakeRule("HowToTitleRule", panel, Accent, new Vector2(18f, -150f), new Vector2(-18f, -147f));
 
         ScrollRect scroll = CreateScrollView("HowToScrollView", panel, new Vector2(18f, 82f), new Vector2(-18f, -150f));
         Transform content = scroll.content;
-        Text status = MakeInfoCard(content, "CONFIGURABLE DEFAULTS — GAMEPLAY INPUT IS NOT CONNECTED YET", "These key bindings are planned defaults. The current gameplay scene has no player input controller.");
+        Text status = MakeInfoCard(content, "VOLCANO DEMO — KASABAYI KORU", "Yeni Oyun kasaba haritasını açar. Patlamadan sonra lavlar ilerler, evler yanar ve lav yaratıkları ortaya çıkar. İtfaiyenin su deposunu gölden doldur.");
         status.fontSize = 14;
-        AddSectionTitle(content, "MOVEMENT");
-        AddControlRow(content, "MOVE", "WASD", "W forward · A left · S backward · D right", true);
-        AddSectionTitle(content, "COMBAT");
-        AddControlRow(content, "AIMING", "MOUSE", "Mouse movement aims or controls the camera, depending on gameplay.", false);
-        AddControlRow(content, "SHOOTING", "LMB", "Left mouse button fires the weapon.", false);
-        AddControlRow(content, "RELOAD", "R", "Reload the weapon.", false);
-        AddSectionTitle(content, "INTERACTION");
-        AddControlRow(content, "INTERACT", "E", "Use nearby objects and usable elements.", false);
-        AddSectionTitle(content, "MENU CONTROLS");
-        AddControlRow(content, "BACK / PAUSE", "ESC", "Return to the previous menu or close the current menu panel.", false);
+        AddSectionTitle(content, "HAREKET VE ARAÇ");
+        AddControlRow(content, "HAREKET", "WASD", "Yaya hareket / araç sürüşü. Fareyle etrafa bak.", true);
+        AddControlRow(content, "KOŞ", "SHIFT", "Yaya halde koş.", false);
+        AddControlRow(content, "BİN / İN", "F", "Sürücü kapısında araca bin; durduktan sonra in.", false);
+        AddControlRow(content, "FREN / ZIPLA", "SPACE", "Araçta fren; yaya halde silah çekiliyken zıpla.", false);
+        AddSectionTitle(content, "HORTUM VE SU");
+        AddControlRow(content, "HORTUM", "E", "Aracın arkasından hortumu al; göle bakıp ucunu bırak.", false);
+        AddControlRow(content, "POMPA", "P", "Hortum ucu göldeyken depoyu doldurmak için pompayı aç.", false);
+        AddControlRow(content, "TOPLA", "R", "Aracın arkasında hortumu topla; sonra araca binebilirsin.", false);
+        AddControlRow(content, "SU TOPU", "RMB", "Araçtayken sağ tıkla evlere veya lav yaratıklarına su sık.", false);
+        AddSectionTitle(content, "SİLAH");
+        AddControlRow(content, "ÇEK / KALDIR", "1 / 0", "1 silahı çek/kaldır, 0 silahı kaldır. Hortum taşırken silah kapanır.", false);
+        AddControlRow(content, "ATEŞ / NİŞAN", "LMB / RMB", "Yaya halde sol tık ateş, sağ tık nişan al.", false);
+        AddControlRow(content, "ŞARJÖR", "R", "Arka hortum etkileşimi yokken şarjör değiştir.", false);
+        AddControlRow(content, "ÇÖMEL", "C", "Silah çekiliyken çömel / kalk.", false);
+        AddSectionTitle(content, "DİĞER");
+        AddControlRow(content, "İMLEÇ", "ESC", "Oyunda imleci bırakır; devam etmek için oyun ekranına tıkla.", false);
+        AddControlRow(content, "PATLAMA", "V", "Patlamayı erkenden başlat. Beklersen volkan kendiliğinden patlar.", false);
 
         Button back = MakeButton("HowToBackButton", panel, "BACK", Card, MainText, 58f);
         StylePanelButton(back, true);

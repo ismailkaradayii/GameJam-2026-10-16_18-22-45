@@ -6,6 +6,7 @@ namespace GameJam.FireRescue
 {
     /// <summary>Keyboard/mouse controls, player movement, cameras and a compact gameplay HUD.</summary>
     [DisallowMultipleComponent]
+    [DefaultExecutionOrder(-90)]
     public sealed class FireRescuePlayer : MonoBehaviour
     {
         [Header("Scene references")]
@@ -17,6 +18,9 @@ namespace GameJam.FireRescue
         public Transform hand;
         public Transform driverDoor;
         public Transform exitPoint;
+        [Header("First-person character (optional)")]
+        public Itfaiye.ItfaiyeFirstPersonController firstPerson;
+        public Itfaiye.ItfaiyePistol pistol;
 
         [Header("Player")]
         public bool startDriving = true;
@@ -42,6 +46,11 @@ namespace GameJam.FireRescue
         bool snapCamera = true;
         bool focused = true;
         bool aimingCannon;
+        Vector2 lookAngularVelocity;
+        Renderer[] bodyRenderers;
+        bool[] bodyRendererDefaults;
+        bool equipmentStateKnown, previousDriving, previousCarrying;
+        Func<Vector3, Vector3> hoseTravelConstraint;
         string notice;
         float noticeUntil;
         GUIStyle titleStyle;
@@ -50,11 +59,27 @@ namespace GameJam.FireRescue
 
         void Awake()
         {
+            if (!firstPerson) firstPerson = GetComponent<Itfaiye.ItfaiyeFirstPersonController>();
+            if (firstPerson)
+            {
+                firstPerson.externalControl = true;
+                if (!playerBody) playerBody = firstPerson.GetComponent<CharacterController>();
+                if (!viewCamera) viewCamera = firstPerson.playerCamera;
+                if (!pistol) pistol = firstPerson.pistol;
+                if (firstPerson.bodyAnimator)
+                {
+                    bodyRenderers = firstPerson.bodyAnimator.GetComponentsInChildren<Renderer>(true);
+                    bodyRendererDefaults = new bool[bodyRenderers.Length];
+                    for (int i = 0; i < bodyRenderers.Length; i++) bodyRendererDefaults[i] = bodyRenderers[i].enabled;
+                }
+            }
+            if (pistol) pistol.externalControl = true;
             if (!playerBody) playerBody = GetComponent<CharacterController>();
             if (!viewCamera) viewCamera = Camera.main;
             if (!cannon && drive) cannon = drive.GetComponent<FireTruckWaterCannon>();
             if (cannon && viewCamera) cannon.aimCamera = viewCamera;
             if (playerBody) lookYaw = playerBody.transform.eulerAngles.y;
+            hoseTravelConstraint = ConstrainHoseTravel;
         }
 
         void Start()
@@ -72,11 +97,14 @@ namespace GameJam.FireRescue
                 SetCursor(true);
 
             bool inputEnabled = focused && Cursor.lockState == CursorLockMode.Locked && keyboard != null;
+            RefreshEquipmentState();
+            lookAngularVelocity = Vector2.zero;
             if (!inputEnabled)
             {
+                if (pistol) pistol.SetExternalInput(false, false, false, false, false, false);
                 SetCannonActive(false);
                 if (IsDriving && drive) drive.SetInput(0f, 0f, true);
-                if (!IsDriving) MoveOnFoot(Vector2.zero, false);
+                if (!IsDriving) MoveOnFoot(Vector2.zero, false, captured: false);
                 return;
             }
 
@@ -90,8 +118,12 @@ namespace GameJam.FireRescue
             }
             else
             {
+                float previousYaw = lookYaw;
+                float previousPitch = lookPitch;
                 lookYaw += mouseDelta.x * mouseSensitivity;
                 lookPitch = Mathf.Clamp(lookPitch - mouseDelta.y * mouseSensitivity, -75f, 78f);
+                if (Time.deltaTime > 0f)
+                    lookAngularVelocity = new Vector2(lookYaw - previousYaw, lookPitch - previousPitch) / Time.deltaTime;
             }
 
             if (keyboard.fKey.wasPressedThisFrame)
@@ -105,29 +137,35 @@ namespace GameJam.FireRescue
                 (keyboard.wKey.isPressed ? 1f : 0f) - (keyboard.sKey.isPressed ? 1f : 0f));
             if (IsDriving)
             {
+                if (pistol) pistol.SetExternalInput(false, false, false, false, false, false);
                 if (drive) drive.SetInput(move.y, move.x, keyboard.spaceKey.isPressed);
                 SetCannonActive(mouse != null && mouse.rightButton.isPressed);
                 return;
             }
 
             SetCannonActive(false);
-            MoveOnFoot(Vector2.ClampMagnitude(move, 1f), keyboard.leftShiftKey.isPressed || keyboard.rightShiftKey.isPressed);
+            MoveOnFoot(Vector2.ClampMagnitude(move, 1f), keyboard.leftShiftKey.isPressed || keyboard.rightShiftKey.isPressed,
+                keyboard.spaceKey.wasPressedThisFrame, keyboard.cKey.wasPressedThisFrame);
             // Update the first-person camera before ray-based interactions this frame.
             UpdateFootCamera();
             if (hose)
             {
                 if (keyboard.eKey.wasPressedThisFrame) InteractWithHose();
                 if (keyboard.pKey.wasPressedThisFrame) hose.TogglePump();
-                if (keyboard.rKey.wasPressedThisFrame)
-                {
-                    if (Near(hose.hoseSocket, interactionDistance)) hose.Retract();
-                    else ShowNotice("Hortumu toplamak için aracın arkasına yaklaş.");
-                }
             }
+            RefreshEquipmentState();
+            if (keyboard.rKey.wasPressedThisFrame) ReloadOrRetract();
+            if (pistol)
+                pistol.SetExternalInput(true, mouse != null && mouse.rightButton.isPressed,
+                    mouse != null && mouse.leftButton.wasPressedThisFrame,
+                    keyboard.digit1Key.wasPressedThisFrame, keyboard.digit0Key.wasPressedThisFrame, false);
         }
 
         void LateUpdate()
         {
+            // Keep the unified character/creature target with the vehicle while its motor is disabled.
+            if (IsDriving && firstPerson && drive && playerBody)
+                playerBody.transform.position = drive.transform.position;
             if (!viewCamera) return;
             if (IsDriving && drive) UpdateDrivingCamera();
             else UpdateFootCamera();
@@ -183,6 +221,7 @@ namespace GameJam.FireRescue
         {
             SetCannonActive(false);
             IsDriving = driving && drive;
+            if (firstPerson) firstPerson.SuspendExternalMovement();
             if (playerBody) playerBody.enabled = !IsDriving;
             if (drive)
             {
@@ -193,15 +232,54 @@ namespace GameJam.FireRescue
             {
                 orbitYaw = 0f;
                 lookPitch = 18f;
+                if (firstPerson && viewCamera) viewCamera.fieldOfView = firstPerson.fieldOfView;
             }
+            RefreshEquipmentState();
             snapCamera = true;
         }
 
-        void MoveOnFoot(Vector2 input, bool sprint)
+        /// <summary>Synchronizes both hands after external pickup/vehicle actions as well as normal input.</summary>
+        public void RefreshEquipmentState()
+        {
+            bool carrying = hose && hose.IsCarried;
+            bool available = !IsDriving && !carrying;
+            if (pistol) pistol.SetAvailable(available);
+            if (equipmentStateKnown && previousDriving == IsDriving && previousCarrying == carrying) return;
+            equipmentStateKnown = true;
+            previousDriving = IsDriving;
+            previousCarrying = carrying;
+            if (firstPerson && firstPerson.handsCamera) firstPerson.handsCamera.enabled = available;
+            if (bodyRenderers != null)
+                for (int i = 0; i < bodyRenderers.Length; i++)
+                    if (bodyRenderers[i]) bodyRenderers[i].enabled = !IsDriving && bodyRendererDefaults[i];
+        }
+
+        /// <summary>The deployed hose owns R at the rear socket; elsewhere R belongs to the pistol.</summary>
+        public bool ReloadOrRetract()
+        {
+            if (IsDriving) return false;
+            if (hose && hose.IsDeployed && Near(hose.hoseSocket, interactionDistance))
+            {
+                hose.Retract();
+                RefreshEquipmentState();
+                return true;
+            }
+            if (pistol && pistol.Available) return pistol.Reload();
+            if (hose && hose.IsDeployed) ShowNotice("Hortumu toplamak için aracın arkasına yaklaş.");
+            return false;
+        }
+
+        void MoveOnFoot(Vector2 input, bool sprint, bool jump = false, bool kneel = false, bool captured = true)
         {
             if (!playerBody || !playerBody.enabled) return;
             playerBody.transform.rotation = Quaternion.Euler(0f, lookYaw, 0f);
             UpdateFootCamera();
+            if (firstPerson)
+            {
+                firstPerson.SimulateExternalMovement(input, sprint, jump, kneel, captured, lookPitch, lookAngularVelocity,
+                    hose && hose.IsCarried && hand && hose.hoseSocket ? hoseTravelConstraint : null);
+                return;
+            }
             Vector3 travel = playerBody.transform.TransformDirection(new Vector3(input.x, 0f, input.y));
             travel *= (sprint ? sprintSpeed : walkSpeed) * Time.deltaTime;
             if (hose && hose.IsCarried && hand && hose.hoseSocket)
@@ -316,6 +394,11 @@ namespace GameJam.FireRescue
         void UpdateFootCamera()
         {
             if (!viewCamera || !playerBody) return;
+            if (firstPerson)
+            {
+                firstPerson.ApplyExternalView();
+                return;
+            }
             viewCamera.transform.SetPositionAndRotation(playerBody.transform.position + Vector3.up * eyeHeight,
                 Quaternion.Euler(lookPitch, lookYaw, 0f));
         }
@@ -353,7 +436,12 @@ namespace GameJam.FireRescue
 
         void SetCursor(bool locked)
         {
-            if (!locked) SetCannonActive(false);
+            if (!locked)
+            {
+                SetCannonActive(false);
+                if (firstPerson) firstPerson.SetInputCaptured(false);
+                if (pistol) pistol.SetExternalInput(false, false, false, false, false, false);
+            }
             Cursor.lockState = locked ? CursorLockMode.Locked : CursorLockMode.None;
             Cursor.visible = !locked;
         }
@@ -369,6 +457,8 @@ namespace GameJam.FireRescue
             SetCannonActive(false);
             if (drive) drive.SetInput(0f, 0f, true);
             SetCursor(false);
+            if (pistol) pistol.SetAvailable(false);
+            if (firstPerson) firstPerson.SuspendExternalMovement();
         }
 
         void OnGUI()
@@ -399,7 +489,8 @@ namespace GameJam.FireRescue
             GUI.DrawTexture(new Rect(32f, 86f, 318f * Mathf.Clamp01(amount), 9f), Texture2D.whiteTexture);
             GUI.color = Color.white;
             GUI.Label(new Rect(32f, 102f, 315f, 33f), GetWaterStatus(), textStyle);
-            GUI.Label(new Rect(32f, 137f, 315f, 54f), IsDriving ? "WASD Sürüş  ·  Boşluk Fren  ·  F İn\nSağ tık Su  ·  Fare Nişan  ·  Esc İmleç" : "WASD Yürü  ·  Shift Koş  ·  F Bin\nE Hortum  ·  P Pompa  ·  R Topla", textStyle);
+            GUI.Label(new Rect(32f, 137f, 315f, 54f), IsDriving ? "WASD Sürüş  ·  Boşluk Fren  ·  F İn\nSağ tık Su  ·  Fare Nişan  ·  Esc İmleç" :
+                "WASD Yürü  ·  Shift Koş  ·  F Bin\nE Hortum  ·  P Pompa  ·  R " + (pistol && pistol.Equipped ? "Doldur" : "Topla"), textStyle);
 
             string prompt = GetPrompt();
             if (Cursor.lockState != CursorLockMode.Locked) prompt = "Devam etmek için oyun ekranına tıkla.";
@@ -412,7 +503,7 @@ namespace GameJam.FireRescue
                 GUI.color = Color.white;
                 GUI.Label(new Rect(panel.x + 10f, panel.y, panel.width - 20f, panel.height), prompt, promptStyle);
             }
-            if (Cursor.lockState == CursorLockMode.Locked)
+            if (Cursor.lockState == CursorLockMode.Locked && (IsDriving || !pistol || !pistol.Equipped))
             {
                 float x = width * 0.5f;
                 float y = height * 0.5f;
@@ -442,12 +533,13 @@ namespace GameJam.FireRescue
                 }
                 return drive && Mathf.Abs(drive.SpeedKph) > 4f ? "Göle yaklaş, dur ve hortumu almak için araçtan in." : "F  Araçtan in";
             }
-            if (!hose) return "";
-            if (hose.IsCarried) return "Suya bak ve E ile hortum ucunu bırak.  ·  P Pompayı aç/kapat";
-            if (Near(hose.hoseSocket, interactionDistance))
+            if (hose && hose.IsCarried) return "Suya bak ve E ile hortum ucunu bırak.  ·  P Pompayı aç/kapat";
+            if (hose && Near(hose.hoseSocket, interactionDistance))
                 return hose.IsDeployed ? "R  Hortumu topla  ·  P Pompayı aç/kapat" : "E  Hortumu al";
-            if (hose.IsDeployed && Near(hose.nozzle, interactionDistance)) return "E  Hortum ucunu al  ·  P Pompayı aç/kapat";
+            if (hose && hose.IsDeployed && Near(hose.nozzle, interactionDistance)) return "E  Hortum ucunu al  ·  P Pompayı aç/kapat";
             if (Near(driverDoor ? driverDoor : (drive ? drive.transform : null), interactionDistance)) return "F  Araca bin";
+            if (pistol) return pistol.Equipped ? "Sol tık Ateş  ·  Sağ tık Nişan  ·  R Doldur  ·  C Çök  ·  Boşluk Zıpla  ·  0 Kaldır" : "1  Silahı çıkar  ·  Hortum için aracın arkasına git.";
+            if (!hose) return "";
             return hose.IsDeployed ? "P  Pompayı aç/kapat  ·  Hortumu toplamak için aracın arkasına dön." : "Hortumu almak için aracın arkasına git.";
         }
 

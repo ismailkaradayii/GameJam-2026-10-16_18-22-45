@@ -17,6 +17,9 @@ public sealed class LavaCreatureAutoJump : MonoBehaviour
     [SerializeField] private Transform visualRoot;
     [Tooltip("Player or destination approached one bounce at a time. Leave empty for vertical jumps.")]
     [SerializeField] private Transform target;
+    [Tooltip("Optional gameplay terrain. When assigned, jump landings follow its surface instead of a fixed height.")]
+    public Terrain groundTerrain;
+    [Min(0f)] public float groundClearance = 0.02f;
 
     [Header("Timing")]
     [Min(0f)] [SerializeField] private float minimumWaitTime = 1.5f;
@@ -86,6 +89,9 @@ public sealed class LavaCreatureAutoJump : MonoBehaviour
     private void OnEnable()
     {
         groundPosition = transform.position;
+        if (TryTerrainHeight(groundPosition, out float surfaceY))
+            groundPosition.y = surfaceY;
+        transform.position = groundPosition;
         if (jumpLoop == null)
             jumpLoop = StartCoroutine(AutoJumpLoop());
     }
@@ -224,7 +230,26 @@ public sealed class LavaCreatureAutoJump : MonoBehaviour
 
         travelDirection = toTarget / distance;
         float step = Mathf.Min(forwardDistance, distance - stoppingDistance);
-        return startPosition + travelDirection * step;
+        Vector3 landingPosition = startPosition + travelDirection * step;
+        if (groundTerrain != null)
+        {
+            // Stay on the playable terrain instead of continuing at a stale height beyond its edge.
+            if (!TryTerrainHeight(landingPosition, out float surfaceY)) return startPosition;
+            landingPosition.y = surfaceY;
+        }
+        return landingPosition;
+    }
+
+    private bool TryTerrainHeight(Vector3 position, out float height)
+    {
+        height = position.y;
+        if (groundTerrain == null || groundTerrain.terrainData == null) return false;
+        Vector3 terrainOrigin = groundTerrain.transform.position;
+        Vector3 terrainSize = groundTerrain.terrainData.size;
+        Vector3 local = position - terrainOrigin;
+        if (local.x < 0f || local.z < 0f || local.x > terrainSize.x || local.z > terrainSize.z) return false;
+        height = groundTerrain.SampleHeight(position) + terrainOrigin.y + Mathf.Max(0f, groundClearance);
+        return true;
     }
 
     private bool HasReachedTarget()
