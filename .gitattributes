@@ -170,3 +170,5 @@ Packages/packages-lock.json linguist-generated
 # Exceptions for .asset files such as lightning pre-baking
 LightingData.asset     binary
 Assets/BK/PureNature_Volcano/Scenes/Volcano_Demo/OcclusionCullingData.asset filter=lfs diff=lfs merge=lfs -text
+# TerrainData is binary even when Unity's serialization mode is Force Text.
+Assets/BK/PureNature_Volcano/Models/Terrains/Terrain.asset filter=lfs diff=lfs merge=lfs -text -eol -linguist-language
