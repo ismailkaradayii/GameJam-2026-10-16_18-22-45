@@ -11,6 +11,7 @@ namespace GameJam.FireRescue
     public sealed class RescueGameFlow : MonoBehaviour
     {
         public enum GameState { Playing, Paused, Won, Lost }
+        public enum LossReason { None, PlayerDefeated, AllVillagersLost, VillageBurned }
         public BurnableBuilding[] targetBuildings = Array.Empty<BurnableBuilding>();
         public FireRescuePlayer player;
         public string mainMenuSceneName = "MainMenu";
@@ -18,6 +19,7 @@ namespace GameJam.FireRescue
         [Min(0f)] public float resultDelaySeconds = 2.4f;
         public const int RequiredHouses = 5;
         public GameState State { get; private set; } = GameState.Playing;
+        public LossReason DefeatReason { get; private set; }
         public int RescuedCount => rescued.Count;
         public int TargetCount => targets.Count;
         public bool BlocksGameplay => State != GameState.Playing || returningToMenu;
@@ -32,6 +34,7 @@ namespace GameJam.FireRescue
         readonly HashSet<BurnableBuilding> targets = new HashSet<BurnableBuilding>();
         readonly HashSet<BurnableBuilding> rescued = new HashSet<BurnableBuilding>();
         VolcanoSurvivalObjective survival;
+        EvacuationMission evacuation;
         bool completionPending, returningToMenu, ownsPause;
         float previousTimeScale = 1f;
         float finishedAt;
@@ -40,7 +43,9 @@ namespace GameJam.FireRescue
         void Awake()
         {
             survival = FindFirstObjectByType<VolcanoSurvivalObjective>();
+            evacuation = FindFirstObjectByType<EvacuationMission>();
             State = GameState.Playing;
+            DefeatReason = LossReason.None;
             rescued.Clear(); targets.Clear();
             completionPending = returningToMenu = ownsPause = false;
             if (player) player.gameFlow = this;
@@ -76,12 +81,17 @@ namespace GameJam.FireRescue
                 { resultCursorReleased = true; Cursor.lockState = CursorLockMode.None; Cursor.visible = true; }
                 return;
             }
+            if (returningToMenu) return;
+            if (State == GameState.Playing)
+            {
+                var loss = VillageLossReason();
+                if (loss != LossReason.None) { FinishMission(false, loss); return; }
+            }
             if (survival && survival.IsFinished) return;
             // Water hits happen in cannon LateUpdate; finalize on the next Update, after that tick has finished.
-            if (completionPending && State != GameState.Won && !returningToMenu)
+            if (completionPending && State == GameState.Playing)
             {
-                completionPending = false;
-                Suspend(GameState.Won);
+                FinishMission(true);
                 return;
             }
             if (!Application.isFocused || Keyboard.current == null || !Keyboard.current.escapeKey.wasPressedThisFrame) return;
@@ -111,9 +121,27 @@ namespace GameJam.FireRescue
             if (player) player.SetGameplaySuspended(false);
             StateChanged?.Invoke(State);
         }
-        public void FinishMission(bool success)
+        LossReason VillageLossReason()
+        {
+            // A sheltered survivor keeps the evacuation viable; an empty roster is not a defeat.
+            if (evacuation && evacuation.TotalCount > 0 && evacuation.DeadCount == evacuation.TotalCount)
+                return LossReason.AllVillagersLost;
+            int houses = 0;
+            foreach (var house in targets)
+            {
+                if (!house) continue;
+                houses++;
+                if (!house.IsBurnedOut) return LossReason.None;
+            }
+            return houses > 0 ? LossReason.VillageBurned : LossReason.None;
+        }
+        public void FinishMission(bool success, LossReason reason = LossReason.None)
         {
             if (State == GameState.Won || State == GameState.Lost || returningToMenu) return;
+            // Thermal damage may kill the last villager later in the same frame as a victory check.
+            var villageLoss = VillageLossReason();
+            if (villageLoss != LossReason.None) { success = false; reason = villageLoss; }
+            DefeatReason = success ? LossReason.None : reason == LossReason.None ? LossReason.PlayerDefeated : reason;
             var cinematic = FindFirstObjectByType<VolcanoCinematic>();
             if (cinematic) cinematic.EndShot();
             var encounter = FindFirstObjectByType<LavaCreatureEncounter>();

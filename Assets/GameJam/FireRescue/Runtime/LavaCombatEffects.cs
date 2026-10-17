@@ -96,6 +96,17 @@ namespace GameJam.FireRescue
             b.light.intensity = .65f;
         }
 
+        public static void Launch(Vector3 surface)
+        {
+            var fx = Get(); var b = fx.Rent(surface + Vector3.up * .08f, false);
+            b.priority = true;
+            fx.EmitBurst(b, 12, 38, 5, Vector3.up * .3f, .7f);
+            b.ringDuration = .3f; b.ringRadius = 1.8f; b.ring.enabled = true;
+            b.light.intensity = 4.5f; b.light.range = 5f;
+            fx.Play(b, fx.landingClip, .72f);
+            b.audio.pitch = .8f;
+        }
+
         public static void Emerge(Vector3 surface)
         {
             var fx = Get(); var b = fx.Rent(surface + Vector3.up * .15f, false);
@@ -127,7 +138,7 @@ namespace GameJam.FireRescue
                 foreach (var solid in solids) bounds.Encapsulate(solid.bounds);
             }
             var b = fx.Rent(bounds.center, true);
-            b.smallDeath = !actor.ReachedBuilding && !actor.Dissipated;
+            b.smallDeath = !actor.ReachedBuilding && !actor.Dissipated && !actor.SelfDetonated;
             b.fireDelay = Mathf.Clamp(actor.deathFireDelay, .04f, .3f);
             b.fireSize = Mathf.Clamp(actor.deathFireSize, .4f, 1.5f);
             ShattersPlayed++;

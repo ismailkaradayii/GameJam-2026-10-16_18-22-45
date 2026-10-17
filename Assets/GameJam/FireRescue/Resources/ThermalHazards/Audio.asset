@@ -1,0 +1,17 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3c121e3e3dd956947a4a7e7d1076a9e6, type: 3}
+  m_Name: Audio
+  m_EditorClassIdentifier: 
+  pain: {fileID: 8300000, guid: 231acc552d1fcbe49a4b3e0368fdbaed, type: 3}
+  death: {fileID: 8300000, guid: 679860fbc4df2cf48a168d3401aeb418, type: 3}
+  fire: {fileID: 8300000, guid: 89adf75cc560b4b4293070c55ab1bda4, type: 3}

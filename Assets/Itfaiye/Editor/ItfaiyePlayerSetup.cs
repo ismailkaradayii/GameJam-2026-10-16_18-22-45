@@ -102,6 +102,7 @@ namespace Itfaiye.Editor
             overlay.farClipPlane = 5f;
             overlay.fieldOfView = 80f;
             overlay.cullingMask = 1 << handsLayer;
+            overlay.useOcclusionCulling = false;
             var overlayData = overlay.GetUniversalAdditionalCameraData();
             overlayData.renderType = CameraRenderType.Overlay;
             overlayData.renderShadows = false;

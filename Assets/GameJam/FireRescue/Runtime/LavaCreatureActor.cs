@@ -23,16 +23,27 @@ namespace GameJam.FireRescue
         public bool IsDefeated { get; private set; }
         public bool ReachedBuilding { get; private set; }
         public bool Dissipated { get; private set; }
+        public bool SelfDetonated { get; private set; }
         public void Dissipate()
         {
             if (IsDefeated) return;
             InitializeHealth(); Dissipated = true; health = 0; Defeat(transform.position, Vector3.up);
         }
         public void ConsumeAtBuilding()
+            => ConsumeAtBuilding(transform.position, Vector3.up);
+
+        public void ConsumeAtBuilding(Vector3 point, Vector3 direction)
         {
             if (IsDefeated) return;
             InitializeHealth(); ReachedBuilding = true; health = 0;
-            Defeat(transform.position, Vector3.up);
+            Defeat(point, direction);
+        }
+
+        public void Detonate(Vector3 point, Vector3 direction)
+        {
+            if (IsDefeated) return;
+            InitializeHealth(); SelfDetonated = true; health = 0;
+            Defeat(point, direction);
         }
 
         float health;
@@ -135,7 +146,7 @@ namespace GameJam.FireRescue
             if (combat) combat.enabled = false;
             foreach (Collider hitbox in GetComponentsInChildren<Collider>(true)) hitbox.enabled = false;
             foreach (Animator animator in GetComponentsInChildren<Animator>(true)) animator.enabled = false;
-            if (Application.isPlaying && spiritVisual && spiritVisual.IsBuilt)
+            if (Application.isPlaying && spiritVisual && spiritVisual.IsBuilt && !ReachedBuilding && !SelfDetonated)
                 StartCoroutine(FinishDeath(point, direction));
             else HideAndShatter(direction);
         }

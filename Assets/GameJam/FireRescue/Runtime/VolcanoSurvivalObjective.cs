@@ -41,8 +41,14 @@ namespace GameJam.FireRescue
 
         public void TickObjective()
         {
-            if (!isActiveAndEnabled || IsFinished || Time.timeScale <= 0f || (rescueFlow && rescueFlow.BlocksGameplay)) return;
+            if (!isActiveAndEnabled) return;
             BindPlayer();
+            if (rescueFlow && (rescueFlow.State == RescueGameFlow.GameState.Won || rescueFlow.State == RescueGameFlow.GameState.Lost))
+            {
+                State = rescueFlow.State == RescueGameFlow.GameState.Won ? MissionState.Won : MissionState.Lost;
+                return;
+            }
+            if (IsFinished || Time.timeScale <= 0f || (rescueFlow && rescueFlow.BlocksGameplay)) return;
             if (!encounter || !encounter.enableWaves) return;
             if (vitals && vitals.Health <= 0f) { Lose(); return; }
             var sequence = encounter.sequence;
@@ -56,7 +62,7 @@ namespace GameJam.FireRescue
                 total++; if (!house.IsBurnedOut) standing++;
                 if (house.IsBurning) firesOut = false;
             }
-            if (total > 0 && standing == 0) { Finish(MissionState.Lost); return; }
+            if (total > 0 && standing == 0) { Finish(MissionState.Lost, RescueGameFlow.LossReason.VillageBurned); return; }
             if (encounter.IsCleared && firesOut && standing > 0) { Finish(MissionState.Won); return; }
             State = encounter.IsCleared && firesOut ? MissionState.ReturnToTruck : MissionState.Fighting;
             // Returning early is safe, but cannot skip the remaining enemies or the rescue.
@@ -66,11 +72,16 @@ namespace GameJam.FireRescue
 
         void Lose() { if (encounter && encounter.enableWaves && !IsFinished) Finish(MissionState.Lost); }
 
-        void Finish(MissionState result)
+        void Finish(MissionState result, RescueGameFlow.LossReason reason = RescueGameFlow.LossReason.None)
         {
             if (IsFinished) return;
+            if (rescueFlow)
+            {
+                rescueFlow.FinishMission(result == MissionState.Won, reason);
+                State = rescueFlow.State == RescueGameFlow.GameState.Won ? MissionState.Won : MissionState.Lost;
+                return;
+            }
             State = result; if (encounter) encounter.StopEncounter();
-            if (rescueFlow) { rescueFlow.FinishMission(result == MissionState.Won); return; }
             previousTimeScale = Time.timeScale; previousLock = Cursor.lockState; previousCursor = Cursor.visible;
             pausedWorld = true; Time.timeScale = 0f;
             if (player)

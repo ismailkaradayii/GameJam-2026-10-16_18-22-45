@@ -75,6 +75,9 @@ namespace Itfaiye
             spawnRotation = transform.rotation;
             standingHeight = motor.height;
             if (playerCamera != null) cameraRest = playerCamera.transform.localPosition;
+            // Baked world occlusion can hide the camera-space weapon at certain map positions.
+            // The hands overlay must render independently of the world's visibility cells.
+            if (handsCamera != null) handsCamera.useOcclusionCulling = false;
             Swimming = GetComponent<GameJam.FireRescue.PlayerSwimming>();
             if (!Swimming) Swimming = gameObject.AddComponent<GameJam.FireRescue.PlayerSwimming>();
             if (bodyAnimator != null && bodyAnimator.isHuman)

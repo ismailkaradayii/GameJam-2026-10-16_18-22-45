@@ -9493,7 +9493,10 @@ PrefabInstance:
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
-    m_AddedComponents: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 3982989680251876926, guid: 0bf90fd8a8763a543bd98f4e87b67dba, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1027958947}
   m_SourcePrefab: {fileID: 100100000, guid: 0bf90fd8a8763a543bd98f4e87b67dba, type: 3}
 --- !u!4 &56578724 stripped
 Transform:
@@ -9510,7 +9513,7 @@ MonoBehaviour:
   m_CorrespondingSourceObject: {fileID: 7915165097456723516, guid: 0bf90fd8a8763a543bd98f4e87b67dba, type: 3}
   m_PrefabInstance: {fileID: 56578723}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 0}
+  m_GameObject: {fileID: 1027958941}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 0d2adebd5355c864a97ffc2ce08318b8, type: 3}
@@ -9521,7 +9524,7 @@ MonoBehaviour:
   m_CorrespondingSourceObject: {fileID: 7123928594576945424, guid: 0bf90fd8a8763a543bd98f4e87b67dba, type: 3}
   m_PrefabInstance: {fileID: 56578723}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 0}
+  m_GameObject: {fileID: 1027958941}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: cd015abfc793492489b12db91e461a1b, type: 3}
@@ -14788,6 +14791,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   maximumHealth: 100
   allowRecovery: 0
+  damageCamera: {fileID: 0}
 --- !u!114 &95214814
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -49001,6 +49005,7 @@ GameObject:
   - component: {fileID: 315682478}
   - component: {fileID: 315682475}
   - component: {fileID: 315682477}
+  - component: {fileID: 315682479}
   m_Layer: 0
   m_Name: Resident 5 - Can
   m_TagString: Untagged
@@ -49094,6 +49099,24 @@ NavMeshAgent:
   m_BaseOffset: 0
   m_WalkableMask: 4294967295
   m_ObstacleAvoidanceType: 4
+--- !u!114 &315682479
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 315682474}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c0039121e44ea8d4dbed7acb144ad9d9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  resident: {fileID: 315682475}
+  truck: {fileID: 0}
+  maximumHealth: 100
+  fireDamagePerSecond: 16
+  lavaDamagePerSecond: 48
+  waterToExtinguish: 12
 --- !u!1001 &315917431
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -81251,6 +81274,7 @@ GameObject:
   - component: {fileID: 501472178}
   - component: {fileID: 501472175}
   - component: {fileID: 501472177}
+  - component: {fileID: 501472179}
   m_Layer: 0
   m_Name: Resident 1 - Deniz
   m_TagString: Untagged
@@ -81344,6 +81368,24 @@ NavMeshAgent:
   m_BaseOffset: 0
   m_WalkableMask: 4294967295
   m_ObstacleAvoidanceType: 4
+--- !u!114 &501472179
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 501472174}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c0039121e44ea8d4dbed7acb144ad9d9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  resident: {fileID: 501472175}
+  truck: {fileID: 0}
+  maximumHealth: 100
+  fireDamagePerSecond: 16
+  lavaDamagePerSecond: 48
+  waterToExtinguish: 12
 --- !u!1001 &501626107
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -126525,6 +126567,7 @@ GameObject:
   - component: {fileID: 666647731}
   - component: {fileID: 666647728}
   - component: {fileID: 666647730}
+  - component: {fileID: 666647732}
   m_Layer: 0
   m_Name: Resident 7 - Kemal
   m_TagString: Untagged
@@ -126618,6 +126661,24 @@ NavMeshAgent:
   m_BaseOffset: 0
   m_WalkableMask: 4294967295
   m_ObstacleAvoidanceType: 4
+--- !u!114 &666647732
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 666647727}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c0039121e44ea8d4dbed7acb144ad9d9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  resident: {fileID: 666647728}
+  truck: {fileID: 0}
+  maximumHealth: 100
+  fireDamagePerSecond: 16
+  lavaDamagePerSecond: 48
+  waterToExtinguish: 12
 --- !u!43 &667184855
 Mesh:
   m_ObjectHideFlags: 0
@@ -141619,7 +141680,7 @@ MonoBehaviour:
   m_CorrespondingSourceObject: {fileID: 4313489570010055714, guid: 0bf90fd8a8763a543bd98f4e87b67dba, type: 3}
   m_PrefabInstance: {fileID: 56578723}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 0}
+  m_GameObject: {fileID: 1027958941}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 1b768cc00afcc9c4ca672de9265355c8, type: 3}
@@ -198682,6 +198743,29 @@ Transform:
   m_Children: []
   m_Father: {fileID: 1547479081}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1027958941 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 3982989680251876926, guid: 0bf90fd8a8763a543bd98f4e87b67dba, type: 3}
+  m_PrefabInstance: {fileID: 56578723}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &1027958947
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1027958941}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c0039121e44ea8d4dbed7acb144ad9d9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  resident: {fileID: 0}
+  truck: {fileID: 56578727}
+  maximumHealth: 100
+  fireDamagePerSecond: 3.2
+  lavaDamagePerSecond: 16
+  waterToExtinguish: 65
 --- !u!1001 &1028302374
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -267734,10 +267818,10 @@ MonoBehaviour:
     emergenceDepth: 2.2
   enableWaves: 1
   enableFinalObjective: 1
-  waveSizes: 030000000300000004000000
+  waveSizes: 040000000400000005000000
   secondsBetweenWaves: 20
   secondsBetweenSpawns: 2.2
-  maximumAlive: 7
+  maximumAlive: 9
   disperseIntoVillage: 1
   buildingAttackShare: 0.6
 --- !u!4 &1377955235
@@ -295291,6 +295375,7 @@ GameObject:
   - component: {fileID: 1564863265}
   - component: {fileID: 1564863262}
   - component: {fileID: 1564863264}
+  - component: {fileID: 1564863266}
   m_Layer: 0
   m_Name: Resident 3 - Murat
   m_TagString: Untagged
@@ -295384,6 +295469,24 @@ NavMeshAgent:
   m_BaseOffset: 0
   m_WalkableMask: 4294967295
   m_ObstacleAvoidanceType: 4
+--- !u!114 &1564863266
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1564863261}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c0039121e44ea8d4dbed7acb144ad9d9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  resident: {fileID: 1564863262}
+  truck: {fileID: 0}
+  maximumHealth: 100
+  fireDamagePerSecond: 16
+  lavaDamagePerSecond: 48
+  waterToExtinguish: 12
 --- !u!1 &1565693897
 GameObject:
   m_ObjectHideFlags: 0
@@ -299569,6 +299672,7 @@ GameObject:
   - component: {fileID: 1601862861}
   - component: {fileID: 1601862858}
   - component: {fileID: 1601862860}
+  - component: {fileID: 1601862862}
   m_Layer: 0
   m_Name: Resident 4 - Zeynep
   m_TagString: Untagged
@@ -299662,6 +299766,24 @@ NavMeshAgent:
   m_BaseOffset: 0
   m_WalkableMask: 4294967295
   m_ObstacleAvoidanceType: 4
+--- !u!114 &1601862862
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1601862857}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c0039121e44ea8d4dbed7acb144ad9d9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  resident: {fileID: 1601862858}
+  truck: {fileID: 0}
+  maximumHealth: 100
+  fireDamagePerSecond: 16
+  lavaDamagePerSecond: 48
+  waterToExtinguish: 12
 --- !u!1001 &1602402460
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -394348,6 +394470,7 @@ GameObject:
   - component: {fileID: 2050570419}
   - component: {fileID: 2050570416}
   - component: {fileID: 2050570418}
+  - component: {fileID: 2050570420}
   m_Layer: 0
   m_Name: Resident 2 - Elif
   m_TagString: Untagged
@@ -394441,6 +394564,24 @@ NavMeshAgent:
   m_BaseOffset: 0
   m_WalkableMask: 4294967295
   m_ObstacleAvoidanceType: 4
+--- !u!114 &2050570420
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2050570415}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c0039121e44ea8d4dbed7acb144ad9d9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  resident: {fileID: 2050570416}
+  truck: {fileID: 0}
+  maximumHealth: 100
+  fireDamagePerSecond: 16
+  lavaDamagePerSecond: 48
+  waterToExtinguish: 12
 --- !u!1 &2050708924
 GameObject:
   m_ObjectHideFlags: 0
@@ -405357,6 +405498,7 @@ GameObject:
   - component: {fileID: 2129477307}
   - component: {fileID: 2129477304}
   - component: {fileID: 2129477306}
+  - component: {fileID: 2129477308}
   m_Layer: 0
   m_Name: Resident 6 - Aylin
   m_TagString: Untagged
@@ -405450,6 +405592,24 @@ NavMeshAgent:
   m_BaseOffset: 0
   m_WalkableMask: 4294967295
   m_ObstacleAvoidanceType: 4
+--- !u!114 &2129477308
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2129477303}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c0039121e44ea8d4dbed7acb144ad9d9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  resident: {fileID: 2129477304}
+  truck: {fileID: 0}
+  maximumHealth: 100
+  fireDamagePerSecond: 16
+  lavaDamagePerSecond: 48
+  waterToExtinguish: 12
 --- !u!1001 &2130429630
 PrefabInstance:
   m_ObjectHideFlags: 0

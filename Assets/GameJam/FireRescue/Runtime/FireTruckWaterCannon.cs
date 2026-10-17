@@ -56,6 +56,17 @@ namespace GameJam.FireRescue
         float simulationTime;
         float simulationRemainder;
         Rigidbody vehicleBody;
+        ThermalDamage thermal;
+        public float PumpEfficiency
+        {
+            get
+            {
+                if (!thermal) thermal = tank ? tank.GetComponent<ThermalDamage>() : GetComponentInParent<ThermalDamage>();
+                return thermal ? thermal.PumpEfficiency : 1f;
+            }
+        }
+        public float EffectiveMuzzleSpeed => muzzleSpeed * Mathf.Sqrt(PumpEfficiency);
+        public float EffectiveFlow => flowLitresPerSecond * PumpEfficiency;
 
 
         void Awake()
@@ -63,6 +74,7 @@ namespace GameJam.FireRescue
             if (!tank) tank = GetComponentInParent<FireHoseSystem>();
             if (!ignoredCollisionRoot) ignoredCollisionRoot = tank ? tank.transform : transform;
             vehicleBody = tank ? tank.GetComponentInParent<Rigidbody>() : GetComponentInParent<Rigidbody>();
+            thermal = tank ? tank.GetComponent<ThermalDamage>() : GetComponentInParent<ThermalDamage>();
             ClearWater();
         }
         void LateUpdate() => TickSpray(Time.deltaTime);
@@ -92,13 +104,13 @@ namespace GameJam.FireRescue
             while (simulationRemainder >= Step - .000001f)
             {
                 simulationTime += Step;
-                if (sprayRequested && tank && IsFinite(flowLitresPerSecond) && flowLitresPerSecond > 0f)
+                if (sprayRequested && tank && IsFinite(EffectiveFlow) && EffectiveFlow > 0f)
                     EmitWater(Step);
                 AdvanceWater(Step);
                 simulationRemainder = Mathf.Max(0f, simulationRemainder - Step);
             }
             IsSpraying = sprayRequested && tank && tank.TankLitres > 0f &&
-                IsFinite(flowLitresPerSecond) && flowLitresPerSecond > 0f && InFlightPacketCount < Capacity;
+                IsFinite(EffectiveFlow) && EffectiveFlow > 0f && InFlightPacketCount < Capacity;
             DrawWater();
         }
 
@@ -106,7 +118,7 @@ namespace GameJam.FireRescue
         {
             // Never charge water that cannot enter the bounded pool.
             if (InFlightPacketCount >= Capacity) return false;
-            float litres = tank.ConsumeWater(flowLitresPerSecond * dt);
+            float litres = tank.ConsumeWater(EffectiveFlow * dt);
             if (litres <= 0f) return false;
             Collider containing = ContainingObstacle(muzzle.position);
             if (containing)
@@ -173,6 +185,8 @@ namespace GameJam.FireRescue
 
         void Impact(Collider surface, Vector3 point, Vector3 normal, float litres)
         {
+            var burnable = surface.GetComponentInParent<ThermalDamage>();
+            if (burnable) burnable.ApplyWater(litres);
             BurnableBuilding building = surface.GetComponentInParent<BurnableBuilding>();
             if (building)
             {
@@ -222,7 +236,7 @@ namespace GameJam.FireRescue
                     if (!solved) launchDirection = (requested - muzzle.position).normalized;
                     AimTurret(launchDirection);
                 }
-                LaunchVelocity = muzzle.forward * muzzleSpeed + inherited;
+                LaunchVelocity = muzzle.forward * EffectiveMuzzleSpeed + inherited;
             }
             PredictImpact(requested, requestedCollider, solved);
         }
@@ -253,18 +267,18 @@ namespace GameJam.FireRescue
             direction = offset.normalized;
             // First positive crossing is the low arc. This also compensates vehicle velocity.
             float previousTime = .001f;
-            float previous = RequiredSpeedSquared(offset, inherited, previousTime) - muzzleSpeed * muzzleSpeed;
+            float previous = RequiredSpeedSquared(offset, inherited, previousTime) - EffectiveMuzzleSpeed * EffectiveMuzzleSpeed;
             for (int i = 1; i <= 240; i++)
             {
                 float t = i * (Lifetime / 240f);
-                float value = RequiredSpeedSquared(offset, inherited, t) - muzzleSpeed * muzzleSpeed;
+                float value = RequiredSpeedSquared(offset, inherited, t) - EffectiveMuzzleSpeed * EffectiveMuzzleSpeed;
                 if (previous > 0f && value <= 0f)
                 {
                     float low = previousTime, high = t;
                     for (int iteration = 0; iteration < 18; iteration++)
                     {
                         float middle = (low + high) * .5f;
-                        if (RequiredSpeedSquared(offset, inherited, middle) > muzzleSpeed * muzzleSpeed) low = middle;
+                        if (RequiredSpeedSquared(offset, inherited, middle) > EffectiveMuzzleSpeed * EffectiveMuzzleSpeed) low = middle;
                         else high = middle;
                     }
                     float flight = (low + high) * .5f;
@@ -351,13 +365,13 @@ namespace GameJam.FireRescue
             nearest = default;
             if (distance <= .000001f) return false;
             int count = sweep
-                ? Physics.SphereCastNonAlloc(origin, Radius, direction, rayHits, distance, collisionMask, QueryTriggerInteraction.Ignore)
-                : Physics.RaycastNonAlloc(origin, direction, rayHits, distance, collisionMask, QueryTriggerInteraction.Ignore);
+                ? Physics.SphereCastNonAlloc(origin, Radius, direction, rayHits, distance, collisionMask, QueryTriggerInteraction.Collide)
+                : Physics.RaycastNonAlloc(origin, direction, rayHits, distance, collisionMask, QueryTriggerInteraction.Collide);
             RaycastHit[] hits = rayHits;
             if (count == rayHits.Length)
             {
-                hits = sweep ? Physics.SphereCastAll(origin, Radius, direction, distance, collisionMask, QueryTriggerInteraction.Ignore)
-                    : Physics.RaycastAll(origin, direction, distance, collisionMask, QueryTriggerInteraction.Ignore);
+                hits = sweep ? Physics.SphereCastAll(origin, Radius, direction, distance, collisionMask, QueryTriggerInteraction.Collide)
+                    : Physics.RaycastAll(origin, direction, distance, collisionMask, QueryTriggerInteraction.Collide);
                 count = hits.Length;
             }
             float nearestDistance = float.PositiveInfinity;
@@ -373,11 +387,11 @@ namespace GameJam.FireRescue
 
         Collider ContainingObstacle(Vector3 point)
         {
-            int count = Physics.OverlapSphereNonAlloc(point, Radius, overlapHits, collisionMask, QueryTriggerInteraction.Ignore);
+            int count = Physics.OverlapSphereNonAlloc(point, Radius, overlapHits, collisionMask, QueryTriggerInteraction.Collide);
             Collider[] hits = overlapHits;
             if (count == overlapHits.Length)
             {
-                hits = Physics.OverlapSphere(point, Radius, collisionMask, QueryTriggerInteraction.Ignore);
+                hits = Physics.OverlapSphere(point, Radius, collisionMask, QueryTriggerInteraction.Collide);
                 count = hits.Length;
             }
             for (int i = 0; i < count; i++)
@@ -391,7 +405,8 @@ namespace GameJam.FireRescue
             return null;
         }
 
-        bool IgnoreCollider(Collider collider) => !collider || collider is CharacterController ||
+        bool IgnoreCollider(Collider collider) => !collider || (collider is CharacterController && !collider.GetComponentInParent<ThermalDamage>()) ||
+            (collider.isTrigger && !collider.GetComponentInParent<ThermalDamage>()) ||
             WaterSourceVolume.IsSurfaceCollider(collider) ||
             (ignoredCollisionRoot && collider.transform.IsChildOf(ignoredCollisionRoot)) ||
             collider.GetComponentInParent<FireRescuePlayer>() != null;

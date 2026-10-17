@@ -203,6 +203,7 @@ namespace GameJam.FireRescue
             if (IsDriving)
             {
                 if (pistol) pistol.SetExternalInput(false, false, false, false, false, false);
+                if (drive && drive.Thermal && keyboard.xKey.isPressed) drive.Thermal.SuppressFromTank(hose, Time.deltaTime);
                 var station = mission ? mission.fillStation : null;
                 if (station && interactKey != Key.None && keyboard[interactKey].wasPressedThisFrame) station.Interact();
                 bool filling = station && station.IsFilling;
@@ -267,6 +268,7 @@ namespace GameJam.FireRescue
         {
             if (GameplaySuspended) return false;
             if (!drive || IsDriving) return false;
+            if (drive.IsWrecked) { ShowNotice("İtfaiye aracı kullanılamaz durumda."); return false; }
             if (!NearVehicleEntry())
             {
                 ShowNotice("Binmek için sürücü kapısına yaklaş.");

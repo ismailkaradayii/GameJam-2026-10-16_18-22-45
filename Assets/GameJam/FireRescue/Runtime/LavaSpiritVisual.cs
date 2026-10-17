@@ -24,6 +24,7 @@ namespace GameJam.FireRescue
         Transform rig;
         Light glow;
         ParticleSystem embers;
+        TrailRenderer launchTrail;
         Vector3 restPosition, restScale, localShot, impactPoint;
         float impactAt = -100f, landingAt = -100f, phase;
         float deathAt;
@@ -99,6 +100,16 @@ namespace GameJam.FireRescue
                 MeshPart("Flame wisp hand", tongueMesh, fireMaterial, new Vector3(side * .4f, .3f, 0),
                     new Vector3(.23f, .71f, .24f), Quaternion.Euler(4, side * 60, side * -35));
             embers = BuildEmbers();
+            var trailObject = new GameObject("Spirit leap fire trail");
+            trailObject.transform.SetParent(rig, false); trailObject.transform.localPosition = Vector3.up * .65f;
+            launchTrail = trailObject.AddComponent<TrailRenderer>();
+            launchTrail.sharedMaterial = Resources.Load<Material>("LavaCombat/Flame");
+            launchTrail.time = .24f; launchTrail.minVertexDistance = .08f;
+            launchTrail.startWidth = height * .3f; launchTrail.endWidth = 0f;
+            launchTrail.startColor = new Color(2.6f, 1.1f, .13f, .85f);
+            launchTrail.endColor = new Color(1f, .12f, .01f, 0f);
+            launchTrail.shadowCastingMode = ShadowCastingMode.Off; launchTrail.receiveShadows = false;
+            launchTrail.emitting = false;
             glow = new GameObject("Spirit warm light").AddComponent<Light>();
             glow.transform.SetParent(rig, false); glow.transform.localPosition = Vector3.up * .65f;
             glow.type = LightType.Point; glow.color = new Color(1f, .28f, .035f);
@@ -152,7 +163,11 @@ namespace GameJam.FireRescue
             rig.localPosition = restPosition + ModelBasis * (localShot * (.4f * kick) + Vector3.up * breathe) * restScale.x;
             rig.localRotation = ModelBasis * Quaternion.Euler(localShot.z * kick * 22f, 0, -localShot.x * kick * 25f);
             rig.localScale = Vector3.Scale(restScale, new Vector3(1f + squash, 1f - squash + breathe, 1f + squash * .35f));
-            float charge = combat ? combat.AttackCharge * 1.8f : 0f;
+            bool launched = combat && (combat.State == LavaCreatureCombat.Motion.RoofLeaping || combat.IsPlayerPouncing);
+            float charge = combat ? Mathf.Max(Mathf.Max(combat.AttackCharge * 2.6f, combat.RoofAttackCharge * 2.6f), launched ? 2f : 0f) : 0f;
+            launchTrail.emitting = launched;
+            if (!launched) launchTrail.Clear();
+            var emission = embers.emission; emission.rateOverTime = 10f + charge * 14f;
             block.SetFloat(HitId, flash);
             block.SetFloat(HeatId, 1f + charge + Mathf.Sin(t * 7f + phase) * .075f);
             block.SetFloat(SeedId, phase);

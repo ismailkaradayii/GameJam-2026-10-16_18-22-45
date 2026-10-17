@@ -78,6 +78,10 @@ namespace GameJam.FireRescue
         [Min(1f)] public float obstacleLiftAcceleration = 65f;
 
         public bool IsDriven { get; private set; }
+        public ThermalDamage Thermal { get; private set; }
+        public float MotorEfficiency => Thermal ? Thermal.MotorEfficiency : 1f;
+        public float EffectiveForwardSpeedKph => maxForwardSpeedKph * MotorEfficiency;
+        public bool IsWrecked => Thermal && Thermal.IsDestroyed;
         public float SpeedKph => body != null ? body.linearVelocity.magnitude * 3.6f : 0f;
         public float RearSteerFactor => lowSpeedRearSteerRatio * (1f - Mathf.InverseLerp(10f, rearSteerFadeSpeedKph, SpeedKph));
 
@@ -105,6 +109,7 @@ namespace GameJam.FireRescue
 
         private void Awake()
         {
+            Thermal = ThermalDamage.Ensure(this);
             if (body == null)
                 body = GetComponent<Rigidbody>();
             ConfigureBody();
@@ -190,7 +195,7 @@ namespace GameJam.FireRescue
             arcadeSteer = Mathf.MoveTowards(arcadeSteer, IsDriven ? steeringInput : 0f,
                 8f * Time.fixedDeltaTime);
 
-            float requestedThrottle = IsDriven ? throttleInput : 0f;
+            float requestedThrottle = IsDriven && !IsWrecked ? throttleInput : 0f;
             int requestedDirection = requestedThrottle < 0f ? -1 : 1;
             // A deliberate gear reversal brakes first. Rolling downhill while holding W
             // must not be mistaken for a new reverse request and lock the hill climb.
@@ -199,7 +204,7 @@ namespace GameJam.FireRescue
                 (!hillHoldAssist || requestedDirection != lastPoweredDirection);
             if (Mathf.Abs(requestedThrottle) > .05f && !changingDirection)
                 lastPoweredDirection = requestedDirection;
-            bool braking = !IsDriven || brakeInput || changingDirection;
+            bool braking = !IsDriven || IsWrecked || brakeInput || changingDirection;
             float pedalTarget = braking ? 0f : requestedThrottle;
             appliedThrottle = smoothPedals ? Mathf.MoveTowards(appliedThrottle, pedalTarget,
                 (Mathf.Abs(pedalTarget) > Mathf.Abs(appliedThrottle) ? throttleResponsePerSecond : throttleReleasePerSecond) * Time.fixedDeltaTime) : pedalTarget;
@@ -212,14 +217,14 @@ namespace GameJam.FireRescue
             smoothedBrakeTorque = smoothPedals && IsDriven && appliedBrake >= smoothedBrakeTorque ? Mathf.MoveTowards(smoothedBrakeTorque, appliedBrake,
                 Mathf.Max(brakeTorque, parkingBrakeTorque) * 5f * Time.fixedDeltaTime) : appliedBrake;
 
-            float targetTopSpeed = throttle < 0f ? maxReverseSpeedKph : maxForwardSpeedKph;
+            float targetTopSpeed = (throttle < 0f ? maxReverseSpeedKph : maxForwardSpeedKph) * MotorEfficiency;
             if (arcadeHandling) targetTopSpeed = CornerSpeedLimit(targetTopSpeed);
             float speedInRequestedDirection = Mathf.Max(0f, signedSpeed * Mathf.Sign(throttle)) * 3.6f;
             float powerFactor = 1f - Mathf.InverseLerp(targetTopSpeed * 0.8f,
                 targetTopSpeed, speedInRequestedDirection);
             float lowGear = Mathf.Lerp(Mathf.Max(1f, lowSpeedTorqueMultiplier), 1f,
                 Mathf.Clamp01(Mathf.Abs(signedSpeed) * 3.6f / Mathf.Max(1f, torqueBoostFadeSpeedKph)));
-            float requestedTorque = braking ? 0f : throttle * motorTorque * powerFactor * lowGear;
+            float requestedTorque = braking ? 0f : throttle * motorTorque * powerFactor * lowGear * MotorEfficiency;
             bool anyGrounded = false;
             int groundedCount = 0;
             Vector3 supportNormal = Vector3.zero;
@@ -253,7 +258,7 @@ namespace GameJam.FireRescue
                 {
                     float assist = 1f - Mathf.Clamp01(Mathf.Abs(signedSpeed) * 3.6f / Mathf.Max(1f, accelerationAssistFadeSpeedKph));
                     Vector3 direction = Vector3.ProjectOnPlane(body.transform.forward, supportNormal.normalized).normalized;
-                    body.AddForce(direction * (throttle * groundAccelerationAssist * assist * powerFactor * groundedCount / wheels.Length), ForceMode.Acceleration);
+                    body.AddForce(direction * (throttle * groundAccelerationAssist * assist * powerFactor * MotorEfficiency * groundedCount / wheels.Length), ForceMode.Acceleration);
                 }
                 ApplySpeedLimiter(signedSpeed);
                 if (arcadeHandling && IsDriven)
@@ -275,7 +280,7 @@ namespace GameJam.FireRescue
             float yaw = Vector3.Dot(body.angularVelocity, normal);
             body.AddTorque(normal * Mathf.Clamp((targetYaw - yaw) * arcadeSteeringResponse, -7f, 7f), ForceMode.Acceleration);
             body.AddForce(-right * Mathf.Clamp(Vector3.Dot(body.linearVelocity, right) * arcadeLateralGrip, -55f, 55f), ForceMode.Acceleration);
-            float cornerLimit = CornerSpeedLimit(signedSpeed < -.1f ? maxReverseSpeedKph : maxForwardSpeedKph) / 3.6f;
+            float cornerLimit = CornerSpeedLimit((signedSpeed < -.1f ? maxReverseSpeedKph : maxForwardSpeedKph) * MotorEfficiency) / 3.6f;
             float cornerExcess = Mathf.Abs(signedSpeed) - cornerLimit;
             if (cornerExcess > 0f)
                 body.AddForce(-forward * Mathf.Sign(signedSpeed) * Mathf.Min(cornerExcess * 6f, arcadeBrakeAcceleration), ForceMode.Acceleration);
@@ -344,7 +349,7 @@ namespace GameJam.FireRescue
         {
             // Apply a resistive force rather than rewriting velocity or moving the transform.
             Vector3 planarVelocity = Vector3.ProjectOnPlane(body.linearVelocity, Vector3.up);
-            float limit = (signedSpeed < -0.1f ? maxReverseSpeedKph : maxForwardSpeedKph) / 3.6f;
+            float limit = (signedSpeed < -0.1f ? maxReverseSpeedKph : maxForwardSpeedKph) * MotorEfficiency / 3.6f;
             float excessSpeed = planarVelocity.magnitude - limit;
             if (excessSpeed > 0f)
                 body.AddForce(-planarVelocity.normalized * excessSpeed * speedLimiterStrength,
