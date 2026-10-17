@@ -1,0 +1,77 @@
+İTFAİYE ARACI, GÖLDEN SU ÇEKME VE YANGIN SÖNDÜRME
+
+Sahneler:
+Assets/Scenes/İtfaiye aracı.unity
+Assets/BK/PureNature_Volcano/Scenes/Volcano_Demo.unity
+
+Unity'de sahneyi aç, Play'e bas ve oyun ekranına tıkla.
+
+Araçtayken:
+W: İleri / gaz
+S: Fren, durduktan sonra geri
+A / D: Direksiyon
+Boşluk: Fren
+F: Durduktan sonra araçtan in
+Fare: Kamerayı çevir, ekranın ortasındaki artıyla yanan eve nişan al
+Sağ fare tuşu basılı: Çatıdaki su topundan su püskürt
+Fare tekerleği: Kamera uzaklığı
+
+Yayadayken:
+WASD: Yürü
+Shift: Koş
+Fare: Etrafa bak
+F: Sürücü kapısının yakınında araca bin
+E: Aracın arkasında hortumu al; taşırken baktığın yere bırak
+E: Bırakılmış hortum ucunun yakınında yeniden al
+P: Pompayı aç / kapat
+R: Aracın arkasında hortumu topla
+
+Esc: İmleci serbest bırak. Devam etmek için oyun ekranına tıkla.
+V: Volcano_Demo'da patlama sırasını hemen başlat.
+
+Su çekme sırası:
+1. Göle yakın park et, dur ve F ile in.
+2. Aracın arkasına git, E ile hortumu al.
+3. Kıyıya yürü, suya bak ve E ile emiş ucunu suya bırak.
+4. P ile pompayı aç. Sol üstte su miktarı ve durum görünür.
+5. İşin bitince aracın arkasına dön, R ile hortumu topla.
+6. Sürücü kapısına git, F ile bin.
+
+Depo: 2000 litre. Dolum: 150 litre/saniye. Hortum erişimi: 45 metre.
+Başlangıç suyu: 1000 litre. Su topu: 35 litre/saniye, 85 metre menzil.
+Emiş ucu suyun içinde ve erişim mesafesinde olmalıdır.
+Taşırken, kuru zemindeyken veya depo doluyken su çekilmez.
+Depo dolunca pompa durur. Hortum açılmışken araca binilemez.
+
+Yangın söndürme sırası:
+1. Depoyu gölden doldur, arka hortumu topla ve sürücü kapısından araca bin.
+2. Yanan evin yakınında dur. Fareyle ekranın ortasındaki artıyı yangına yönelt.
+3. Sağ fare tuşunu basılı tut. Çatıdaki su topu nişan aldığın noktaya su püskürtür.
+4. Su yangına isabet ettikçe yangın azalır; kalan yangın ve depo miktarı ekranda görünür.
+5. Tuşu bırakınca püskürtme durur. Depo boşalınca göle dönüp yeniden doldur.
+
+Su püskürtme araçtayken kullanılabilir; kamera sağ tuş basılıyken çatı üstünü görecek kadar yükselir.
+Araçtan inince, Esc ile imleci açınca veya oyun odağını kaybedince püskürtme durur.
+
+İtfaiye aracı test sahnesinde karşıdaki ev yanarak başlar; su topunu burada deneyebilirsin.
+Volcano_Demo'daki beş ev lavın sıcak yüzeyiyle temas edince yanar. Suya çevrilen göl ateş kaynağı değildir.
+Bir evi tamamen söndürmek yaklaşık 100 litre su ister. Lav teması sürüyorsa 5 saniye sonra yeniden tutuşabilir.
+
+VOLKAN PATLAMASI (Volcano_Demo)
+Oyun başında lavlar, lav göletleri ve bunlara bağlı parçacıklar gizlidir; henüz evleri yakamazlar.
+Oyun başladıktan 15 saniye sonra sıra otomatik başlar. Daha erken denemek için oyun ekranına tıkla ve V'ye bas.
+Önce 3 saniyelik hafif sarsıntı, sonra parlama, havaya fırlayan lav ve kül bulutu oluşur.
+Patlamadan 4 saniye sonra lav akışı başlar; görünen lav ve temas yüzeyi birlikte ilerler.
+Ana kraterden inen yol kasabaya yeni bir yaklaşım yolu ve beş ev koluyla bağlanmıştır.
+Kasaba kolları, onları besleyen lav gerçekten bağlantı noktasına ulaştığında açılır.
+Evler yalnızca sıcak lavın görünen yüzeyiyle temas edince yanar; sağ tıkla söndürebilirsin.
+Suya çevrilen Lava (8) gölü bu sıradan bağımsızdır ve su çekmek için görünür kalır.
+Sıra tek sefer çalışır. Yeniden denemek için Play'i durdurup tekrar başlat.
+Bu ilk sürüm sessizdir; ses efekti eklenmemiştir.
+
+Inspector ayarları:
+Volcano Eruption System > Volcano Eruption Sequence: Auto Erupt, Auto Erupt After,
+Warning Seconds, Lava Release Delay ve Enable Camera Shake.
+LavaStreams/Spline (1) > Progressive Lava Flow: ana akış hızı 6 metre/saniye.
+Volcano Eruption System/Town Lava Routes altındaki yollar: kasaba akış hızı 3 metre/saniye.
+Lav yolları düzenleme modunda görünür; yalnızca oyun başladığında gizlenir.

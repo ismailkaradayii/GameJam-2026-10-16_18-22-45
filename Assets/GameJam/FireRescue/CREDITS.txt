@@ -1,0 +1,17 @@
+Fire Truck
+Creator: codexito
+Source: https://sketchfab.com/3d-models/fire-truck-e0fadd42bd3b448eaa0eb660764c170a
+License: Creative Commons Attribution 4.0 International (CC BY 4.0)
+License URL: https://creativecommons.org/licenses/by/4.0/
+
+Changes for this Unity project:
+- Materials adapted to Unity's Universal Render Pipeline (URP).
+- Wheel meshes separated for steering and rotation.
+- Model scale adjusted for the game scene.
+- Vehicle physics, player controls, hose and water-tank gameplay added.
+
+Original model credit belongs to codexito. The changes listed above are
+project adaptations and do not imply endorsement by the original creator.
+
+Keep this attribution and the source/license links with distributed builds,
+for example in the game's credits or an included credits file.
