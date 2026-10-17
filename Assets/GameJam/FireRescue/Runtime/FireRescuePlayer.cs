@@ -18,6 +18,7 @@ namespace GameJam.FireRescue
         public Transform hand;
         public Transform driverDoor;
         public Transform exitPoint;
+        public RescueGameFlow gameFlow;
         [Header("First-person character (optional)")]
         public Itfaiye.ItfaiyeFirstPersonController firstPerson;
         public Itfaiye.ItfaiyePistol pistol;
@@ -35,9 +36,14 @@ namespace GameJam.FireRescue
         [Header("Driving camera")]
         public float followDistance = 8.5f;
         public float followHeight = 1.8f;
+        [Min(1f)] public float minFollowDistance = 5f;
+        [Min(1f)] public float maxFollowDistance = 14f;
         [Min(0f)] public float cannonCameraLift = 2.8f;
 
         public bool IsDriving { get; private set; }
+        public bool GameplaySuspended => gameplaySuspended || (gameFlow && gameFlow.BlocksGameplay);
+        public string InteractionPrompt => GetPrompt();
+        public string WaterStatus => GetWaterStatus();
 
         float lookYaw;
         float lookPitch = 16f;
@@ -45,6 +51,10 @@ namespace GameJam.FireRescue
         float verticalVelocity;
         bool snapCamera = true;
         bool focused = true;
+        bool gameplaySuspended;
+        bool pistolHudBeforeSuspend;
+        bool waitForMouseRelease;
+        int resumeAfterFrame = -1;
         bool aimingCannon;
         Vector2 lookAngularVelocity;
         Renderer[] bodyRenderers;
@@ -56,6 +66,7 @@ namespace GameJam.FireRescue
         GUIStyle titleStyle;
         GUIStyle textStyle;
         GUIStyle promptStyle;
+        readonly RaycastHit[] doorHits = new RaycastHit[32];
 
         void Awake()
         {
@@ -92,7 +103,20 @@ namespace GameJam.FireRescue
         {
             Keyboard keyboard = Keyboard.current;
             Mouse mouse = Mouse.current;
-            if (keyboard != null && keyboard.escapeKey.wasPressedThisFrame) SetCursor(false);
+            if (GameplaySuspended)
+            {
+                StopGameplayInput();
+                return;
+            }
+            if (waitForMouseRelease)
+            {
+                StopGameplayInput();
+                if (Time.frameCount > resumeAfterFrame &&
+                    (mouse == null || (!mouse.leftButton.isPressed && !mouse.rightButton.isPressed)))
+                    waitForMouseRelease = false;
+                return;
+            }
+            if (!gameFlow && keyboard != null && keyboard.escapeKey.wasPressedThisFrame) SetCursor(false);
             if (focused && Cursor.lockState != CursorLockMode.Locked && mouse != null && mouse.leftButton.wasPressedThisFrame)
                 SetCursor(true);
 
@@ -114,7 +138,8 @@ namespace GameJam.FireRescue
                 orbitYaw += mouseDelta.x * mouseSensitivity;
                 lookPitch = Mathf.Clamp(lookPitch - mouseDelta.y * mouseSensitivity, -10f, 65f);
                 if (mouse != null)
-                    followDistance = Mathf.Clamp(followDistance - mouse.scroll.ReadValue().y * 0.01f, 5f, 14f);
+                    followDistance = Mathf.Clamp(followDistance - mouse.scroll.ReadValue().y * 0.01f,
+                        minFollowDistance, Mathf.Max(minFollowDistance, maxFollowDistance));
             }
             else
             {
@@ -148,11 +173,8 @@ namespace GameJam.FireRescue
                 keyboard.spaceKey.wasPressedThisFrame, keyboard.cKey.wasPressedThisFrame);
             // Update the first-person camera before ray-based interactions this frame.
             UpdateFootCamera();
-            if (hose)
-            {
-                if (keyboard.eKey.wasPressedThisFrame) InteractWithHose();
-                if (keyboard.pKey.wasPressedThisFrame) hose.TogglePump();
-            }
+            if (keyboard.eKey.wasPressedThisFrame) Interact();
+            if (hose && keyboard.pKey.wasPressedThisFrame) hose.TogglePump();
             RefreshEquipmentState();
             if (keyboard.rKey.wasPressedThisFrame) ReloadOrRetract();
             if (pistol)
@@ -163,6 +185,7 @@ namespace GameJam.FireRescue
 
         void LateUpdate()
         {
+            if (GameplaySuspended) return;
             // Keep the unified character/creature target with the vehicle while its motor is disabled.
             if (IsDriving && firstPerson && drive && playerBody)
                 playerBody.transform.position = drive.transform.position;
@@ -173,6 +196,7 @@ namespace GameJam.FireRescue
 
         public bool EnterVehicle()
         {
+            if (GameplaySuspended) return false;
             if (!drive || IsDriving) return false;
             if (!Near(driverDoor ? driverDoor : drive.transform, interactionDistance))
             {
@@ -190,6 +214,7 @@ namespace GameJam.FireRescue
 
         public bool ExitVehicle()
         {
+            if (GameplaySuspended) return false;
             if (!IsDriving || !drive || !playerBody) return false;
             if (Mathf.Abs(drive.SpeedKph) > 4f)
             {
@@ -257,6 +282,7 @@ namespace GameJam.FireRescue
         /// <summary>The deployed hose owns R at the rear socket; elsewhere R belongs to the pistol.</summary>
         public bool ReloadOrRetract()
         {
+            if (GameplaySuspended) return false;
             if (IsDriving) return false;
             if (hose && hose.IsDeployed && Near(hose.hoseSocket, interactionDistance))
             {
@@ -311,6 +337,49 @@ namespace GameJam.FireRescue
                 else high = middle;
             }
             return travel * low;
+        }
+
+        /// <summary>E has one action: carried intake, visible door, then nearby intake pickup.</summary>
+        public bool Interact()
+        {
+            if (GameplaySuspended || IsDriving || waitForMouseRelease) return false;
+            if (hose && hose.IsCarried) { InteractWithHose(); return true; }
+            if (TryGetDoorTarget(out InteractiveDoor door))
+            {
+                bool changed = door.TryToggle();
+                if (!changed && door.LastBlocked) ShowNotice("Kapının önünde engel var. Biraz geri çekil.");
+                return changed;
+            }
+            if (hose && hand && Near(hose.IsDeployed ? hose.nozzle : hose.hoseSocket, interactionDistance))
+            {
+                bool pickedUp = hose.TryPickup(hand);
+                RefreshEquipmentState();
+                return pickedUp;
+            }
+            return false;
+        }
+
+        /// <summary>The first solid surface owns the ray; a door behind a wall cannot be used.</summary>
+        public bool TryGetDoorTarget(out InteractiveDoor door)
+        {
+            door = null;
+            if (GameplaySuspended || IsDriving || !viewCamera || (hose && hose.IsCarried)) return false;
+            int count = Physics.RaycastNonAlloc(viewCamera.transform.position, viewCamera.transform.forward, doorHits,
+                Mathf.Max(0f, interactionDistance), ~0, QueryTriggerInteraction.Ignore);
+            if (count == doorHits.Length) return false;
+            float nearest = float.PositiveInfinity;
+            Collider surface = null;
+            for (int i = 0; i < count; i++)
+            {
+                RaycastHit hit = doorHits[i];
+                // The truck remains a real blocker for doors; only our own body/nozzle is ignored.
+                if (playerBody && hit.transform.IsChildOf(playerBody.transform)) continue;
+                if (hose && hose.nozzle && hit.transform.IsChildOf(hose.nozzle)) continue;
+                if (hit.distance >= nearest) continue;
+                nearest = hit.distance; surface = hit.collider;
+            }
+            door = surface ? surface.GetComponentInParent<InteractiveDoor>() : null;
+            return door && door.isActiveAndEnabled;
         }
 
         void InteractWithHose()
@@ -430,7 +499,7 @@ namespace GameJam.FireRescue
 
         void SetCannonActive(bool active)
         {
-            aimingCannon = active && IsDriving && cannon;
+            aimingCannon = active && !GameplaySuspended && IsDriving && cannon;
             if (cannon) cannon.SetSpraying(aimingCannon);
         }
 
@@ -444,6 +513,41 @@ namespace GameJam.FireRescue
             }
             Cursor.lockState = locked ? CursorLockMode.Locked : CursorLockMode.None;
             Cursor.visible = !locked;
+        }
+
+        /// <summary>Pause gameplay without changing the held equipment or the vehicle/hose state.</summary>
+        public void SetGameplaySuspended(bool suspended)
+        {
+            if (gameplaySuspended == suspended) return;
+            gameplaySuspended = suspended;
+            StopGameplayInput();
+            if (suspended)
+            {
+                if (pistol)
+                {
+                    pistolHudBeforeSuspend = pistol.showHud;
+                    pistol.showHud = false;
+                }
+                waitForMouseRelease = false;
+                SetCursor(false);
+            }
+            else
+            {
+                if (pistol) pistol.showHud = pistolHudBeforeSuspend;
+                // A Resume button click must not become a shot or a water command.
+                resumeAfterFrame = Time.frameCount;
+                waitForMouseRelease = true;
+                SetCursor(true);
+            }
+        }
+
+        void StopGameplayInput()
+        {
+            lookAngularVelocity = Vector2.zero;
+            SetCannonActive(false);
+            if (drive) drive.SetInput(0f, 0f, true);
+            if (pistol) pistol.SetExternalInput(false, false, false, false, false, false);
+            if (firstPerson) firstPerson.SetInputCaptured(false);
         }
 
         void OnApplicationFocus(bool hasFocus)
@@ -463,7 +567,7 @@ namespace GameJam.FireRescue
 
         void OnGUI()
         {
-            if (!showHud) return;
+            if (!showHud || GameplaySuspended) return;
             if (textStyle == null)
             {
                 titleStyle = new GUIStyle(GUI.skin.label) { fontSize = 18, fontStyle = FontStyle.Bold };
@@ -534,9 +638,13 @@ namespace GameJam.FireRescue
                 return drive && Mathf.Abs(drive.SpeedKph) > 4f ? "Göle yaklaş, dur ve hortumu almak için araçtan in." : "F  Araçtan in";
             }
             if (hose && hose.IsCarried) return "Suya bak ve E ile hortum ucunu bırak.  ·  P Pompayı aç/kapat";
+            if (TryGetDoorTarget(out InteractiveDoor door)) return door.Prompt;
+            if (hose && hose.IsDeployed && Near(hose.nozzle, interactionDistance))
+                return Near(hose.hoseSocket, interactionDistance)
+                    ? "E  Hortum ucunu al  ·  R Hortumu topla  ·  P Pompayı aç/kapat"
+                    : "E  Hortum ucunu al  ·  P Pompayı aç/kapat";
             if (hose && Near(hose.hoseSocket, interactionDistance))
                 return hose.IsDeployed ? "R  Hortumu topla  ·  P Pompayı aç/kapat" : "E  Hortumu al";
-            if (hose && hose.IsDeployed && Near(hose.nozzle, interactionDistance)) return "E  Hortum ucunu al  ·  P Pompayı aç/kapat";
             if (Near(driverDoor ? driverDoor : (drive ? drive.transform : null), interactionDistance)) return "F  Araca bin";
             if (pistol) return pistol.Equipped ? "Sol tık Ateş  ·  Sağ tık Nişan  ·  R Doldur  ·  C Çök  ·  Boşluk Zıpla  ·  0 Kaldır" : "1  Silahı çıkar  ·  Hortum için aracın arkasına git.";
             if (!hose) return "";

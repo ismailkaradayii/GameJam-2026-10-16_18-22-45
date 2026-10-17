@@ -29,6 +29,15 @@ namespace GameJam.FireRescue
         [Min(0f)] public float brakeTorque = 8000f;
         [Min(0f)] public float parkingBrakeTorque = 12000f;
         [Min(0f)] public float coastBrakeTorque = 50f;
+        [Tooltip("Distribute the configured per-wheel torque to all grounded wheels.")]
+        public bool allWheelDrive;
+        [Min(1f)] public float lowSpeedTorqueMultiplier = 1f;
+        [Min(1f)] public float torqueBoostFadeSpeedKph = 20f;
+        public bool smoothPedals;
+        [Min(.1f)] public float throttleResponsePerSecond = 3f;
+        [Min(.1f)] public float throttleReleasePerSecond = 6f;
+        [Tooltip("Hold a nearly stopped truck when the pedals are released; never change its velocity.")]
+        public bool hillHoldAssist;
 
         [Header("Steering")]
         [Range(1f, 50f)] public float maxSteerAngle = 30f;
@@ -48,6 +57,9 @@ namespace GameJam.FireRescue
         private float steeringInput;
         private bool brakeInput;
         private float currentSteerAngle;
+        private float appliedThrottle;
+        private float smoothedBrakeTorque;
+        private int lastPoweredDirection = 1;
         private readonly Quaternion[] authoredVisualOffsets = new Quaternion[4];
         private readonly Transform[] cachedVisuals = new Transform[4];
         private readonly WheelCollider[] cachedColliders = new WheelCollider[4];
@@ -88,6 +100,7 @@ namespace GameJam.FireRescue
             throttleInput = 0f;
             steeringInput = 0f;
             brakeInput = false;
+            appliedThrottle = 0f;
             if (!driven)
                 ApplyParkingBrake();
             else if (body != null)
@@ -110,6 +123,9 @@ namespace GameJam.FireRescue
             body.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
             body.linearDamping = 0.04f;
             body.angularDamping = 0.75f;
+            if (wheels != null)
+                foreach (WheelCollider wheel in wheels)
+                    if (wheel != null) wheel.ConfigureVehicleSubsteps(5f, 8, 4);
             // Recalculate before applying the offset so repeated Configure calls cannot accumulate it.
             body.ResetCenterOfMass();
             body.centerOfMass += centerOfMassOffset;
@@ -131,18 +147,33 @@ namespace GameJam.FireRescue
             currentSteerAngle = Mathf.MoveTowards(currentSteerAngle, targetSteer,
                 steeringSpeed * Time.fixedDeltaTime);
 
-            float throttle = IsDriven ? throttleInput : 0f;
-            bool changingDirection = Mathf.Abs(throttle) > 0.05f &&
-                Mathf.Abs(signedSpeed) > 0.8f && Mathf.Sign(throttle) != Mathf.Sign(signedSpeed);
+            float requestedThrottle = IsDriven ? throttleInput : 0f;
+            int requestedDirection = requestedThrottle < 0f ? -1 : 1;
+            // A deliberate gear reversal brakes first. Rolling downhill while holding W
+            // must not be mistaken for a new reverse request and lock the hill climb.
+            bool changingDirection = Mathf.Abs(requestedThrottle) > .05f && Mathf.Abs(signedSpeed) > .8f &&
+                Mathf.Sign(requestedThrottle) != Mathf.Sign(signedSpeed) &&
+                (!hillHoldAssist || requestedDirection != lastPoweredDirection);
+            if (Mathf.Abs(requestedThrottle) > .05f && !changingDirection)
+                lastPoweredDirection = requestedDirection;
             bool braking = !IsDriven || brakeInput || changingDirection;
+            float pedalTarget = braking ? 0f : requestedThrottle;
+            appliedThrottle = smoothPedals ? Mathf.MoveTowards(appliedThrottle, pedalTarget,
+                (Mathf.Abs(pedalTarget) > Mathf.Abs(appliedThrottle) ? throttleResponsePerSecond : throttleReleasePerSecond) * Time.fixedDeltaTime) : pedalTarget;
+            float throttle = appliedThrottle;
+            bool holdingHill = hillHoldAssist && IsDriven && Mathf.Abs(requestedThrottle) < .05f && Mathf.Abs(signedSpeed) < .4f;
             float appliedBrake = !IsDriven ? parkingBrakeTorque :
-                braking ? brakeTorque : Mathf.Abs(throttle) < 0.05f ? coastBrakeTorque : 0f;
+                braking ? brakeTorque : holdingHill ? parkingBrakeTorque * .5f : Mathf.Abs(throttle) < 0.05f ? coastBrakeTorque : 0f;
+            smoothedBrakeTorque = smoothPedals && IsDriven ? Mathf.MoveTowards(smoothedBrakeTorque, appliedBrake,
+                Mathf.Max(brakeTorque, parkingBrakeTorque) * 5f * Time.fixedDeltaTime) : appliedBrake;
 
             float targetTopSpeed = throttle < 0f ? maxReverseSpeedKph : maxForwardSpeedKph;
             float speedInRequestedDirection = Mathf.Max(0f, signedSpeed * Mathf.Sign(throttle)) * 3.6f;
             float powerFactor = 1f - Mathf.InverseLerp(targetTopSpeed * 0.8f,
                 targetTopSpeed, speedInRequestedDirection);
-            float requestedTorque = braking ? 0f : throttle * motorTorque * powerFactor;
+            float lowGear = Mathf.Lerp(Mathf.Max(1f, lowSpeedTorqueMultiplier), 1f,
+                Mathf.Clamp01(Mathf.Abs(signedSpeed) * 3.6f / Mathf.Max(1f, torqueBoostFadeSpeedKph)));
+            float requestedTorque = braking ? 0f : throttle * motorTorque * powerFactor * lowGear;
             bool anyGrounded = false;
 
             for (int index = 0; index < wheels.Length; index++)
@@ -153,9 +184,9 @@ namespace GameJam.FireRescue
                 bool grounded = wheel.isGrounded;
                 anyGrounded |= grounded;
                 wheel.steerAngle = index < 2 ? currentSteerAngle : 0f;
-                wheel.brakeTorque = appliedBrake;
-                // Rear-wheel drive. Airborne wheels receive no powered free spin.
-                wheel.motorTorque = index >= 2 && grounded ? requestedTorque : 0f;
+                wheel.brakeTorque = smoothedBrakeTorque;
+                // Keep power on contact patches. Airborne wheels receive no powered free spin.
+                wheel.motorTorque = (allWheelDrive || index >= 2) && grounded ? requestedTorque : 0f;
             }
 
             ApplyAntiRoll(wheels[0], wheels[1]);
@@ -249,6 +280,7 @@ namespace GameJam.FireRescue
             throttleInput = 0f;
             steeringInput = 0f;
             brakeInput = false;
+            appliedThrottle = 0f;
             ApplyParkingBrake();
         }
     }

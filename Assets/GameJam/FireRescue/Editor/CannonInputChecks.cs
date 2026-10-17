@@ -92,7 +92,8 @@ public static class CannonInputChecks
                     MouseButtons(false); Next(2, "release_settle"); break;
                 case 2:
                     if (elapsed < .2) return;
-                    Require("release_stops_jet", !cannon.IsSpraying); stoppedTank = tank.TankLitres;
+                    Require("release_stops_emission_without_erasing_flight", !cannon.IsSpraying);
+                    stoppedTank = tank.TankLitres;
                     Next(3, "released_water_stable"); break;
                 case 3:
                     if (elapsed < .3) return;
@@ -100,7 +101,7 @@ public static class CannonInputChecks
                     tank.SetTankLitres(0); MouseButtons(true); Next(4, "empty_tank_hold"); break;
                 case 4:
                     if (elapsed < .3) return;
-                    Require("empty_tank_blocks_jet", !cannon.IsSpraying && tank.TankLitres == 0);
+                    Require("empty_tank_blocks_new_water", !cannon.IsSpraying && tank.TankLitres == 0);
                     tank.SetTankLitres(100); Next(5, "refilled_held_button"); break;
                 case 5:
                     if (elapsed < .3) return;
@@ -135,7 +136,7 @@ public static class CannonInputChecks
     static void Next(int value, string name) { phase = value; phaseStarted = Time.timeAsDouble; report.phase = name; Write(); }
     static void Require(string name, bool passed, string extra = "")
     {
-        string evidence = "litres=" + tank.TankLitres + "; spraying=" + cannon.IsSpraying + "; driving=" + player.IsDriving + "; focused=" + Focused() + "; cursor=" + Cursor.lockState + "; applicationFocused=" + Application.isFocused + "; RMB=" + Mouse.current.rightButton.isPressed + extra;
+        string evidence = "litres=" + tank.TankLitres + "; spraying=" + cannon.IsSpraying + "; inFlight=" + cannon.InFlightPacketCount + "; driving=" + player.IsDriving + "; focused=" + Focused() + "; cursor=" + Cursor.lockState + "; applicationFocused=" + Application.isFocused + "; RMB=" + Mouse.current.rightButton.isPressed + extra;
         report.checks.Add(new Check { name = name, passed = passed, evidence = evidence }); Write();
         if (!passed) throw new InvalidOperationException(name + ": " + evidence);
     }
@@ -149,7 +150,7 @@ public static class CannonInputChecks
             if (Mouse.current != null) MouseButtons(false); if (Keyboard.current != null) Keys();
             if (captured && player && cannon && tank)
             {
-                cannon.SetSpraying(false); tank.SetTankLitres(originalTank);
+                cannon.SetSpraying(false); cannon.enabled = false; tank.SetTankLitres(originalTank);
                 player.playerBody.enabled = false; player.playerBody.transform.SetPositionAndRotation(playerPosition, playerRotation);
                 player.SetDriving(originalDriving); player.enabled = playerEnabled; cannon.enabled = cannonEnabled;
                 player.drive.body.linearVelocity = velocity; player.drive.body.angularVelocity = angularVelocity;

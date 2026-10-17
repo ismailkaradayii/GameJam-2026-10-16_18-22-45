@@ -171,7 +171,7 @@ public static class AshfallSettingsSceneBuilder
 
         ScrollRect scroll = CreateScrollView("HowToScrollView", panel, new Vector2(18f, 82f), new Vector2(-18f, -150f));
         Transform content = scroll.content;
-        Text status = MakeInfoCard(content, "VOLCANO DEMO — KASABAYI KORU", "Yeni Oyun kasaba haritasını açar. Patlamadan sonra lavlar ilerler, evler yanar ve lav yaratıkları ortaya çıkar. İtfaiyenin su deposunu gölden doldur.");
+        Text status = MakeInfoCard(content, "VOLCANO DEMO — 5 EVİ KURTAR", "250 litre suyla başlarsın. Gölden depoyu doldur, kasabaya ulaş ve lavların yaktığı beş evi söndür. Kurtardığın evler tekrar yanmaz. 5/5 ev kurtarıldığında kazanırsın.");
         status.fontSize = 14;
         AddSectionTitle(content, "HAREKET VE ARAÇ");
         AddControlRow(content, "HAREKET", "WASD", "Yaya hareket / araç sürüşü. Fareyle etrafa bak.", true);
@@ -182,14 +182,14 @@ public static class AshfallSettingsSceneBuilder
         AddControlRow(content, "HORTUM", "E", "Aracın arkasından hortumu al; göle bakıp ucunu bırak.", false);
         AddControlRow(content, "POMPA", "P", "Hortum ucu göldeyken depoyu doldurmak için pompayı aç.", false);
         AddControlRow(content, "TOPLA", "R", "Aracın arkasında hortumu topla; sonra araca binebilirsin.", false);
-        AddControlRow(content, "SU TOPU", "RMB", "Araçtayken sağ tıkla evlere veya lav yaratıklarına su sık.", false);
+        AddControlRow(content, "SU TOPU", "RMB", "Araçtayken sağ tık basılı tut. İşaret suyun tahmini çarpma noktasını gösterir; suyun hedefe ulaşmasını bekle.", false);
         AddSectionTitle(content, "SİLAH");
         AddControlRow(content, "ÇEK / KALDIR", "1 / 0", "1 silahı çek/kaldır, 0 silahı kaldır. Hortum taşırken silah kapanır.", false);
         AddControlRow(content, "ATEŞ / NİŞAN", "LMB / RMB", "Yaya halde sol tık ateş, sağ tık nişan al.", false);
         AddControlRow(content, "ŞARJÖR", "R", "Arka hortum etkileşimi yokken şarjör değiştir.", false);
         AddControlRow(content, "ÇÖMEL", "C", "Silah çekiliyken çömel / kalk.", false);
         AddSectionTitle(content, "DİĞER");
-        AddControlRow(content, "İMLEÇ", "ESC", "Oyunda imleci bırakır; devam etmek için oyun ekranına tıkla.", false);
+        AddControlRow(content, "DURAKLAT", "ESC", "Oyunu duraklat; Devam Et ile sürdür veya ana menüye dön.", false);
         AddControlRow(content, "PATLAMA", "V", "Patlamayı erkenden başlat. Beklersen volkan kendiliğinden patlar.", false);
 
         Button back = MakeButton("HowToBackButton", panel, "BACK", Card, MainText, 58f);

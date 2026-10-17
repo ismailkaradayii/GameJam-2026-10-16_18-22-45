@@ -595,19 +595,32 @@ public static class VolcanoIntegrationChecks
             LavaCreatureActor actor = target.AddComponent<LavaCreatureActor>();
             GameObject wall = new GameObject("Integration check water cover"); objects.Add(wall); wall.transform.position = origin + Vector3.forward * 5f;
             BoxCollider cover = wall.AddComponent<BoxCollider>(); cover.size = new Vector3(3f, 3f, .5f);
-            Physics.SyncTransforms(); cannon.SetSpraying(true); cannon.TickSpray(.2f);
+            Physics.SyncTransforms(); cannon.SetSpraying(true); AdvanceWater(cannon, .2f);
+            cannon.SetSpraying(false); AdvanceWater(cannon, 1f);
             Add("cover_blocks_water_damage_to_creatures", Mathf.Approximately(actor.Health, 100f) && Mathf.Approximately(tank.TankLitres, 43f), "health=" + actor.Health + "; tank=" + tank.TankLitres);
             cover.enabled = false; tank.SetTankLitres(50f); Physics.SyncTransforms();
-            cannon.TickSpray(1f);
+            cannon.SetSpraying(true); AdvanceWater(cannon, 1f);
+            cannon.SetSpraying(false); AdvanceWater(cannon, 1f);
             Add("water_cannon_hits_creature_using_actual_litres", Mathf.Abs(actor.Health - 30f) < .01f && Mathf.Abs(tank.TankLitres - 15f) < .01f,
                 "health=" + actor.Health + "; tank=" + tank.TankLitres);
-            cannon.TickSpray(1f);
+            cannon.SetSpraying(true); AdvanceWater(cannon, 1f);
+            cannon.SetSpraying(false); AdvanceWater(cannon, 1f);
             Add("partial_tank_defeats_and_stops_at_zero", actor.IsDefeated && !targetCollider.enabled && Mathf.Approximately(tank.TankLitres, 0f) && !cannon.IsSpraying,
                 "health=" + actor.Health + "; tank=" + tank.TankLitres + "; spraying=" + cannon.IsSpraying);
             actor.ApplyDamage(-1f); actor.ApplyWater(float.NaN); cannon.TickSpray(1f);
             Add("defeated_creature_stays_defeated", actor.IsDefeated && Mathf.Approximately(actor.Health, 0f), "health=" + actor.Health);
         }
         finally { foreach (GameObject go in objects) if (go) Object.DestroyImmediate(go); }
+    }
+
+    static void AdvanceWater(FireTruckWaterCannon cannon, float seconds)
+    {
+        while (seconds > .00001f)
+        {
+            float step = Mathf.Min(.02f, seconds);
+            cannon.TickSpray(step);
+            seconds -= step;
+        }
     }
 
     static void CheckActualEncounter()

@@ -67,6 +67,7 @@ namespace GameJam.FireRescue
         void Start() => InitializeSequence();
         void Update()
         {
+            if (Time.timeScale <= 0f) return;
             if (Application.isFocused && Cursor.lockState == CursorLockMode.Locked &&
                 Keyboard.current != null && Keyboard.current.vKey.wasPressedThisFrame)
                 BeginEruption();

@@ -130,6 +130,10 @@ public static class VolcanoSequenceChecks
             Add(report, "full_pool_actual_contact_ignites_edge_house", Mathf.Abs(poolObject.transform.localScale.x - 6f) < .001f && poolHouse.IsBurning, "Pool scale=" + poolObject.transform.localScale + "; edge house heat=" + poolHouse.Heat);
             branchHouse.ApplyWater(branchHouse.litresToExtinguish); Scan(sequence);
             Add(report, "water_extinguishes_house_under_active_lava", !branchHouse.IsBurning && branchHouse.IgnitionBlocked && branch.ignitionSource.heatEnabled, "House heat=" + branchHouse.Heat + "; protected=" + branchHouse.IgnitionBlocked);
+            branchHouse.TickFire(120f);
+            for (int i = 0; i < 20; i++) Scan(sequence);
+            Add(report, "rescued_house_permanently_resists_active_lava", branchHouse.IsRescued && !branchHouse.IsBurning && branchHouse.IgnitionBlocked,
+                "Two minutes after rescue and twenty repeated lava scans; heat=" + branchHouse.Heat);
             Add(report, "unlisted_static_water_is_unchanged", waterRenderer.enabled && waterCollider.enabled && water.transform.localScale == waterScale && water.GetComponent<MeshFilter>().sharedMesh == waterMesh && !water.GetComponent<LavaIgnitionSource>(), "Water renderer/collider/mesh/scale preserved; never registered as lava.");
 
             var automatic = Child(fixture.transform, "Automatic countdown check", Vector3.zero).AddComponent<VolcanoEruptionSequence>();

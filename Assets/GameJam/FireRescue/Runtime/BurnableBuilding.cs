@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -30,7 +31,9 @@ namespace GameJam.FireRescue
 
         public float Heat => heat;
         public bool IsBurning => heat > 0f;
-        public bool IgnitionBlocked => wetSecondsRemaining > 0f || cooldownSecondsRemaining > 0f;
+        public bool IsRescued { get; private set; }
+        public event Action<BurnableBuilding> Rescued;
+        public bool IgnitionBlocked => IsRescued || wetSecondsRemaining > 0f || cooldownSecondsRemaining > 0f;
         public static IReadOnlyList<BurnableBuilding> ActiveBuildings => Buildings;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
@@ -39,6 +42,7 @@ namespace GameJam.FireRescue
         private void Awake()
         {
             heat = 0f;
+            IsRescued = false;
             wetSecondsRemaining = 0f;
             cooldownSecondsRemaining = 0f;
             UpdateVisuals();
@@ -86,12 +90,17 @@ namespace GameJam.FireRescue
             heat = Mathf.Max(0f, heat - litres / Mathf.Max(1f, litresToExtinguish));
             if (heat < 0.00001f)
                 heat = 0f;
-            if (wasBurning && !IsBurning)
+            bool rescuedNow = wasBurning && !IsBurning && !IsRescued;
+            if (rescuedNow)
+            {
+                IsRescued = true;
                 cooldownSecondsRemaining = Mathf.Max(cooldownSecondsRemaining, extinguishedCooldownSeconds);
+            }
             UpdateVisuals();
+            if (rescuedNow) Rescued?.Invoke(this);
         }
 
-        /// <summary>Explicit time step for deterministic checks of wet protection and reignition.</summary>
+        /// <summary>Explicit time step for wet protection. Rescued buildings remain permanently safe for this game.</summary>
         public void TickFire(float deltaTime)
         {
             if (deltaTime <= 0f || float.IsNaN(deltaTime) || float.IsInfinity(deltaTime))
