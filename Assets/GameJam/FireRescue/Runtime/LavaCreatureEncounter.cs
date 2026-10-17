@@ -229,7 +229,7 @@ namespace GameJam.FireRescue
                 if (actor && !actor.IsDefeated) continue;
                 living.RemoveAt(i);
                 if (!actor) continue;
-                if (!actor.ReachedBuilding && !actor.Dissipated) DefeatedCount++;
+                if (!actor.ReachedBuilding && !actor.Dissipated && !actor.SelfDetonated) DefeatedCount++;
                 bool authored = Array.Exists(spawns, s => s != null && s.creature == actor);
                 if (!authored) Destroy(actor.gameObject, 2f);
             }

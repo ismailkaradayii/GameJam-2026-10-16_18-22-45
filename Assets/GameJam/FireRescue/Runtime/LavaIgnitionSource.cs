@@ -50,6 +50,17 @@ namespace GameJam.FireRescue
             return CanHeat && (!cooling || cooling.IsHotAt(point));
         }
 
+        public bool TouchesHotCollider(Collider contact)
+        {
+            RefreshSurfaceMesh();
+            if (!CanHeat || !contact || !contact.enabled || !contact.gameObject.activeInHierarchy ||
+                !heatCollider.bounds.Intersects(contact.bounds)) return false;
+            if (!Physics.ComputePenetration(contact, contact.transform.position, contact.transform.rotation,
+                heatCollider, heatCollider.transform.position, heatCollider.transform.rotation, out _, out _)) return false;
+            if (!cooling) cooling = GetComponent<LavaCoolingSurface>();
+            return !cooling || cooling.HasHotContact(contact.bounds);
+        }
+
         private void Update()
         {
             RefreshSurfaceMesh();

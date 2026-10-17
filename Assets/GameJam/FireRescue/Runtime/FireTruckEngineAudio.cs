@@ -57,7 +57,7 @@ namespace GameJam.FireRescue
 
             // An unattended truck can still roll or settle on its suspension.
             // Only the occupied vehicle should produce the driving loop.
-            if (!drive.IsDriven)
+            if (!drive.IsDriven || drive.IsWrecked)
             {
                 StopEngine();
                 return;

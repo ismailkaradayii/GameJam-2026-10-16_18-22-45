@@ -94,6 +94,43 @@ public sealed class LavaCreatureAutoJump : MonoBehaviour
         PlayJump();
     }
 
+    public void CombatRoofWindup(Vector3 direction, float amount)
+    {
+        FaceCombatDirection(direction);
+        float load = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(amount / .82f));
+        float release = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(.82f, 1f, amount));
+        if (visualRoot)
+        {
+            // Authored +Z is up: visibly compress into the floor, then snap into the launch.
+            visualRoot.localScale = Vector3.Scale(visualRestLocalScale,
+                new Vector3(1f + .32f * load - .43f * release, 1f + .22f * load - .3f * release,
+                    1f - .52f * load + 1.12f * release));
+            visualRoot.localRotation = visualRestLocalRotation * Quaternion.AngleAxis(10f * load - 24f * release, Vector3.right);
+        }
+        SetFireballEffects(load * 2f);
+    }
+
+    public void CombatAttackWindup(Vector3 direction, float amount)
+    {
+        CombatRoofWindup(direction, amount);
+        if (!visualRoot) return;
+        float anger = Mathf.SmoothStep(0f, 1f, amount) * (1f - Mathf.InverseLerp(.82f, 1f, amount));
+        visualRoot.localRotation *= Quaternion.Euler(Mathf.Sin(amount * 48f) * 3f * anger,
+            Mathf.Sin(amount * 61f) * 2f * anger, 0f);
+    }
+
+    public void CombatLaunchPose(Vector3 position, Vector3 velocity, float progress)
+    {
+        transform.position = position;
+        FaceCombatDirection(velocity);
+        if (!visualRoot) return;
+        float pitch = Mathf.Atan2(velocity.y, new Vector2(velocity.x, velocity.z).magnitude) * Mathf.Rad2Deg;
+        float thrust = 1f - Mathf.Clamp01(progress / .3f);
+        visualRoot.localRotation = visualRestLocalRotation * Quaternion.AngleAxis(-pitch, Vector3.right);
+        visualRoot.localScale = Vector3.Scale(visualRestLocalScale, new Vector3(.88f, 1.12f + .4f * thrust, .88f));
+        SetFireballEffects(2f);
+    }
+
     public void CombatPose(Vector3 position, float progress)
     {
         transform.position = position;

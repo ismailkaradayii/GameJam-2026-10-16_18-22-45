@@ -9,12 +9,18 @@ namespace GameJam.FireRescue
     {
         [Min(1f)] public float maximumHealth = 100f;
         public bool allowRecovery = true;
+        [Tooltip("Optional damage feedback camera. Uses the first-person camera when empty.")]
+        public Camera damageCamera;
         public event System.Action Defeated;
         public float Health { get; private set; } = 100f;
         public bool CanBeAttacked => isActiveAndEnabled && Health > 0f && Time.timeScale > 0f &&
             (!coordinator || (!coordinator.IsDriving && !coordinator.GameplaySuspended));
         public Vector3 PursuitPosition => coordinator && coordinator.IsDriving && coordinator.drive
             ? coordinator.drive.transform.position : transform.position;
+        public ThermalDamage VehicleTarget => coordinator && coordinator.IsDriving && coordinator.drive ? coordinator.drive.Thermal : null;
+        public bool CanBeTargeted => CanBeAttacked || (isActiveAndEnabled && Time.timeScale > 0f && coordinator &&
+            !coordinator.GameplaySuspended && VehicleTarget && VehicleTarget.CanIgnite);
+        public Vector3 ClosestThreatPoint(Vector3 from) => VehicleTarget ? VehicleTarget.ClosestPoint(from) : ClosestAttackPoint(from);
         public Vector3 AttackPoint => body ? body.bounds.center : transform.position + Vector3.up * .9f;
         // Use the actual capsule surface: tall characters can be struck at the legs too.
         public Vector3 ClosestAttackPoint(Vector3 from) => body && body.enabled ? body.ClosestPoint(from) : AttackPoint;
@@ -22,9 +28,9 @@ namespace GameJam.FireRescue
         Itfaiye.ItfaiyeFirstPersonController player;
         FireRescuePlayer coordinator;
         CharacterController body;
-        VolcanoCameraShake shake;
+        PlayerDamageFeedback feedback;
         Vector3 knockback, safePosition;
-        float lastHit = -100f, recoverAt;
+        float lastHit = -100f, recoverAt, nextHeatFeedback;
 
         public static CreatureCombatPlayer Ensure(Itfaiye.ItfaiyeFirstPersonController controller)
             => controller.GetComponent<CreatureCombatPlayer>() ?? controller.gameObject.AddComponent<CreatureCombatPlayer>();
@@ -36,8 +42,6 @@ namespace GameJam.FireRescue
             body = GetComponent<CharacterController>();
             safePosition = transform.position;
             Health = maximumHealth;
-            if (player && player.playerCamera)
-                shake = player.playerCamera.GetComponent<VolcanoCameraShake>() ?? player.playerCamera.gameObject.AddComponent<VolcanoCameraShake>();
         }
 
         public bool TryTakeDamage(float damage, Vector3 source)
@@ -48,7 +52,7 @@ namespace GameJam.FireRescue
             HitsReceived++;
             Vector3 away = transform.position - source; away.y = 0f;
             knockback = away.normalized * 3.7f;
-            if (shake) shake.Shake(.22f, .075f);
+            ShowDamageFeedback();
             LavaCombatEffects.PlayerHit(AttackPoint);
             if (Health <= 0f) { recoverAt = Time.time + 1.2f; Defeated?.Invoke(); }
             return true;
@@ -58,8 +62,21 @@ namespace GameJam.FireRescue
         {
             if (!CanBeAttacked || !float.IsFinite(damage) || damage <= 0) return false;
             Health = Mathf.Max(0, Health - damage); lastHit = Time.time;
+            if (Time.unscaledTime >= nextHeatFeedback)
+            { nextHeatFeedback = Time.unscaledTime + .65f; ShowDamageFeedback(); }
             if (Health <= 0) { recoverAt = Time.time + 1.2f; Defeated?.Invoke(); }
             return true;
+        }
+
+        void ShowDamageFeedback()
+        {
+            // Resolve at the hit, after runtime player/camera setup and control handoffs.
+            if (!player) player = GetComponent<Itfaiye.ItfaiyeFirstPersonController>();
+            if (!coordinator) coordinator = GetComponent<FireRescuePlayer>();
+            Camera view = damageCamera ? damageCamera : player && player.playerCamera ? player.playerCamera : coordinator ? coordinator.viewCamera : null;
+            if (!view) return;
+            if (!feedback) feedback = PlayerDamageFeedback.Ensure(this);
+            feedback.Play(view);
         }
 
         void Update()
@@ -87,7 +104,7 @@ namespace GameJam.FireRescue
             if (coordinator && (!coordinator.showHud || coordinator.IsDriving)) return;
             Color old = GUI.color;
             float pulse = Mathf.Clamp01(1f - (Time.time - lastHit) / .48f);
-            if (pulse > 0f)
+            if (pulse > 0f && !feedback)
             {
                 GUI.color = new Color(1f, .16f, .025f, pulse * .38f);
                 float border = Mathf.Max(12f, Screen.height * .025f);

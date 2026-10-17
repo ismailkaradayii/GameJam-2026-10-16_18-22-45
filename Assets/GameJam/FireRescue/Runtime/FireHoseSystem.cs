@@ -32,6 +32,8 @@ namespace GameJam.FireRescue
         private AudioSource tankFillSource;
         private AudioEchoFilter tankFillEcho;
         private FireTruckDrive truckDrive;
+        private ThermalDamage thermal;
+        public float PumpEfficiency { get { if (!thermal) thermal = GetComponent<ThermalDamage>(); return thermal ? thermal.PumpEfficiency : 1f; } }
         private bool fillAudioPaused;
         private Transform carryingHand;
         private Vector3 deployedPoint;
@@ -52,6 +54,7 @@ namespace GameJam.FireRescue
         private void Awake()
         {
             tankLitres = Mathf.Clamp(startingTankLitres, 0f, Mathf.Max(1f, tankCapacityLitres));
+            thermal = GetComponent<ThermalDamage>();
             if (ignoredCollisionRoot == null)
                 ignoredCollisionRoot = transform;
             ConfigureHoseWidth();
@@ -157,14 +160,16 @@ namespace GameJam.FireRescue
             if (!IsPumping || deltaTime <= 0f || float.IsNaN(deltaTime) || float.IsInfinity(deltaTime))
                 return;
             tankLitres = Mathf.Min(Mathf.Max(1f, tankCapacityLitres),
-                tankLitres + Mathf.Max(0f, fillRateLitresPerSecond) * deltaTime);
+                tankLitres + Mathf.Max(0f, fillRateLitresPerSecond) * PumpEfficiency * deltaTime);
             EvaluateState();
         }
 
         public void EvaluateState()
         {
+            if (!thermal) thermal = GetComponent<ThermalDamage>();
             IsPumping = false;
             CurrentWaterSource = null;
+            if (thermal && thermal.IsDestroyed) { Status = "The fire truck's pump is destroyed."; return; }
             if (!fillingUnlocked) { Status = "First lead all seven villagers to shelter."; return; }
             if (hoseSocket == null || nozzle == null)
             {

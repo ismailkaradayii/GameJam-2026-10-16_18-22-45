@@ -20,6 +20,7 @@ namespace GameJam.FireRescue
         private float elapsed;
         private float strength;
         private float noiseTime;
+        private float impactDuration, impactElapsed, impactDegrees;
         private bool offsetApplied;
         private Vector3 baseLocalPosition;
         private Quaternion baseLocalRotation;
@@ -54,6 +55,14 @@ namespace GameJam.FireRescue
 
         public void Shake(float shakeDuration) => Shake(shakeDuration, defaultStrength);
 
+        public void ShakeImpact(float shakeDuration, float shakeStrength, float rotationDegrees)
+        {
+            if (!isActiveAndEnabled || !FinitePositive(shakeDuration) || !FinitePositive(shakeStrength) || !FinitePositive(rotationDegrees)) return;
+            Shake(shakeDuration, shakeStrength);
+            impactDuration = shakeDuration; impactElapsed = 0f;
+            impactDegrees = Mathf.Clamp(rotationDegrees, 0f, 3f);
+        }
+
         /// <summary>Automatic LateUpdate step; also available for deterministic amplitude/cleanup checks.</summary>
         public void TickShake(float deltaTime)
         {
@@ -62,6 +71,7 @@ namespace GameJam.FireRescue
                 float.IsNaN(deltaTime) || float.IsInfinity(deltaTime))
                 return;
             elapsed = Mathf.Min(duration, elapsed + deltaTime);
+            impactElapsed = Mathf.Min(impactDuration, impactElapsed + deltaTime);
             noiseTime += deltaTime;
             float envelope = 1f - Mathf.Clamp01(elapsed / duration);
             Intensity = strength * Mathf.Pow(envelope, decayExponent);
@@ -78,6 +88,11 @@ namespace GameJam.FireRescue
             float rotationScale = rotationDegreesAtDefaultStrength * renderedIntensity / Mathf.Max(0.01f, defaultStrength);
             Vector3 rotationOffset = new Vector3(Noise(phase, 131.9f) * 0.5f,
                 Noise(phase, 171.4f) * 0.5f, Noise(phase, 211.8f)) * rotationScale;
+            if (impactDuration > 0f && impactElapsed < impactDuration)
+            {
+                float kick = Mathf.Pow(1f - impactElapsed / impactDuration, 2f) * impactDegrees;
+                rotationOffset += new Vector3(-Mathf.Cos(impactElapsed * 39f), 0f, Mathf.Sin(impactElapsed * 32f) * .7f) * kick;
+            }
 
             baseLocalPosition = transform.localPosition;
             baseLocalRotation = transform.localRotation;
@@ -97,6 +112,7 @@ namespace GameJam.FireRescue
             strength = 0f;
             noiseTime = 0f;
             Intensity = 0f;
+            impactDuration = impactElapsed = impactDegrees = 0f;
         }
 
         internal void RestoreOffset()

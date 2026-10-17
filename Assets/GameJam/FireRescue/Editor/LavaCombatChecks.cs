@@ -149,7 +149,7 @@ public static class LavaCombatChecks
             camera.backgroundColor = new Color(.035f, .045f, .06f); camera.fieldOfView = 50; camera.farClipPlane = 100;
             camera.transform.position = new Vector3(4.2f, 2.9f, 6.7f); camera.transform.LookAt(new Vector3(0, .9f, 0));
             camera.gameObject.AddComponent<AudioListener>();
-            target = Target(new Vector3(0, 0, 12));
+            target = Target(new Vector3(0, 0, 26));
             actor = Creature(Vector3.zero, target); combat = actor.GetComponent<LavaCreatureCombat>();
             initialDistance = Vector3.Distance(actor.transform.position, target.transform.position);
             Check("Resources are included for builds", Resources.Load<Material>("LavaCombat/Flame") && Resources.Load<Material>("LavaCombat/Smoke") && Resources.Load<Material>("LavaCombat/Shard") && Resources.Load<AudioClip>("LavaCombat/Shatter"));
@@ -220,6 +220,8 @@ public static class LavaCombatChecks
             float before = target.Health;
             bool second = target.TryTakeDamage(14f, actor.transform.position);
             Check("Group damage has an invulnerability gate", !second && target.Health == before);
+            Check("Successful pounce consumes its attacking spirit", actor.SelfDetonated && actor.IsDefeated);
+            actor = Creature(Vector3.zero, target); combat = actor.GetComponent<LavaCreatureCombat>();
             actor.ApplyDamage(float.NaN); actor.ApplyDamage(float.PositiveInfinity); actor.ApplyDamage(-1);
             Check("Invalid damage cannot change health", actor.Health == 100f);
             var heart = actor.GetComponent<LavaSpiritVisual>().VisualRoot.Find("Molten heart").GetComponent<Renderer>();
@@ -255,7 +257,7 @@ public static class LavaCombatChecks
             if (age < .15f) return;
             Check("Death shatters once after its short anticipation", LavaCombatEffects.ShattersPlayed == deathCountBefore + 1 && actor.Health == 0);
             Check("Death hides all source rendering after shattering", actor.GetComponentsInChildren<Renderer>().All(r => !r.enabled));
-            Check("Death and three hit bursts create bounded fragments", LavaCombatEffects.ActiveFragments > 7 && LavaCombatEffects.ActiveFragments <= 32, "fragments=" + LavaCombatEffects.ActiveFragments);
+            Check("Pounce, death and three hit bursts create bounded fragments", LavaCombatEffects.ActiveFragments > 7 && LavaCombatEffects.ActiveFragments <= 64, "fragments=" + LavaCombatEffects.ActiveFragments);
             Check("Main body is fractured into smaller meshes", Object.FindObjectsByType<MeshFilter>(FindObjectsSortMode.None).Count(m => m.sharedMesh && m.sharedMesh.name == "Fractured lava region") >= 4);
             Capture("04-shatter-burst");
             wallTarget = Target(new Vector3(20, 0, 2.1f));
@@ -278,12 +280,15 @@ public static class LavaCombatChecks
         if (phase == 3)
         {
             if (age > .38f && age < .6f) Capture("05-burning-fragments");
-            if (age < 1.1f) return;
+            if (age < 7f) return;
+            Check("Fragments clean up after their lifetime", LavaCombatEffects.ActiveFragments == 0, "fragments=" + LavaCombatEffects.ActiveFragments);
             Check("Walls block pounce damage", wallTarget.Health == 100f, "health=" + wallTarget.Health);
             Check("Authored target is pursued beyond notice range", distantActor.GetComponent<LavaCreatureCombat>().Leaps > 0,
                 "distance=100; noticeRange=70; leaps=" + distantActor.GetComponent<LavaCreatureCombat>().Leaps);
             distantActor.gameObject.SetActive(false);
             wallActor.enabled = false; wallActor.gameObject.SetActive(false);
+            // Retire the wall fixture before the later, unobstructed descent interception case.
+            var obstruction = GameObject.Find("Combat obstruction"); if (obstruction) obstruction.SetActive(false);
             Check("Real pistol rig draws correctly", pistol.Ready);
             pistolActor = Creature(new Vector3(50, 0, 4), target);
             pistolActor.name = "Actual flame spirit pistol target";
@@ -305,6 +310,9 @@ public static class LavaCombatChecks
             if (!capturedPistolImpact && age > .025f && pistolActor.Health < 100f)
             { Capture("07-pistol-impact", pistol.player.playerCamera); capturedPistolImpact = true; }
             if (age < .3f) return;
+            // Ballistic impact can arrive after Fire(). Allow its feedback to finish before
+            // checking the resting visual or sending the next round.
+            if (shotCount == 1 && age < 1f && pistolActor.GetComponent<LavaSpiritVisual>().ImpactFlash > 0f) return;
             if (shotCount == 1)
             {
                 Check("Real muzzle ray damages creature", pistolActor.Health == 66f && pistol.LastShotCollider && pistol.LastShotCollider.GetComponentInParent<LavaCreatureActor>() == pistolActor, "health=" + pistolActor.Health);
@@ -345,14 +353,13 @@ public static class LavaCombatChecks
             Check("Descending spirit switches to a damaging pounce", descent.SuccessfulAttacks > 0,
                 "attacks=" + descent.SuccessfulAttacks + "; state=" + descent.State + "; leaps=" + descent.Leaps +
                 "; position=" + descent.transform.position + "; target=" + descent.target.transform.position + "; age=" + age);
-            Check("Fragments clean up after their lifetime", LavaCombatEffects.ActiveFragments == 0, "fragments=" + LavaCombatEffects.ActiveFragments);
             descentActor.gameObject.SetActive(false);
             crowdTarget = Target(new Vector3(0, 0, 70));
             crowdTarget.transform.localScale = Vector3.one * 2f;
             crowdTarget.maximumHealth = 1000f;
             crowdActors = new LavaCreatureActor[8];
             for (int i = 0; i < crowdActors.Length; i++)
-                crowdActors[i] = Creature(new Vector3((i % 4) * .4f - .6f, 0, 60 - i / 4 * .4f), crowdTarget);
+                crowdActors[i] = Creature(new Vector3((i % 4) * .4f - .6f, 0, 46 - i / 4 * .4f), crowdTarget);
             peakAttackers = 0; crowdSpacing = 0f;
             Next(6); return;
         }
@@ -392,7 +399,7 @@ public static class LavaCombatChecks
             Physics.SyncTransforms();
             Next(9); return;
         }
-        if (phase == 9 && age > .9f)
+        if (phase == 9 && age > 1.3f)
         {
             Check("Sidestepping a committed lunge avoids damage", wallActor.GetComponent<LavaCreatureCombat>().SuccessfulAttacks == 0);
             Check("No runtime errors", report.errors.Count == 0, string.Join("; ", report.errors));

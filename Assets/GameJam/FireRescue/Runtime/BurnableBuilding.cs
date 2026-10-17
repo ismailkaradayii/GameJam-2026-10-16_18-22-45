@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -40,6 +41,7 @@ namespace GameJam.FireRescue
         private float lightIntensity;
         private BuildingFirePresentation presentation;
         private BuildingFireVisual detailedFire;
+        private Coroutine roofIgnition;
         private static readonly List<BurnableBuilding> Buildings = new List<BurnableBuilding>();
         public static event Action FireStateChanged;
 
@@ -83,6 +85,8 @@ namespace GameJam.FireRescue
 
         private void OnDisable()
         {
+            if (roofIgnition != null) StopCoroutine(roofIgnition);
+            roofIgnition = null;
             Buildings.Remove(this);
             FireStateChanged?.Invoke();
             StopParticles(flames, true);
@@ -102,6 +106,22 @@ namespace GameJam.FireRescue
             heat = 1f;
             UpdateVisuals();
             FireStateChanged?.Invoke();
+        }
+
+        public void IgniteFromRoofImpact(Vector3 point)
+        {
+            if (!isActiveAndEnabled || IsBurnedOut || IsBurning || IgnitionBlocked || roofIgnition != null) return;
+            roofIgnition = StartCoroutine(IgniteAfterImpact(point));
+        }
+
+        IEnumerator IgniteAfterImpact(Vector3 point)
+        {
+            // Let the spirit break apart first. The house owns this delay, not the despawned actor.
+            yield return new WaitForSeconds(.18f);
+            roofIgnition = null;
+            if (!isActiveAndEnabled || IsBurnedOut || IsBurning || IgnitionBlocked) yield break;
+            presentation?.BeginAt(point);
+            Ignite();
         }
 
         public void ApplyWater(float litres)

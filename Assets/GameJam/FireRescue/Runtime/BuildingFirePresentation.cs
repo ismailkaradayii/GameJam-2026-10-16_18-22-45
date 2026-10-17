@@ -132,6 +132,13 @@ namespace GameJam.FireRescue
             renderer.pivot = flame ? new Vector3(0,.5f,0) : Vector3.zero;
             renderer.shadowCastingMode = ShadowCastingMode.Off; renderer.receiveShadows = false;
         }
+        public void BeginAt(Vector3 point)
+        {
+            // Roof impacts kindle the nearest roof patches before spreading down the facade.
+            flames.Sort((a, b) => (a.point - point).sqrMagnitude.CompareTo((b.point - point).sqrMagnitude));
+            nextFlame = 0;
+        }
+
         public void SetState(float value, bool enabled)
         {
             if (!enabled) { available = false; heat = 0; Stop(); return; }

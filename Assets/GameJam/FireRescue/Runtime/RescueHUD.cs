@@ -193,6 +193,12 @@ namespace GameJam.FireRescue
             if (waterText) waterText.text = Mathf.CeilToInt(hose.TankLitres) + " / " + Mathf.RoundToInt(hose.tankCapacityLitres) + " L";
             if (waterFill) waterFill.fillAmount = hose.Tank01;
             if (pumpText) pumpText.text = Ashfall.UI.AshfallTypography.NaturalCase(player.WaterStatus);
+            if (pumpText && drive && drive.Thermal && drive.Thermal.Integrity01 < .999f)
+                pumpText.text = (drive.IsWrecked ? "ARAÇ KULLANILAMAZ" : drive.Thermal.IsBurning ? "ARAÇ YANIYOR!" : "Araç hasarlı") +
+                    "  ·  Durum %" + Mathf.CeilToInt(drive.Thermal.Integrity01 * 100f) +
+                    "  ·  Pompa %" + Mathf.RoundToInt(drive.Thermal.PumpEfficiency * 100f);
+            if (pumpText && player.IsDriving && drive && drive.Thermal && drive.Thermal.IsBurning && !drive.IsWrecked)
+                pumpText.text += drive.Thermal.InHotLava ? "  ·  LAVDAN ÇIK!" : "  ·  X basılı tut: söndür";
             if (speedText) speedText.text = player.IsDriving && drive ? Mathf.RoundToInt(drive.SpeedKph) + " km/h" : "On foot";
             bool showHealth = playing && vitals && vitals.Health < vitals.maximumHealth - .1f;
             if (healthPanel && healthPanel.activeSelf != showHealth) healthPanel.SetActive(showHealth);
@@ -237,22 +243,37 @@ namespace GameJam.FireRescue
                 SetPanel(pauseMenuGroup, flow.State == RescueGameFlow.GameState.Paused);
                 SetPanel(settingsPanel, false); SetPanel(howToPlayPanel, false);
                 previousSurvivalFinished = survivalFinished;
-                var selection = flow.State == RescueGameFlow.GameState.Paused ? resumeButton : showOutcome && survivalObjective && survivalObjective.State == VolcanoSurvivalObjective.MissionState.Lost ? outcomeRestartButton : showOutcome ? victoryMenuButton : null;
+                var selection = flow.State == RescueGameFlow.GameState.Paused ? resumeButton : showOutcome && (flow.State == RescueGameFlow.GameState.Lost || survivalObjective && survivalObjective.State == VolcanoSurvivalObjective.MissionState.Lost) ? outcomeRestartButton : showOutcome ? victoryMenuButton : null;
                 if (selection && EventSystem.current) EventSystem.current.SetSelectedGameObject(selection.gameObject);
             }
         }
 
         void UpdateOutcome(bool survivalFinished)
         {
+            if (flow.State == RescueGameFlow.GameState.Lost &&
+                (flow.DefeatReason == RescueGameFlow.LossReason.AllVillagersLost || flow.DefeatReason == RescueGameFlow.LossReason.VillageBurned))
+            {
+                bool villageBurned = flow.DefeatReason == RescueGameFlow.LossReason.VillageBurned;
+                if (victoryTitleText) victoryTitleText.text = villageBurned ? "KÖY YANDI" : "BÜTÜN KÖYLÜLER ÖLDÜ";
+                if (victoryDetailText) victoryDetailText.text = villageBurned ? "Bütün evler tamamen yandı. Köyü kurtaramadın." : "Köylülerin tamamı yangında hayatını kaybetti.";
+                int standing = 0;
+                foreach (var house in flow.targetBuildings) if (house && !house.IsBurnedOut) standing++;
+                if (victoryStatsText) victoryStatsText.text = "Kurtarılan köylüler   " + (evacuation ? evacuation.RescuedCount + " / " + evacuation.TotalCount : "0") +
+                    "\nHayatını kaybedenler   " + (evacuation ? evacuation.DeadCount : 0) + "\nAyakta kalan evler   " + standing + " / " + flow.TargetCount;
+                if (outcomeRestartButton) outcomeRestartButton.gameObject.SetActive(true);
+                if (victoryMenuButton) victoryMenuButton.GetComponent<RectTransform>().anchoredPosition = new Vector2(400, -340);
+                return;
+            }
             if (missionDirector)
             {
                 bool won = flow.State == RescueGameFlow.GameState.Won;
                 int saved = 0;
                 foreach (var house in flow.targetBuildings) if (house && !house.IsBurnedOut) saved++;
                 if (victoryTitleText) victoryTitleText.text = "Final Result: " + (won ? "SUCCESS" : "FAILED");
-                if (victoryDetailText) victoryDetailText.text = won ? "The spirits were stopped. The village is safe." :
+                if (victoryDetailText) victoryDetailText.text = won ? (evacuation && evacuation.DeadCount > 0 ? "The spirits were stopped. " + evacuation.DeadCount + " villagers were lost." : "The spirits were stopped. The village is safe.") :
                     saved == 0 ? "All houses burned down. Extinguish fires before the buildings collapse." : "Try again to save the village.";
                 if (victoryStatsText) victoryStatsText.text = "Saved Villagers   " + (evacuation ? evacuation.RescuedCount + " / " + evacuation.TotalCount : "0") +
+                    "\nVillagers Lost   " + (evacuation ? evacuation.DeadCount : 0) +
                     "\nHouses Saved   " + saved + " / " + flow.TargetCount + "\nFires Extinguished   " + flow.RescuedCount;
                 if (outcomeRestartButton) outcomeRestartButton.gameObject.SetActive(true);
                 return;
@@ -285,6 +306,8 @@ namespace GameJam.FireRescue
                 var encounter = mission.encounter;
                 questTitleText.text = mission.ObjectiveTitle;
                 questBodyText.text = mission.ObjectiveDetail;
+                if (evacuation && (mission.EruptionTriggered || evacuation.DeadCount > 0))
+                    questBodyText.text += "\nSığınakta: " + evacuation.RescuedCount + "/" + evacuation.TotalCount + "  ·  Kayıp: " + evacuation.DeadCount + "  ·  Dışarıda: " + evacuation.RemainingCount;
                 questHintText.text = mission.EruptionTriggered ? "Wave " + Mathf.Max(1, encounter ? encounter.WaveNumber : 0) + "/" + (encounter ? encounter.WaveCount : 0) +
                     "  |  Spirits remaining: " + (encounter ? encounter.PlannedCount - encounter.SpawnedCount + encounter.AliveCount : 0) :
                     mission.Phase == VolcanoMissionDirector.MissionPhase.Evacuate && evacuation ? "Villagers Evacuated: " + evacuation.RescuedCount + "/" + evacuation.TotalCount + "  |  Called: " + evacuation.CalledCount :

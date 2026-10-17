@@ -7,24 +7,35 @@ namespace GameJam.FireRescue
     [DisallowMultipleComponent]
     public sealed class LavaCreatureCombat : MonoBehaviour
     {
-        public enum Motion { Emerging, Searching, Windup, Leaping, Recovery, Staggered, Dead, Igniting }
+        public enum Motion { Emerging, Searching, Windup, Leaping, Recovery, Staggered, Dead, Igniting, RoofLeaping }
         [Min(1f)] public float noticeDistance = 70f;
-        [Min(.1f)] public float hopDistance = 4.6f;
-        [Min(.1f)] public float hopDuration = .58f;
-        [Min(.1f)] public float attackRange = 5.6f;
+        [Min(.1f)] public float hopDistance = 6.2f;
+        [Min(.1f)] public float hopDuration = .52f;
+        [Min(.1f)] public float attackRange = 12.5f;
         [Min(.1f)] public float attackCooldown = 2.4f;
         [Min(0f)] public float attackDamage = 14f;
-        [Min(.1f)] public float downhillHopDistance = 7.2f;
+        [Range(.4f, 1.2f)] public float playerAttackWindup = .52f;
+        [Range(.4f, 1.4f)] public float playerPounceDuration = .9f;
+        [Range(.4f, 4f)] public float playerPounceHeight = 2.4f;
+        [Range(.5f, 3f)] public float playerBlastRadius = 1.6f;
+        [Min(.1f)] public float downhillHopDistance = 9f;
         [Min(1f)] public float personalSpace = 2.2f;
         public CreatureCombatPlayer target;
         [Header("Village defense")]
         public bool attackBuildings;
         [Min(.5f)] public float buildingContactDistance = 2.5f;
+        [Range(.4f, 1.5f)] public float roofWindupSeconds = .85f;
+        [Range(2f, 7f)] public float roofJumpClearance = 3.4f;
         [Min(15f)] public float maximumLifeSeconds = 105f;
         public BurnableBuilding BuildingTarget { get; private set; }
         float lifetime, retaliationUntil, progressClock;
         Vector3 progressPosition;
         readonly SpiritOutdoorNavigation navigation = new SpiritOutdoorNavigation();
+        readonly SpiritRoofFlight roofFlight = new SpiritRoofFlight();
+        public float RoofAttackCharge => State == Motion.Igniting ? Mathf.Clamp01(elapsed / duration) : 0f;
+        public Vector3 RoofImpactPoint => roofFlight.RoofPoint;
+        public Collider RoofContactCollider { get; private set; }
+        public float RoofFlightProgress => State == Motion.RoofLeaping ? Mathf.Clamp01(elapsed / duration) : 0f;
         public bool PursuingBuilding => attackBuildings && Time.time >= retaliationUntil;
         public int RouteRecoveries { get; private set; }
         public Motion State { get; private set; }
@@ -32,12 +43,15 @@ namespace GameJam.FireRescue
         public int SuccessfulAttacks { get; private set; }
         public bool IsAttacking => attacking && (State == Motion.Windup || State == Motion.Leaping);
         public float AttackCharge => IsAttacking && State == Motion.Windup ? Mathf.Clamp01(elapsed / duration) : 0f;
+        public bool IsPlayerPouncing => attacking && State == Motion.Leaping;
+        public float PlayerPounceProgress => IsPlayerPouncing ? Mathf.Clamp01(elapsed / duration) : 0f;
         public Vector3 ReservedLanding => State == Motion.Windup || State == Motion.Leaping ? landing : transform.position;
         public bool IsDescending => descentPath != null && descentIndex < descentPath.Length - 1;
         public float DescentProgress => descentDistances == null || descentDistances.Length < 2 ? 1f :
             descentDistance / Mathf.Max(.001f, descentDistances[descentDistances.Length - 1]);
 
         LavaCreatureActor actor;
+        LavaSpiritVisual spiritVisual;
         LavaCreatureAutoJump jump;
         Animator animator;
         float animatorSpeed = 1f, elapsed, duration, cooldown, acquireAt, bodyOffset = .8f, attackWait;
@@ -49,8 +63,11 @@ namespace GameJam.FireRescue
         int descentIndex;
         int detourSide;
         float descentDistance, emergenceDepth = .55f;
-        Vector3 start, landing, direction, grounded;
+        Vector3 start, landing, direction, grounded, roofGroundSurface;
+        Vector3 attackGroundSurface, pounceStart, pounceEnd;
+        float pounceArcHeight, pounceSeconds;
         readonly RaycastHit[] hits = new RaycastHit[32];
+        readonly Collider[] playerContacts = new Collider[64];
         static readonly List<LavaCreatureCombat> crowd = new List<LavaCreatureCombat>();
         static int nextLane;
         int lane;
@@ -87,6 +104,7 @@ namespace GameJam.FireRescue
         {
             if (initialized) return;
             actor = GetComponent<LavaCreatureActor>();
+            spiritVisual = GetComponent<LavaSpiritVisual>();
             jump = GetComponent<LavaCreatureAutoJump>();
             if (!actor || !jump) { enabled = false; return; }
             initialized = true;
@@ -117,6 +135,7 @@ namespace GameJam.FireRescue
             Initialize();
             if (!initialized || !actor || actor.IsDefeated) return;
             dt = Mathf.Min(dt, .1f);
+            if (!IsDescending && State != Motion.Emerging) IgniteThermalContacts(RoofBodyPosition, RoofBodyRadius + .22f);
             lifetime += dt;
             if (attackBuildings && lifetime >= maximumLifeSeconds)
             {
@@ -124,7 +143,7 @@ namespace GameJam.FireRescue
                 actor.Dissipate(); return;
             }
             if (PursuingBuilding && !IsDescending &&
-                (State == Motion.Searching || State == Motion.Recovery) && TickBuildingContact()) return;
+                (State == Motion.Searching || State == Motion.Recovery) && !PlayerInPounceRange() && TickBuildingContact()) return;
             cooldown = Mathf.Max(0f, cooldown - dt);
             attackWait += dt;
             elapsed += dt;
@@ -142,7 +161,7 @@ namespace GameJam.FireRescue
                     if (elapsed >= duration) { jump.CombatGrounded(landing); Change(Motion.Searching, 0f); }
                     break;
                 case Motion.Searching:
-                    bool siege = PursuingBuilding && FindBuilding();
+                    bool siege = PursuingBuilding && !PlayerInPounceRange() && FindBuilding();
                     bool hasTarget = target && target.isActiveAndEnabled && target.Health > 0f;
                     Vector3 offset = hasTarget ? target.PursuitPosition - transform.position : Vector3.zero;
                     // A nearby player can intercept the procession, including from a vehicle.
@@ -157,7 +176,8 @@ namespace GameJam.FireRescue
                     offset.y = 0f;
                     if (!siege && !downhillLeap && !alerted && offset.sqrMagnitude > noticeDistance * noticeDistance) return;
                     alerted = true;
-                    attacking = !siege && !downhillLeap && hasTarget && target.CanBeAttacked && offset.magnitude <= attackRange && cooldown <= 0f && ClaimAttack();
+                    attacking = !siege && !downhillLeap && hasTarget && target.CanBeTargeted &&
+                        FlatDistance(transform.position, target.ClosestThreatPoint(transform.position)) <= attackRange && cooldown <= 0f && ClaimAttack();
                     if (!siege && !downhillLeap && !attacking && hasTarget)
                     {
                         goal = ApproachPoint(); offset = goal - transform.position; offset.y = 0f;
@@ -173,8 +193,8 @@ namespace GameJam.FireRescue
                     // Commit to the player's position now: strafing can evade the pounce.
                     float step = downhillLeap ? Mathf.Min(downhillHopDistance, offset.magnitude) :
                         Mathf.Min(attacking ? attackRange : hopDistance, Mathf.Max(0f, offset.magnitude - (attacking ? .55f : .1f)));
-                    landing = ChooseLanding(start, direction, step);
-                    if (FlatDistance(start, landing) < .18f)
+                    landing = attacking ? GroundAt(target.PursuitPosition) : ChooseLanding(start, direction, step);
+                    if (!attacking && FlatDistance(start, landing) < .18f)
                     {
                         navigation.Invalidate(); detourSide = lane % 2 == 0 ? 1 : -1;
                         Change(Motion.Recovery, .18f); break;
@@ -182,23 +202,49 @@ namespace GameJam.FireRescue
                     if (downhillLeap && FlatDistance(landing, goal) < .4f) landing.y = Mathf.Max(landing.y, goal.y);
                     direction = (landing - start); direction.y = 0f;
                     if (direction.sqrMagnitude > .001f) direction.Normalize();
-                    Change(Motion.Windup, attacking ? .46f : .13f + lane % 3 * .025f);
-                    if (attacking) { attackWait = 0f; ShowAttackTell(); }
+                    Change(Motion.Windup, attacking ? playerAttackWindup : .1f + lane % 3 * .02f);
+                    if (attacking)
+                    {
+                        attackWait = 0f; struck = false;
+                        jump.CombatGrounded(start);
+                        attackGroundSurface = RoofVisualBase;
+                        pounceEnd = target.VehicleTarget ? target.ClosestThreatPoint(RoofBodyPosition) : target.AttackPoint;
+                        ShowAttackTell();
+                    }
                     break;
                 case Motion.Windup:
-                    jump.CombatWindup(direction, Mathf.Clamp01(elapsed / duration));
+                    if (attacking)
+                    {
+                        if (!target || !target.CanBeTargeted)
+                        {
+                            attacking = false; HideAttackTell(); jump.CombatGrounded(start);
+                            Change(Motion.Recovery, .2f); break;
+                        }
+                        jump.CombatAttackWindup(direction, Mathf.Clamp01(elapsed / duration));
+                        transform.position += Vector3.up * (attackGroundSurface.y - RoofVisualBase.y);
+                    }
+                    else jump.CombatWindup(direction, Mathf.Clamp01(elapsed / duration));
                     UpdateAttackTell();
                     if (elapsed < duration) return;
                     struck = false;
                     height = attacking ? .42f : downhillLeap ? 1.65f : .95f;
-                    if (attacking) cooldown = attackCooldown + lane % 4 * .17f;
+                    if (attacking)
+                    {
+                        cooldown = attackCooldown + lane % 4 * .17f;
+                        pounceStart = RoofBodyPosition;
+                        float reach = Mathf.InverseLerp(3f, attackRange, FlatDistance(pounceStart, pounceEnd));
+                        pounceArcHeight = Mathf.Lerp(1f, playerPounceHeight, reach);
+                        pounceSeconds = Mathf.Lerp(.5f, playerPounceDuration, reach);
+                        LavaCombatEffects.Launch(attackGroundSurface);
+                    }
                     HideAttackTell();
                     jump.BeginCombatJump(direction);
                     Leaps++;
-                    Change(Motion.Leaping, attacking ? .32f : downhillLeap ?
+                    Change(Motion.Leaping, attacking ? pounceSeconds : downhillLeap ?
                         Mathf.Max(.64f, Mathf.Sqrt(Mathf.Max(0f, start.y - landing.y) / 18f)) : hopDuration);
                     break;
                 case Motion.Leaping:
+                    if (attacking) { TickPlayerPounce(dt); break; }
                     float t = Mathf.Clamp01(elapsed / duration);
                     Vector3 next = Vector3.Lerp(start, landing, t) + Vector3.up * (4f * height * t * (1f - t));
                     // Curved terrain may rise above a straight endpoint arc. Keep feet above it.
@@ -213,29 +259,35 @@ namespace GameJam.FireRescue
                         t = 1f;
                         next = landing;
                     }
-                    if (attacking) jump.CombatLungePose(next, t);
-                    else jump.CombatPose(next, t);
-                    if (attacking && !struck && t > .35f) TryStrike();
+                    jump.CombatPose(next, t);
                     if (t < 1f) return;
                     grounded = landing;
                     jump.CombatGrounded(grounded);
                     actor.LandingFeedback(grounded, attacking);
-                    Change(Motion.Recovery, attacking ? .62f : .18f + lane % 4 * .07f);
+                    Change(Motion.Recovery, .14f + lane % 4 * .045f);
                     break;
                 case Motion.Recovery:
                     if (elapsed >= duration) Change(Motion.Searching, 0f);
                     break;
                 case Motion.Igniting:
-                    if (!BuildingTarget || BuildingTarget.IsBurnedOut || BuildingTarget.IsRescued)
-                    { BuildingTarget = null; Change(Motion.Searching, 0); break; }
-                    jump.CombatWindup(direction, Mathf.Clamp01(elapsed / duration));
+                    if (!CanAttackBuilding())
+                    { CancelRoofWindup(); break; }
+                    jump.CombatRoofWindup(direction, Mathf.Clamp01(elapsed / duration));
+                    // Squash/stretch happens around the authored head pivot. Anchor the visible
+                    // base to the floor so the release cannot stretch down through the ground.
+                    transform.position += Vector3.up * (roofGroundSurface.y - RoofVisualBase.y);
                     if (elapsed >= duration)
                     {
-                        BuildingTarget.Ignite();
-                        if (BuildingTarget.IsBurning)
-                        { LavaCombatEffects.Emerge(BuildingApproach()); actor.ConsumeAtBuilding(); }
-                        else { BuildingTarget = null; Change(Motion.Recovery, .6f); }
+                        roofFlight.Plan(BuildingTarget, RoofBodyPosition, roofJumpClearance, RoofBodyRadius);
+                        if (!roofFlight.HasRoofCollider) { actor.Dissipate(); break; }
+                        jump.BeginCombatJump(direction);
+                        LavaCombatEffects.Launch(roofGroundSurface);
+                        Leaps++;
+                        Change(Motion.RoofLeaping, roofFlight.Duration);
                     }
+                    break;
+                case Motion.RoofLeaping:
+                    TickRoofFlight(dt);
                     break;
                 case Motion.Staggered:
                     // Only this enemy pauses for impact; player controls and world time continue.
@@ -252,7 +304,7 @@ namespace GameJam.FireRescue
                     if (recovery >= 1f) { grounded = GroundAt(transform.position); transform.position = grounded; jump.CombatGrounded(grounded); Change(Motion.Recovery, .1f); }
                     break;
             }
-            if (!IsDescending && State != Motion.Staggered && State != Motion.Igniting)
+            if (!IsDescending && State != Motion.Staggered && State != Motion.Igniting && State != Motion.RoofLeaping)
             {
                 progressClock += dt;
                 if (progressClock >= 2.5f)
@@ -284,8 +336,69 @@ namespace GameJam.FireRescue
             Vector3 contact = BuildingTarget.ignitionBounds.ClosestPoint(transform.position + Vector3.up * bodyOffset);
             if (FlatDistance(transform.position, contact) > buildingContactDistance || Mathf.Abs(contact.y - transform.position.y) > 8) return false;
             direction = contact - transform.position; direction.y = 0; direction.Normalize();
-            attacking = false; HideAttackTell(); Change(Motion.Igniting, .7f);
+            grounded = GroundAt(transform.position);
+            jump.CombatGrounded(grounded);
+            roofGroundSurface = RoofVisualBase;
+            RoofContactCollider = null;
+            attacking = false; HideAttackTell(); Change(Motion.Igniting, roofWindupSeconds);
             return true;
+        }
+        bool CanAttackBuilding() => BuildingTarget && BuildingTarget.isActiveAndEnabled &&
+            BuildingTarget.ignitionBounds && !BuildingTarget.IsBurnedOut && !BuildingTarget.IsBurning && !BuildingTarget.IgnitionBlocked;
+
+        void CancelRoofWindup()
+        {
+            BuildingTarget = null; navigation.Invalidate();
+            jump.CombatGrounded(GroundAt(transform.position));
+            Change(Motion.Searching, 0);
+        }
+
+        void TickRoofFlight(float dt)
+        {
+            // A lost/collapsed target cannot receive a remote ignition or redirect a committed leap.
+            if (!BuildingTarget || !BuildingTarget.isActiveAndEnabled || BuildingTarget.IsBurnedOut)
+            { actor.Dissipate(); return; }
+            float fromTime = Mathf.Max(0, elapsed - dt), toTime = Mathf.Min(elapsed, duration);
+            int steps = Mathf.Max(1, Mathf.CeilToInt((toTime - fromTime) / .02f));
+            for (int i = 1; i <= steps; i++)
+            {
+                float at = Mathf.Lerp(fromTime, toTime, i / (float)steps);
+                Vector3 next = roofFlight.Position(at), velocity = roofFlight.Velocity(at);
+                if (roofFlight.Sweep(RoofBodyPosition, next, transform, RoofBodyRadius, out var hit))
+                {
+                    RoofContactCollider = hit.collider;
+                    PlaceRoofBody(hit.point + hit.normal * (RoofBodyRadius + .025f), velocity, at / duration);
+                    bool roof = hit.collider.GetComponentInParent<BurnableBuilding>() == BuildingTarget &&
+                        hit.normal.y > .25f && velocity.y < 0f;
+                    if (roof) ImpactRoof(hit.point, velocity);
+                    else actor.Dissipate();
+                    return;
+                }
+                PlaceRoofBody(next, velocity, at / duration);
+            }
+            if (elapsed < duration) return;
+            // No collision means no ignition, even if the target's geometry changed mid-flight.
+            actor.Dissipate();
+        }
+
+        float RoofBodyRadius => Mathf.Clamp(radius, .24f, .48f);
+        Vector3 RoofVisualBase => spiritVisual && spiritVisual.IsBuilt ?
+            spiritVisual.VisualRoot.position : transform.position;
+        Vector3 RoofBodyPosition => spiritVisual && spiritVisual.IsBuilt ?
+            spiritVisual.VisualRoot.TransformPoint(Vector3.up * .65f) : transform.position + Vector3.up * bodyOffset;
+
+        void PlaceRoofBody(Vector3 center, Vector3 velocity, float progress)
+        {
+            // The authored pivot is above the feet. Sweep the visible core instead, including
+            // while it tilts into the dive, so the spirit actually touches the sloping tiles.
+            jump.CombatLaunchPose(transform.position, velocity, progress);
+            transform.position += center - RoofBodyPosition;
+        }
+
+        void ImpactRoof(Vector3 point, Vector3 velocity)
+        {
+            actor.ConsumeAtBuilding(point, velocity);
+            BuildingTarget.IgniteFromRoofImpact(point);
         }
         Vector3 BuildingApproach()
         {
@@ -296,6 +409,9 @@ namespace GameJam.FireRescue
         {
             Initialize();
             if (!initialized || actor.IsDefeated) return;
+            // The roof dive is committed. Surviving hits still flash, but cannot pull an airborne
+            // spirit through the roof into a grounded recoil pose; lethal hits retire it normally.
+            if (State == Motion.RoofLeaping || IsPlayerPouncing) return;
             alerted = true;
             retaliationUntil = Time.time + 4.5f; navigation.Invalidate();
             if (IsDescending && target && FlatDistance(transform.position, target.PursuitPosition) < 26f)
@@ -312,16 +428,96 @@ namespace GameJam.FireRescue
             Change(Motion.Staggered, .295f);
         }
 
-        void TryStrike()
+        void TickPlayerPounce(float dt)
         {
-            if (!target || !target.CanBeAttacked) return;
-            Vector3 center = transform.position + Vector3.up * bodyOffset;
-            Vector3 contact = target.ClosestAttackPoint(center);
-            if (Vector3.Distance(center, contact) > 1.05f) return;
-            Vector3 delta = contact - center;
-            if (ClearDistance(transform.position, delta.normalized, delta.magnitude) + .05f < delta.magnitude) return;
+            float fromTime = Mathf.Max(0f, elapsed - dt), toTime = Mathf.Min(elapsed, duration);
+            int steps = Mathf.Max(1, Mathf.CeilToInt((toTime - fromTime) / .02f));
+            for (int i = 1; i <= steps; i++)
+            {
+                float t = Mathf.Lerp(fromTime, toTime, i / (float)steps) / duration;
+                Vector3 next = Vector3.Lerp(pounceStart, pounceEnd, t) + Vector3.up * (4f * pounceArcHeight * t * (1f - t));
+                Vector3 velocity = (pounceEnd - pounceStart) + Vector3.up * (4f * pounceArcHeight * (1f - 2f * t));
+                if (roofFlight.Sweep(RoofBodyPosition, next, transform, RoofBodyRadius, out var hit))
+                {
+                    Vector3 center = hit.point + hit.normal * (RoofBodyRadius + .025f);
+                    PlaceRoofBody(center, velocity, t);
+                    if (IsPlayerTarget(hit.collider)) DetonatePlayerAttack(center, velocity, hit.collider);
+                    else RecoverMissedPlayerPounce();
+                    return;
+                }
+                PlaceRoofBody(next, velocity, t);
+                // A player who steps into an already overlapping cast still makes contact.
+                int contacts = Physics.OverlapSphereNonAlloc(next, RoofBodyRadius + .005f, playerContacts,
+                    Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore);
+                for (int contact = 0; contact < contacts; contact++)
+                    if (IsPlayerTarget(playerContacts[contact]) && ExplosionCanReach(next, playerContacts[contact].ClosestPoint(next)))
+                    { DetonatePlayerAttack(next, velocity, playerContacts[contact]); return; }
+            }
+            if (elapsed >= duration) RecoverMissedPlayerPounce();
+        }
+
+        bool IsPlayerTarget(Collider contact)
+        {
+            if (!contact || !target || !target.CanBeTargeted) return false;
+            var vehicle = target.VehicleTarget;
+            return vehicle ? contact.transform.IsChildOf(vehicle.transform) : contact == target.GetComponent<CharacterController>();
+        }
+
+        void RecoverMissedPlayerPounce()
+        {
+            // A missed dive or a scenery impact leaves a living spirit that can try again.
+            // Settle from its current height before resuming the normal attack cooldown.
+            attacking = downhillLeap = false;
+            HideAttackTell();
+            navigation.Invalidate();
+            start = transform.position;
+            landing = GroundAt(start);
+            height = 0f;
+            float fallSeconds = Mathf.Sqrt(2f * Mathf.Max(0f, start.y - landing.y) / 25f);
+            Change(Motion.Leaping, Mathf.Clamp(fallSeconds, .12f, .5f));
+        }
+
+        void DetonatePlayerAttack(Vector3 center, Vector3 velocity, Collider contact)
+        {
+            // Only a swept hit or a real overlap with the current target can consume the spirit.
+            if (struck || actor.IsDefeated || !IsPlayerTarget(contact)) return;
             struck = true;
-            if (target.TryTakeDamage(attackDamage, transform.position)) SuccessfulAttacks++;
+            bool canDamage = target.CanBeAttacked;
+            IgniteThermalContacts(center, playerBlastRadius);
+            actor.Detonate(center, velocity);
+            if (canDamage && target && target.TryTakeDamage(attackDamage, center)) SuccessfulAttacks++;
+        }
+
+        void IgniteThermalContacts(Vector3 center, float reach)
+        {
+            foreach (var burnable in ThermalDamage.ActiveTargets)
+            {
+                if (!burnable || !burnable.CanIgnite) continue;
+                Vector3 contact = burnable.ClosestPoint(center);
+                if ((contact - center).sqrMagnitude > reach * reach || !ExplosionCanReach(center, contact, burnable.transform)) continue;
+                if (burnable.IgniteFromSpirit() && target && burnable == target.VehicleTarget) SuccessfulAttacks++;
+            }
+        }
+
+        bool ExplosionCanReach(Vector3 from, Vector3 contact, Transform thermalTarget = null)
+        {
+            Vector3 travel = contact - from;
+            if (travel.sqrMagnitude < .0001f) return true;
+            int count = Physics.RaycastNonAlloc(from, travel.normalized, hits, travel.magnitude,
+                Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore);
+            for (int i = 0; i < count; i++)
+            {
+                var obstacle = hits[i].collider;
+                if (!obstacle || obstacle.transform.IsChildOf(transform) ||
+                    (thermalTarget && obstacle.transform.IsChildOf(thermalTarget)) ||
+                    (target && target.VehicleTarget && (thermalTarget == null || thermalTarget == target.VehicleTarget.transform) &&
+                        obstacle.transform.IsChildOf(target.VehicleTarget.transform)) ||
+                    (target && obstacle.transform.IsChildOf(target.transform)) ||
+                    obstacle.GetComponentInParent<LavaCreatureActor>() || obstacle.GetComponentInParent<LavaIgnitionSource>() ||
+                    obstacle.GetComponentInParent<ProgressiveLavaFlow>() || obstacle.GetComponentInParent<LavaCoolingSurface>()) continue;
+                return false;
+            }
+            return true;
         }
 
         void AcquireTarget()
@@ -400,13 +596,17 @@ namespace GameJam.FireRescue
 
         static float FlatDistance(Vector3 a, Vector3 b) => new Vector2(a.x - b.x, a.z - b.z).magnitude;
 
+        bool PlayerInPounceRange() => target && target.CanBeTargeted &&
+            FlatDistance(transform.position, target.ClosestThreatPoint(transform.position)) <= attackRange &&
+            Mathf.Abs(transform.position.y - target.ClosestThreatPoint(transform.position).y) < 5f;
+
         bool ClaimAttack()
         {
             int attackers = 0;
             foreach (var other in crowd)
             {
                 if (!other || other == this || !other.isActiveAndEnabled || other.target != target) continue;
-                if (other.PursuingBuilding && other.BuildingTarget) continue;
+                if (other.PursuingBuilding && other.BuildingTarget && !other.IsAttacking && !other.PlayerInPounceRange()) continue;
                 if (other.IsAttacking)
                 {
                     attackers++;
@@ -488,9 +688,10 @@ namespace GameJam.FireRescue
         {
             if (!attackTell || !attackTell.enabled) return;
             float charge = AttackCharge;
-            attackTell.SetPosition(0, start + Vector3.up * .12f);
-            attackTell.SetPosition(1, GroundAt(Vector3.Lerp(start, landing, .55f)) + Vector3.up * .12f);
-            attackTell.SetPosition(2, landing + Vector3.up * .12f);
+            float groundOffset = start.y - attackGroundSurface.y;
+            attackTell.SetPosition(0, attackGroundSurface + Vector3.up * .055f);
+            attackTell.SetPosition(1, GroundAt(Vector3.Lerp(start, landing, .55f)) + Vector3.up * (.055f - groundOffset));
+            attackTell.SetPosition(2, landing + Vector3.up * (.055f - groundOffset));
             attackTell.startWidth = Mathf.Lerp(.07f, .2f, charge); attackTell.endWidth = .025f;
             attackTell.startColor = new Color(2.2f, .5f + charge * .7f, .08f, .4f + charge * .5f);
             attackTell.endColor = new Color(2.2f, .8f, .12f, .15f + charge * .5f);

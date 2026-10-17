@@ -4140,8 +4140,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   m_Material: {fileID: 0}
   m_Color: {r: 0.31, g: 0.86, b: 0.5, a: 1}
   m_RaycastTarget: 0
@@ -9491,7 +9491,10 @@ PrefabInstance:
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
-    m_AddedComponents: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 3982989680251876926, guid: 0bf90fd8a8763a543bd98f4e87b67dba, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1027958947}
   m_SourcePrefab: {fileID: 100100000, guid: 0bf90fd8a8763a543bd98f4e87b67dba, type: 3}
 --- !u!4 &56578724 stripped
 Transform:
@@ -9508,7 +9511,7 @@ MonoBehaviour:
   m_CorrespondingSourceObject: {fileID: 7915165097456723516, guid: 0bf90fd8a8763a543bd98f4e87b67dba, type: 3}
   m_PrefabInstance: {fileID: 56578723}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 0}
+  m_GameObject: {fileID: 1027958941}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 0d2adebd5355c864a97ffc2ce08318b8, type: 3}
@@ -9519,7 +9522,7 @@ MonoBehaviour:
   m_CorrespondingSourceObject: {fileID: 7123928594576945424, guid: 0bf90fd8a8763a543bd98f4e87b67dba, type: 3}
   m_PrefabInstance: {fileID: 56578723}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 0}
+  m_GameObject: {fileID: 1027958941}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: cd015abfc793492489b12db91e461a1b, type: 3}
@@ -14786,6 +14789,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   maximumHealth: 100
   allowRecovery: 0
+  damageCamera: {fileID: 0}
 --- !u!114 &95214814
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -15462,8 +15466,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   m_Material: {fileID: 0}
   m_Color: {r: 0.13, g: 0.15, b: 0.16, a: 0.97}
   m_RaycastTarget: 0
@@ -20269,7 +20273,7 @@ RectTransform:
   m_AnchorMin: {x: 1, y: 0}
   m_AnchorMax: {x: 1, y: 0}
   m_AnchoredPosition: {x: -28, y: 28}
-  m_SizeDelta: {x: 166.58438, y: 63.99994}
+  m_SizeDelta: {x: 160, y: 64}
   m_Pivot: {x: 1, y: 0}
 --- !u!114 &149968519
 MonoBehaviour:
@@ -24495,8 +24499,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 78fd9a590614bcc4ca19c4b7cfd8b08b, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   animator: {fileID: 0}
   visualRoot: {fileID: 0}
   target: {fileID: 95214796}
@@ -24530,11 +24534,12 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: dc79b829d0fb76449b33dd6aaafb2524, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   jump: {fileID: 180202886}
   maxHealth: 100
   waterDamagePerLitre: 2
+  bulletImpactClip: {fileID: 0}
   deathFireDelay: 0.12
   deathFireSize: 1
   deathPoffVolume: 0.85
@@ -27902,8 +27907,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   m_Material: {fileID: 0}
   m_Color: {r: 0.31, g: 0.86, b: 0.5, a: 1}
   m_RaycastTarget: 0
@@ -42786,8 +42791,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 0fd658154a000df4e8e75fd607440b80, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   flow: {fileID: 1642916036}
   timerPanel: {fileID: 274281743}
   timerText: {fileID: 683187376}
@@ -48981,6 +48986,7 @@ GameObject:
   - component: {fileID: 315682478}
   - component: {fileID: 315682475}
   - component: {fileID: 315682477}
+  - component: {fileID: 315682479}
   m_Layer: 0
   m_Name: Resident 5 - Can
   m_TagString: Untagged
@@ -49072,6 +49078,24 @@ NavMeshAgent:
   m_BaseOffset: 0
   m_WalkableMask: 4294967295
   m_ObstacleAvoidanceType: 4
+--- !u!114 &315682479
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 315682474}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c0039121e44ea8d4dbed7acb144ad9d9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  resident: {fileID: 315682475}
+  truck: {fileID: 0}
+  maximumHealth: 100
+  fireDamagePerSecond: 16
+  lavaDamagePerSecond: 48
+  waterToExtinguish: 12
 --- !u!1001 &315917431
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -63881,8 +63905,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   m_Material: {fileID: 0}
   m_Color: {r: 0.13, g: 0.15, b: 0.16, a: 0.97}
   m_RaycastTarget: 0
@@ -76140,8 +76164,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   m_Material: {fileID: 0}
   m_Color: {r: 0.13, g: 0.15, b: 0.16, a: 0.97}
   m_RaycastTarget: 0
@@ -81155,6 +81179,7 @@ GameObject:
   - component: {fileID: 501472178}
   - component: {fileID: 501472175}
   - component: {fileID: 501472177}
+  - component: {fileID: 501472179}
   m_Layer: 0
   m_Name: Resident 1 - Deniz
   m_TagString: Untagged
@@ -81246,6 +81271,24 @@ NavMeshAgent:
   m_BaseOffset: 0
   m_WalkableMask: 4294967295
   m_ObstacleAvoidanceType: 4
+--- !u!114 &501472179
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 501472174}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c0039121e44ea8d4dbed7acb144ad9d9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  resident: {fileID: 501472175}
+  truck: {fileID: 0}
+  maximumHealth: 100
+  fireDamagePerSecond: 16
+  lavaDamagePerSecond: 48
+  waterToExtinguish: 12
 --- !u!1001 &501626107
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -98575,8 +98618,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 5f7201a12d95ffc409449d95f23cf332, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   m_Material: {fileID: 0}
   m_Color: {r: 0.95, g: 0.93, b: 0.87, a: 1}
   m_RaycastTarget: 0
@@ -100061,11 +100104,12 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: dc79b829d0fb76449b33dd6aaafb2524, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   jump: {fileID: 578949105}
   maxHealth: 100
   waterDamagePerLitre: 2
+  bulletImpactClip: {fileID: 0}
   deathFireDelay: 0.12
   deathFireSize: 1
   deathPoffVolume: 0.85
@@ -100079,8 +100123,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 78fd9a590614bcc4ca19c4b7cfd8b08b, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   animator: {fileID: 0}
   visualRoot: {fileID: 0}
   target: {fileID: 95214796}
@@ -126351,6 +126395,7 @@ GameObject:
   - component: {fileID: 666647731}
   - component: {fileID: 666647728}
   - component: {fileID: 666647730}
+  - component: {fileID: 666647732}
   m_Layer: 0
   m_Name: Resident 7 - Kemal
   m_TagString: Untagged
@@ -126442,6 +126487,24 @@ NavMeshAgent:
   m_BaseOffset: 0
   m_WalkableMask: 4294967295
   m_ObstacleAvoidanceType: 4
+--- !u!114 &666647732
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 666647727}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c0039121e44ea8d4dbed7acb144ad9d9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  resident: {fileID: 666647728}
+  truck: {fileID: 0}
+  maximumHealth: 100
+  fireDamagePerSecond: 16
+  lavaDamagePerSecond: 48
+  waterToExtinguish: 12
 --- !u!43 &667184855
 Mesh:
   m_ObjectHideFlags: 0
@@ -140606,8 +140669,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   m_Material: {fileID: 0}
   m_Color: {r: 0.13, g: 0.15, b: 0.16, a: 0.97}
   m_RaycastTarget: 0
@@ -141443,7 +141506,7 @@ MonoBehaviour:
   m_CorrespondingSourceObject: {fileID: 4313489570010055714, guid: 0bf90fd8a8763a543bd98f4e87b67dba, type: 3}
   m_PrefabInstance: {fileID: 56578723}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 0}
+  m_GameObject: {fileID: 1027958941}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 1b768cc00afcc9c4ca672de9265355c8, type: 3}
@@ -153584,7 +153647,7 @@ Animator:
   m_LinearVelocityBlending: 0
   m_StabilizeFeet: 0
   m_AnimatePhysics: 0
-  m_WarningMessage:
+  m_WarningMessage: 
   m_HasTransformHierarchy: 1
   m_AllowConstantClipSamplingOptimization: 1
   m_KeepAnimatorStateOnDisable: 0
@@ -163264,8 +163327,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   m_Material: {fileID: 0}
   m_Color: {r: 0.31, g: 0.86, b: 0.5, a: 1}
   m_RaycastTarget: 0
@@ -172693,8 +172756,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   m_Material: {fileID: 0}
   m_Color: {r: 0.31, g: 0.86, b: 0.5, a: 1}
   m_RaycastTarget: 0
@@ -173111,7 +173174,7 @@ RectTransform:
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 0, y: 1}
   m_AnchoredPosition: {x: 24, y: -18}
-  m_SizeDelta: {x: 41.86737, y: 20}
+  m_SizeDelta: {x: 24, y: 20}
   m_Pivot: {x: 0, y: 1}
 --- !u!114 &873687138
 MonoBehaviour:
@@ -198488,6 +198551,29 @@ Transform:
   m_Children: []
   m_Father: {fileID: 1547479081}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1027958941 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 3982989680251876926, guid: 0bf90fd8a8763a543bd98f4e87b67dba, type: 3}
+  m_PrefabInstance: {fileID: 56578723}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &1027958947
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1027958941}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c0039121e44ea8d4dbed7acb144ad9d9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  resident: {fileID: 0}
+  truck: {fileID: 56578727}
+  maximumHealth: 100
+  fireDamagePerSecond: 3.2
+  lavaDamagePerSecond: 16
+  waterToExtinguish: 65
 --- !u!1001 &1028302374
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -201197,8 +201283,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   m_Material: {fileID: 0}
   m_Color: {r: 0.13, g: 0.15, b: 0.16, a: 0.97}
   m_RaycastTarget: 0
@@ -223004,7 +223090,7 @@ Animator:
   m_LinearVelocityBlending: 0
   m_StabilizeFeet: 0
   m_AnimatePhysics: 0
-  m_WarningMessage:
+  m_WarningMessage: 
   m_HasTransformHierarchy: 1
   m_AllowConstantClipSamplingOptimization: 1
   m_KeepAnimatorStateOnDisable: 0
@@ -265995,8 +266081,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 5f7201a12d95ffc409449d95f23cf332, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   m_Material: {fileID: 0}
   m_Color: {r: 0.95, g: 0.93, b: 0.87, a: 1}
   m_RaycastTarget: 0
@@ -266199,8 +266285,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 5f7201a12d95ffc409449d95f23cf332, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   m_Material: {fileID: 0}
   m_Color: {r: 0.95, g: 0.93, b: 0.87, a: 1}
   m_RaycastTarget: 0
@@ -267388,10 +267474,10 @@ MonoBehaviour:
     emergenceDepth: 2.2
   enableWaves: 1
   enableFinalObjective: 1
-  waveSizes: 030000000300000004000000
+  waveSizes: 040000000400000005000000
   secondsBetweenWaves: 20
   secondsBetweenSpawns: 2.2
-  maximumAlive: 7
+  maximumAlive: 9
   disperseIntoVillage: 1
   buildingAttackShare: 0.6
 --- !u!4 &1377955235
@@ -267479,8 +267565,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   m_Material: {fileID: 0}
   m_Color: {r: 0.13, g: 0.15, b: 0.16, a: 0.97}
   m_RaycastTarget: 0
@@ -283341,7 +283427,7 @@ RectTransform:
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 0, y: 1}
   m_AnchoredPosition: {x: 24, y: -40}
-  m_SizeDelta: {x: 41.86737, y: 27}
+  m_SizeDelta: {x: 28.59065, y: 27}
   m_Pivot: {x: 0, y: 1}
 --- !u!1 &1489347839
 GameObject:
@@ -287898,7 +287984,7 @@ Animator:
   m_LinearVelocityBlending: 0
   m_StabilizeFeet: 0
   m_AnimatePhysics: 0
-  m_WarningMessage:
+  m_WarningMessage: 
   m_HasTransformHierarchy: 1
   m_AllowConstantClipSamplingOptimization: 1
   m_KeepAnimatorStateOnDisable: 0
@@ -289271,8 +289357,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 5f7201a12d95ffc409449d95f23cf332, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   m_Material: {fileID: 0}
   m_Color: {r: 0.95, g: 0.93, b: 0.87, a: 1}
   m_RaycastTarget: 0
@@ -294582,8 +294668,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 5f7201a12d95ffc409449d95f23cf332, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   m_Material: {fileID: 0}
   m_Color: {r: 0.95, g: 0.93, b: 0.87, a: 1}
   m_RaycastTarget: 0
@@ -294946,6 +295032,7 @@ GameObject:
   - component: {fileID: 1564863265}
   - component: {fileID: 1564863262}
   - component: {fileID: 1564863264}
+  - component: {fileID: 1564863266}
   m_Layer: 0
   m_Name: Resident 3 - Murat
   m_TagString: Untagged
@@ -295037,6 +295124,24 @@ NavMeshAgent:
   m_BaseOffset: 0
   m_WalkableMask: 4294967295
   m_ObstacleAvoidanceType: 4
+--- !u!114 &1564863266
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1564863261}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c0039121e44ea8d4dbed7acb144ad9d9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  resident: {fileID: 1564863262}
+  truck: {fileID: 0}
+  maximumHealth: 100
+  fireDamagePerSecond: 16
+  lavaDamagePerSecond: 48
+  waterToExtinguish: 12
 --- !u!1 &1565693897
 GameObject:
   m_ObjectHideFlags: 0
@@ -299147,6 +299252,7 @@ GameObject:
   - component: {fileID: 1601862861}
   - component: {fileID: 1601862858}
   - component: {fileID: 1601862860}
+  - component: {fileID: 1601862862}
   m_Layer: 0
   m_Name: Resident 4 - Zeynep
   m_TagString: Untagged
@@ -299238,6 +299344,24 @@ NavMeshAgent:
   m_BaseOffset: 0
   m_WalkableMask: 4294967295
   m_ObstacleAvoidanceType: 4
+--- !u!114 &1601862862
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1601862857}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c0039121e44ea8d4dbed7acb144ad9d9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  resident: {fileID: 1601862858}
+  truck: {fileID: 0}
+  maximumHealth: 100
+  fireDamagePerSecond: 16
+  lavaDamagePerSecond: 48
+  waterToExtinguish: 12
 --- !u!1001 &1602402460
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -301227,8 +301351,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 5f7201a12d95ffc409449d95f23cf332, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   m_Material: {fileID: 0}
   m_Color: {r: 0.95, g: 0.93, b: 0.87, a: 1}
   m_RaycastTarget: 0
@@ -301945,8 +302069,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 5f7201a12d95ffc409449d95f23cf332, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   m_Material: {fileID: 0}
   m_Color: {r: 0.95, g: 0.93, b: 0.87, a: 1}
   m_RaycastTarget: 0
@@ -301968,7 +302092,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 1
     m_VerticalOverflow: 1
     m_LineSpacing: 1
-  m_Text:
+  m_Text: 
 --- !u!1001 &1615250243
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -312501,8 +312625,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 78fd9a590614bcc4ca19c4b7cfd8b08b, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   animator: {fileID: 0}
   visualRoot: {fileID: 0}
   target: {fileID: 95214796}
@@ -312536,11 +312660,12 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: dc79b829d0fb76449b33dd6aaafb2524, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   jump: {fileID: 1651747657}
   maxHealth: 100
   waterDamagePerLitre: 2
+  bulletImpactClip: {fileID: 0}
   deathFireDelay: 0.12
   deathFireSize: 1
   deathPoffVolume: 0.85
@@ -362624,8 +362749,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   m_Material: {fileID: 0}
   m_Color: {r: 0.31, g: 0.86, b: 0.5, a: 1}
   m_RaycastTarget: 0
@@ -383932,7 +384057,7 @@ RectTransform:
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 0, y: 1}
   m_AnchoredPosition: {x: 24, y: -18}
-  m_SizeDelta: {x: 114.58438, y: 30}
+  m_SizeDelta: {x: 48.38418, y: 30}
   m_Pivot: {x: 0, y: 1}
 --- !u!114 &1993570068
 MonoBehaviour:
@@ -389955,8 +390080,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 5f7201a12d95ffc409449d95f23cf332, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   m_Material: {fileID: 0}
   m_Color: {r: 0.95, g: 0.93, b: 0.87, a: 1}
   m_RaycastTarget: 0
@@ -393936,6 +394061,7 @@ GameObject:
   - component: {fileID: 2050570419}
   - component: {fileID: 2050570416}
   - component: {fileID: 2050570418}
+  - component: {fileID: 2050570420}
   m_Layer: 0
   m_Name: Resident 2 - Elif
   m_TagString: Untagged
@@ -394027,6 +394153,24 @@ NavMeshAgent:
   m_BaseOffset: 0
   m_WalkableMask: 4294967295
   m_ObstacleAvoidanceType: 4
+--- !u!114 &2050570420
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2050570415}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c0039121e44ea8d4dbed7acb144ad9d9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  resident: {fileID: 2050570416}
+  truck: {fileID: 0}
+  maximumHealth: 100
+  fireDamagePerSecond: 16
+  lavaDamagePerSecond: 48
+  waterToExtinguish: 12
 --- !u!1 &2050708924
 GameObject:
   m_ObjectHideFlags: 0
@@ -402614,8 +402758,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   m_Material: {fileID: 0}
   m_Color: {r: 0.31, g: 0.86, b: 0.5, a: 1}
   m_RaycastTarget: 0
@@ -404941,6 +405085,7 @@ GameObject:
   - component: {fileID: 2129477307}
   - component: {fileID: 2129477304}
   - component: {fileID: 2129477306}
+  - component: {fileID: 2129477308}
   m_Layer: 0
   m_Name: Resident 6 - Aylin
   m_TagString: Untagged
@@ -405032,6 +405177,24 @@ NavMeshAgent:
   m_BaseOffset: 0
   m_WalkableMask: 4294967295
   m_ObstacleAvoidanceType: 4
+--- !u!114 &2129477308
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2129477303}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c0039121e44ea8d4dbed7acb144ad9d9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  resident: {fileID: 2129477304}
+  truck: {fileID: 0}
+  maximumHealth: 100
+  fireDamagePerSecond: 16
+  lavaDamagePerSecond: 48
+  waterToExtinguish: 12
 --- !u!1001 &2130429630
 PrefabInstance:
   m_ObjectHideFlags: 0

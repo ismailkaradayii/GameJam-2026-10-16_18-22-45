@@ -27,12 +27,16 @@ namespace GameJam.FireRescue
         public float shoutCooldown = 5f;
         public Key callKey = Key.Q;
         public event System.Action<EvacuationResident> ResidentRescued;
+        public event System.Action<EvacuationResident> ResidentLost;
         public bool showHud = true;
         [Tooltip("When true, the Canvas RescueHUD draws the objective and subtitle while this component keeps world markers active.")]
         public bool canvasHudOwnsPanel;
         public bool IsActive { get; private set; }
         public bool IsComplete { get; private set; }
         public int RescuedCount { get; private set; }
+        public int DeadCount { get { int count = 0; if (residents != null) foreach (var r in residents) if (r && r.IsDead) count++; return count; } }
+        public int RemainingCount => Mathf.Max(0, TotalCount - RescuedCount - DeadCount);
+        public bool IsResolved => TotalCount > 0 && RemainingCount == 0;
         public int TotalCount { get { int count = 0; if (residents != null) foreach (var r in residents) if (r) count++; return count; } }
         public int CalledCount { get { int n = 0; if (residents != null) foreach (var r in residents) if (r && r.IsCalled) n++; return n; } }
         public Transform PlayerTransform => player ? (player.playerBody ? player.playerBody.transform : player.transform) : null;
@@ -76,7 +80,7 @@ namespace GameJam.FireRescue
         {
             UpdateCrowdPanicAudio();
             if (Time.timeScale <= 0f || (player && player.GameplaySuspended)) return;
-            if (startAutomatically && !IsActive && !IsComplete && Time.time - started >= dispatchDelay) BeginMission();
+            if (startAutomatically && !IsActive && !IsComplete && !IsResolved && Time.time - started >= dispatchDelay) BeginMission();
             var t = PlayerTransform;
             if (IsActive && t && shelterApproach && Mathf.Abs(t.position.y - shelterApproach.position.y) < 5f &&
                 (EvacuationResident.FlatDistance(t.position, shelterApproach.position) < 14f || IsInsideShelter(t.position)))
@@ -103,7 +107,7 @@ namespace GameJam.FireRescue
             Vector3 center = Vector3.zero;
             if (IsActive && residents != null)
                 foreach (var resident in residents)
-                    if (resident && resident.isActiveAndEnabled && resident.IsCalled && !resident.IsSafe)
+                    if (resident && resident.isActiveAndEnabled && resident.IsCalled && !resident.IsSafe && !resident.IsDead)
                     { center += resident.transform.position; activeCount++; }
             bool shouldPlay = IsActive && activeCount > 0;
             if (shouldPlay)
@@ -117,7 +121,7 @@ namespace GameJam.FireRescue
         }
         public void BeginMission()
         {
-            if (IsActive || IsComplete) return;
+            if (IsActive || IsComplete || IsResolved) return;
             IsActive = true;
             Say("DISPATCH: The volcano is active! Lead the " + TotalCount + " villagers to shelter.", 7f);
         }
@@ -130,7 +134,7 @@ namespace GameJam.FireRescue
             foreach (var resident in residents)
                 if (resident && resident.houseExit && EvacuationResident.FlatDistance(PlayerTransform.position, resident.houseExit.position) <= shoutRadius && resident.CallOutside()) count++;
             Say(count > 0 ? "YOU: Everyone outside! Follow me!\n" + count + " villagers heard your call." :
-                CalledCount < TotalCount ? "YOU: Everyone outside!\nMove closer to the other houses and call again." : "YOU: Follow me to the shelter!", 4.5f);
+                System.Array.Exists(residents, r => r && !r.IsDead && !r.IsCalled) ? "YOU: Everyone outside!\nMove closer to the other houses and call again." : "YOU: Follow me to the shelter!", 4.5f);
             return true;
         }
         void Say(string text, float seconds) { subtitle = text; subtitleUntil = Time.time + seconds; }
@@ -150,12 +154,12 @@ namespace GameJam.FireRescue
         }
         public bool CanEnterShelter(EvacuationResident resident)
         {
-            if (!ShelterOpened || !shelterEntrance || !shelterApproach || !resident ||
+            if (!ShelterOpened || !shelterEntrance || !shelterApproach || !resident || resident.IsDead || resident.IsBurning ||
                 EvacuationResident.FlatDistance(resident.transform.position, shelterApproach.position) >= 30f) return false;
             // Larger bodies file in one at a time, filling the deepest available places first.
             foreach (var other in residents)
             {
-                if (!other || other == resident || other.IsSafe || !other.IsCalled) continue;
+                if (!other || other == resident || other.IsSafe || other.IsDead || other.IsBurning || !other.IsCalled) continue;
                 if (other.State == EvacuationResident.ResidentState.EnteringShelter && !IsInsideShelter(other.transform.position)) return false;
                 if (other.formationIndex < resident.formationIndex &&
                     EvacuationResident.FlatDistance(other.transform.position, shelterApproach.position) < 27f) return false;
@@ -180,7 +184,15 @@ namespace GameJam.FireRescue
                 IsComplete = true; IsActive = false;
                 Say("DISPATCH: All " + TotalCount + " villagers are safe!\nNow fill the truck's tank at the lake.", 8f);
             }
-            else Say("Reached shelter: " + RescuedCount + " / " + TotalCount, 3f);
+            else Say("Reached shelter: " + RescuedCount + " / " + TotalCount + (DeadCount > 0 ? " | Lost: " + DeadCount : ""), 3f);
+            if (IsResolved) IsActive = false;
+        }
+        public void ResidentDied(EvacuationResident resident)
+        {
+            if (!resident || !resident.IsDead || residents == null || !System.Array.Exists(residents, r => r == resident)) return;
+            Say("DISPATCH: A villager has died in the fire.\nSheltered: " + RescuedCount + " / " + TotalCount + "  |  Lost: " + DeadCount + "  |  Still outside: " + RemainingCount, 6f);
+            ResidentLost?.Invoke(resident);
+            if (IsResolved) IsActive = false;
         }
         void OnGUI()
         {
@@ -226,7 +238,7 @@ namespace GameJam.FireRescue
                 placedMarkerRects.Clear();
                 if(shelterApproach) Marker(shelterApproach.position+Vector3.up*3,"SHELTER",new Color(.35f,1,.7f),scale,w,h);
                 var seen=new HashSet<Transform>();
-                foreach(var r in residents) if(r && !r.IsCalled && r.houseExit && seen.Add(r.houseExit))
+                foreach(var r in residents) if(r && !r.IsDead && !r.IsCalled && r.houseExit && seen.Add(r.houseExit))
                     Marker(r.houseExit.position+Vector3.up*4,"EVACUATE",new Color(1,.8f,.35f),scale,w,h);
             }
             GUI.matrix=oldMatrix;GUI.color=oldColor;
@@ -264,7 +276,7 @@ namespace GameJam.FireRescue
         {
             if(!PlayerTransform)return "";
             Transform target=shelterApproach;float nearest=float.PositiveInfinity;bool house=false;
-            foreach(var r in residents)if(r&&!r.IsCalled&&r.houseExit)
+            foreach(var r in residents)if(r&&!r.IsDead&&!r.IsCalled&&r.houseExit)
             {
                 float distance=EvacuationResident.FlatDistance(PlayerTransform.position,r.houseExit.position);
                 if(distance<nearest){nearest=distance;target=r.houseExit;house=true;}
