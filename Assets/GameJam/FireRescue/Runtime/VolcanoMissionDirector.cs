@@ -167,17 +167,17 @@ namespace GameJam.FireRescue
             if (Phase == next) return;
             Phase = next; ObjectiveChanged?.Invoke();
         }
-        public string ObjectiveTitle => EruptionTriggered ? "DEFEND THE VILLAGE" : Phase switch
+        public string ObjectiveTitle => EruptionTriggered ? (!player.HasPistol ? "ÖNCE SİLAHINI AL" : "KASABAYI KORU") : Phase switch
         {
             MissionPhase.Intro => "ASHFALL",
             MissionPhase.Window => "PENCEREDEN YANARDAĞA BAK",
-            MissionPhase.Weapon => villageAlarm ? "TAKE YOUR WEAPON" : "TAKE YOUR WEAPON AND LEAVE THE HOUSE",
-            MissionPhase.WarnVillage => villageAlarm ? "ACTIVATE THE VILLAGE ALARM" : "WARN THE VILLAGE",
-            MissionPhase.Evacuate => "EVACUATE THE VILLAGERS",
-            MissionPhase.Truck => "PREPARE THE FIRE TRUCK",
-            MissionPhase.Refill => "DRIVE TO THE LAKE",
-            MissionPhase.Ready => story && story.defensePosition ? "LAVIN GELECEĞİ TARAFTA HAZIR BEKLE" : "READY FOR THE ERUPTION",
-            _ => "READY FOR THE ERUPTION"
+            MissionPhase.Weapon => villageAlarm ? "SİLAHINI AL" : "SİLAHINI AL VE EVDEN ÇIK",
+            MissionPhase.WarnVillage => villageAlarm ? "KASABA ALARMINI ÇALIŞTIR" : "KASABAYI UYAR",
+            MissionPhase.Evacuate => "KÖYLÜLERİ SIĞINAĞA GÖTÜR",
+            MissionPhase.Truck => "İTFAİYEYE BİN",
+            MissionPhase.Refill => "GÖLE GİT, TANKI DOLDUR",
+            MissionPhase.Ready => story && story.defensePosition ? "LAVIN GELECEĞİ TARAFTA HAZIR BEKLE" : "PATLAMAYA HAZIR OL",
+            _ => "PATLAMAYA HAZIR OL"
         };
         public string ObjectiveDetail
         {
@@ -185,24 +185,25 @@ namespace GameJam.FireRescue
             {
                 if (EruptionTriggered)
                 {
-                    if (!player.HasPistol) return "Collect the pistol from your bedroom. The village needs you!";
-                    if (tank.Tank01 < .05f) return "Shoot the fire spirits. Refill the truck at the BLUE lake marker to fight fires.";
-                    return "Shoot the fire spirits. Use the truck's water cannon on burning houses.";
+                    if (!player.HasPistol) return "Mavi işareti takip et. Yatak odasındaki silahı " + InputLabel(InteractionInput.Interact, "E") + " ile al; ruhları evlere ulaşmadan durdur.";
+                    if (tank.Tank01 < .05f) return "Ruhları silahla durdur. Yangınları söndürmek için itfaiyeyi mavi oku izleyerek göle götür ve tankı doldur.";
+                    return player.IsDriving ? InputLabel(InteractionInput.ExitVehicle, "E") + " ile in, 1 ile silahı kuşan ve ruhları evlere ulaşmadan vur. Yanan evlere su topuyla müdahale et." :
+                        "Ruhlar evlere sıçrayıp yangın çıkarır. 1: silah  ·  Sağ tık: nişan  ·  Sol tık: ateş. Yanan evleri itfaiyenin suyuyla söndür.";
                 }
                 return Phase switch
                 {
                     MissionPhase.Window => "Yatak odasındaki işaretli pencereye yaklaş. Yanardağda bir terslik var...",
-                    MissionPhase.Weapon => player.HasPistol ? "Pistol in slot 1. Follow the marker to the front door. E opens doors." : "Pick up the pistol on the bedside cabinet. Press E when nearby.",
+                    MissionPhase.Weapon => player.HasPistol ? "Silahın hazır. Mavi işareti izleyip ön kapıya git; " + InputLabel(InteractionInput.Interact, "E") + " ile aç." : "Parlayan mavi halka komodindeki silahı gösteriyor. Yaklaş ve " + InputLabel(InteractionInput.Interact, "E") + " ile al. Kasabayı savunmak için ona ihtiyacın olacak.",
                     MissionPhase.WarnVillage => villageAlarm ? "İlk evde kırmızı ışığın altındaki alarm butonuna yaklaş. " +
                         (player.contextualInteractions ? player.contextualInteractions.Label(InteractionInput.Interact) : "E") + " ile bas ve köyü uyar." : "Warn the village to begin the evacuation.",
-                    MissionPhase.Evacuate => "Alarmı duyan köylüler dışarı çıkıyor. Q ile 'Buraya gelin!' diye seslen, ardından sığınağa götür.",
-                    MissionPhase.Truck => "Find the truck behind your house. Approach the driver's door and press " +
-                        (player.contextualInteractions ? player.contextualInteractions.Label(InteractionInput.Interact) : "E") + ".",
-                    MissionPhase.Refill => "Park in the BLUE lake ring. Press E to connect the intake and fill the tank.",
+                    MissionPhase.Evacuate => "Alarmı duyan köylüler dışarı çıkıyor. " + InputLabel(InteractionInput.CallVillagers, "Q") + " ile 'Buraya gelin!' diye seslen; seni takip edenleri yeşil işaretli sığınağa götür.",
+                    MissionPhase.Truck => "Parlayan mavi işaret evin arkasındaki itfaiyeyi gösteriyor. Sürücü kapısına yaklaş ve " + InputLabel(InteractionInput.Interact, "E") + " ile bin.",
+                    MissionPhase.Refill => "Mavi okları izleyerek göle sür. Kıyıdaki mavi halkada dur; " + InputLabel(InteractionInput.Pump, "P") + " ile su bağlantısını yap ve tank dolana kadar bekle. " + InputLabel(InteractionInput.ExitVehicle, "E") + " araçtan indirir.",
                     MissionPhase.Ready => story && story.defensePosition ? "Yolu takip ederek kasabaya dön. İşaretli savunma noktasında lavın gelişine karşı hazır bekle." : "Return to the village. Keep the pistol and water tank ready.",
-                    _ => "Wake up. The volcano is stirring."
+                    _ => "Yanardağ uyanıyor. Kasabanın sana ihtiyacı var."
                 };
             }
         }
+        string InputLabel(InteractionInput input, string fallback) => player && player.contextualInteractions ? player.contextualInteractions.Label(input) : fallback;
     }
 }

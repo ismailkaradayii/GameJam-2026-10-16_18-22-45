@@ -4338,6 +4338,7 @@ MonoBehaviour:
   curtain: {fileID: 304921433}
   canvas: {fileID: 304921434}
   flow: {fileID: 0}
+  endingCurtain: {fileID: 0}
   fadeInSeconds: 0.55
   fadeOutSeconds: 0.35
 --- !u!114 &304921432
@@ -4918,10 +4919,10 @@ MonoBehaviour:
     m_LineSpacing: 1.15
   m_Text: Take the pistol from your bedroom with E and leave the house. Call villagers
     with Q and lead them to the GREEN shelter ring. Enter the fire truck behind the
-    house and fill its tank with E at the BLUE lake marker. The volcano erupts after
-    120 seconds, even if preparations are incomplete. Stop three waves of fire spirits
-    and extinguish burning houses. You win if at least one house survives; you lose
-    if all are destroyed. Stay away from hot lava.
+    house and fill its tank with P at the BLUE lake marker. E exits below 20 km/h.
+    The volcano erupts after 120 seconds, even if preparations are incomplete. Stop
+    three waves of fire spirits and extinguish burning houses. You win if at least
+    one house survives; you lose if all are destroyed. Stay away from hot lava.
 --- !u!222 &357138007
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -15038,8 +15039,8 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 1
     m_LineSpacing: 1.15
-  m_Text: Stop in the BLUE lake ring and press E to connect. The hose retracts when
-    the tank is full.
+  m_Text: Stop in the BLUE lake ring and press P to connect. E exits the truck. The
+    hose retracts when the tank is full.
 --- !u!222 &1209084851
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -15118,7 +15119,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 1
     m_LineSpacing: 1.15
-  m_Text: Press E at the driver's door to enter; stop and press F to exit.
+  m_Text: Press E at the driver's door to enter. Press E to exit below 20 km/h.
 --- !u!222 &1211749335
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -20074,7 +20075,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 1
     m_LineSpacing: 1.05
-  m_Text: E / F
+  m_Text: E
 --- !u!222 &1622665722
 CanvasRenderer:
   m_ObjectHideFlags: 0

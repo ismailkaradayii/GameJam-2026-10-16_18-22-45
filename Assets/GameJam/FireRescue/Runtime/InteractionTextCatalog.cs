@@ -13,7 +13,7 @@ namespace GameJam.FireRescue
         public string leaveHouse = "Evden Çık", takePistolFirst = "Çıkış görevi için önce tabancayı al";
         public string walkOutside = "Kapıdan dışarı yürü";
         public string enterTruck = "Araca Bin", exitTruck = "Araçtan İn";
-        public string stopBeforeExit = "İnmek için önce aracı durdur";
+        public string stopBeforeExit = "İnmek için hızı 20 km/sa altına düşür";
         public string drivingHint = "WASD ile sür · {0} su sık";
         public string clearExit = "Çıkış engellendi. Açık bir yere park et.";
         public string callVillagers = "Köylüleri Çağır", leadVillager = "Köylüyü Sığınağa Götür";

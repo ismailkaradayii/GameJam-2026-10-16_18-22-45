@@ -106,13 +106,13 @@ public static class CannonInputChecks
                 case 5:
                     if (elapsed < .3) return;
                     Require("refill_resumes_held_spray", cannon.IsSpraying && tank.TankLitres > 0 && tank.TankLitres < 100);
-                    Keys(Key.F); Next(6, "F_exit_while_right_held"); break;
+                    Keys(Key.E); Next(6, "E_exit_while_right_held"); break;
                 case 6:
                     if (elapsed < .2) return;
-                    Keys(); Next(7, "F_exit_release"); break;
+                    Keys(); Next(7, "E_exit_release"); break;
                 case 7:
                     if (elapsed < .2) return;
-                    Require("F_exit_stops_spray", !player.IsDriving && !cannon.IsSpraying);
+                    Require("E_exit_stops_spray", !player.IsDriving && !cannon.IsSpraying);
                     player.SetDriving(true); tank.SetTankLitres(100); Next(8, "prepare_escape_with_live_jet"); break;
                 case 8:
                     if (elapsed < .3) return;

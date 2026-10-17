@@ -133,7 +133,7 @@ namespace GameJam.FireRescue
         public bool Shout()
         {
             if (!IsActive || IsComplete || !PlayerTransform || Time.timeScale <= 0f || (player && player.GameplaySuspended) || Time.time < nextShout) return false;
-            if (player.IsDriving) { Say("Press F to leave the vehicle before calling out.", 3f); return false; }
+            if (player.IsDriving) { Say("Press E below 20 km/h to leave the vehicle before calling out.", 3f); return false; }
             nextShout = Time.time + Mathf.Max(1f, shoutCooldown);
             int count = 0;
             foreach (var resident in residents)
@@ -230,7 +230,7 @@ namespace GameJam.FireRescue
                 GUI.color=new Color(.15f,.23f,.24f);GUI.DrawTexture(new Rect(x+12,y+87,292,6),Texture2D.whiteTexture);
                 GUI.color=new Color(.2f,.85f,.6f);GUI.DrawTexture(new Rect(x+12,y+87,292*RescuedCount/Mathf.Max(1,TotalCount),6),Texture2D.whiteTexture);
                 GUI.color=Color.white;
-                string action = IsComplete ? "Watch for the volcano warning." : player && player.IsDriving ? "F: Exit and call villagers" : CooldownRemaining>0 ? "Call again in: "+Mathf.CeilToInt(CooldownRemaining)+" sec" : "Q: Call villagers";
+                string action = IsComplete ? "Watch for the volcano warning." : player && player.IsDriving ? "E: Exit and call villagers" : CooldownRemaining>0 ? "Call again in: "+Mathf.CeilToInt(CooldownRemaining)+" sec" : "Q: Call villagers";
                 GUI.Label(new Rect(x+12,y+102,292,40),action+(IsComplete?"":"\n"+DestinationHint()),bodyStyle);
                 if(Time.time<subtitleUntil)
                 {

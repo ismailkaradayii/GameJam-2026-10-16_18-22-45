@@ -1,4 +1,6 @@
+using System.Collections;
 using UnityEngine;
+using UnityEngine.InputSystem;
 using UnityEngine.Rendering.Universal;
 
 namespace GameJam.FireRescue
@@ -16,7 +18,8 @@ namespace GameJam.FireRescue
         public AudioClip eruptionSound;
         [Min(.5f)] public float introSeconds = 2.2f;
         [Min(3f)] public float eruptionSeconds = 7f;
-        [Range(2f, 3f)] public float spiritSeconds = 2.6f;
+        [Tooltip("Minimum reading time. The first spirit card then waits for Space / Enter.")]
+        [Min(1f)] public float spiritSeconds = 2.6f;
         [Range(.1f, 1f)] public float spiritTimeScale = .35f;
         [Min(.1f)] public float transitionSeconds = 1.2f;
         [Min(5f)] public float spiritViewingDistance = 14f;
@@ -36,6 +39,9 @@ namespace GameJam.FireRescue
         public float Elapsed { get; private set; }
         public Vector3 FocusPosition => subject ? subject.position + (Kind == ShotKind.Eruption ? eruptionFocusOffset : Vector3.up * 1.5f) : returnPosition;
         public Camera ShotCamera => shot;
+        public bool SpiritFrozen { get; private set; }
+        public bool HasCapturedSpiritFrame => frozenSpiritFrame;
+        public bool CanContinueSpirit => SpiritFrozen && briefingVisible && spiritReadingElapsed >= spiritSeconds;
         public static bool IsPlayingAny { get; private set; }
         Camera shot;
         Transform subject;
@@ -47,6 +53,16 @@ namespace GameJam.FireRescue
         bool savedCursor;
         GUIStyle caption;
         int beginFrame;
+        LavaCreatureCombat spiritCombat;
+        LavaSpiritVisual spiritVisual;
+        SpiritIntroductionCard spiritCard;
+        Texture2D frozenSpiritFrame;
+        Coroutine captureRoutine;
+        bool briefingVisible, spiritReturning;
+        float spiritReadingElapsed, spiritReturnElapsed;
+        Vector3 spiritReturnPosition;
+        Quaternion spiritReturnRotation;
+        float spiritReturnFov;
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         static void ResetStatic() => IsPlayingAny = false;
 
@@ -72,9 +88,15 @@ namespace GameJam.FireRescue
         {
             if (HasSpiritsPlayed || !firstSpirit || !Begin(ShotKind.Spirits, spiritSeconds)) return;
             HasSpiritsPlayed = true; subject = firstSpirit;
+            spiritCombat = firstSpirit.GetComponent<LavaCreatureCombat>();
+            spiritVisual = firstSpirit.GetComponent<LavaSpiritVisual>();
+            spiritCard = new SpiritIntroductionCard();
+            SpiritFrozen = briefingVisible = spiritReturning = false;
+            spiritReadingElapsed = spiritReturnElapsed = 0f;
             ownsSlowMotion = true;
             Time.timeScale = spiritTimeScale;
             Time.fixedDeltaTime = previousFixedStep * spiritTimeScale;
+            if (spiritCombat) spiritCombat.BeginIntroductionJump();
             UpdatePose();
         }
         bool Begin(ShotKind kind, float seconds)
@@ -115,6 +137,32 @@ namespace GameJam.FireRescue
         public void TickShot(float dt)
         {
             if (!IsPlaying || dt <= 0 || !float.IsFinite(dt)) return;
+            if (Kind == ShotKind.Spirits)
+            {
+                Elapsed += dt;
+                if (!subject) { EndShot(); return; }
+                if (spiritReturning)
+                {
+                    spiritReturnElapsed += dt;
+                    UpdatePose();
+                    if (spiritReturnElapsed >= transitionSeconds) EndShot();
+                    return;
+                }
+                if (SpiritFrozen)
+                {
+                    if (briefingVisible) spiritReadingElapsed += dt;
+                    var keyboard = Keyboard.current;
+                    if ((keyboard != null && (keyboard.spaceKey.wasPressedThisFrame || keyboard.enterKey.wasPressedThisFrame)) ||
+                        (Gamepad.current != null && Gamepad.current.buttonSouth.wasPressedThisFrame)) ContinueSpiritIntroduction();
+                    return;
+                }
+                UpdatePose();
+                if (spiritCombat && spiritCombat.IntroductionJumpProgress >= .46f)
+                    FreezeSpiritFrame();
+                // Missing/changed enemy components must never strand the camera or the input lease.
+                else if (!spiritCombat || Elapsed > 9f) EndShot();
+                return;
+            }
             Elapsed = Mathf.Min(shotDuration, Elapsed + dt);
             UpdatePose();
             if (Elapsed >= shotDuration - .0001f) EndShot();
@@ -123,6 +171,7 @@ namespace GameJam.FireRescue
         void UpdatePose()
         {
             if (!shot) return;
+            if (Kind == ShotKind.Spirits) { UpdateSpiritPose(); return; }
             if (Kind == ShotKind.Intro)
             {
                 float t = Mathf.SmoothStep(0, 1, Elapsed / shotDuration);
@@ -169,10 +218,62 @@ namespace GameJam.FireRescue
             }
             shot.transform.SetPositionAndRotation(position, rotation); shot.fieldOfView = fov;
         }
+        void UpdateSpiritPose()
+        {
+            if (SpiritFrozen || !subject) return;
+            if (spiritReturning)
+            {
+                float t = Mathf.SmoothStep(0, 1, spiritReturnElapsed / Mathf.Max(.1f, transitionSeconds));
+                shot.transform.SetPositionAndRotation(Vector3.Lerp(spiritReturnPosition, returnPosition, t),
+                    Quaternion.Slerp(spiritReturnRotation, returnRotation, t));
+                shot.fieldOfView = Mathf.Lerp(spiritReturnFov, returnFov, t);
+                return;
+            }
+            float height = spiritVisual && spiritVisual.VisualRoot ? Mathf.Abs(spiritVisual.VisualRoot.lossyScale.x) * 1.8f : 2f;
+            Vector3 focus = spiritVisual && spiritVisual.VisualRoot ? spiritVisual.VisualRoot.TransformPoint(Vector3.up * .85f) : subject.position + Vector3.up;
+            Vector3 facing = spiritCombat ? spiritCombat.IntroductionDirection : Vector3.ProjectOnPlane(returnPosition - focus, Vector3.up).normalized;
+            if (facing.sqrMagnitude < .1f) facing = Vector3.back;
+            // Face the spirit, and leave the right-hand side free for the briefing.
+            float distance = Mathf.Clamp(height * 2.7f, 5f, spiritViewingDistance);
+            Vector3 position = focus + facing * distance + Vector3.up * (height * .35f);
+            Quaternion rotation = Quaternion.LookRotation(focus - position);
+            Vector3 look = focus + rotation * Vector3.right * (distance * .24f);
+            rotation = Quaternion.LookRotation(look - position);
+            float enter = Mathf.SmoothStep(0, 1, Elapsed / Mathf.Min(.7f, transitionSeconds));
+            shot.transform.SetPositionAndRotation(Vector3.Lerp(returnPosition, position, enter), Quaternion.Slerp(returnRotation, rotation, enter));
+            shot.fieldOfView = Mathf.Lerp(entryFov, 43f, enter);
+        }
+        void FreezeSpiritFrame()
+        {
+            SpiritFrozen = true;
+            Time.timeScale = 0f;
+            captureRoutine = StartCoroutine(CaptureSpiritFrame());
+        }
+        IEnumerator CaptureSpiritFrame()
+        {
+            // Capture the real rendered leap before drawing the information card over it.
+            yield return new WaitForEndOfFrame();
+            if (!IsPlaying || !SpiritFrozen) yield break;
+            frozenSpiritFrame = ScreenCapture.CaptureScreenshotAsTexture();
+            briefingVisible = true;
+            captureRoutine = null;
+        }
+        public bool ContinueSpiritIntroduction()
+        {
+            if (!CanContinueSpirit) return false;
+            SpiritFrozen = false; spiritReturning = true;
+            spiritReturnPosition = shot.transform.position; spiritReturnRotation = shot.transform.rotation;
+            spiritReturnFov = shot.fieldOfView; spiritReturnElapsed = 0f;
+            Time.timeScale = spiritTimeScale; Time.fixedDeltaTime = previousFixedStep * spiritTimeScale;
+            return true;
+        }
         public void EndShot()
         {
             if (!IsPlaying) return;
             IsPlaying = IsPlayingAny = false;
+            if (captureRoutine != null) { StopCoroutine(captureRoutine); captureRoutine = null; }
+            SpiritFrozen = briefingVisible = spiritReturning = false;
+            if (frozenSpiritFrame) { Destroy(frozenSpiritFrame); frozenSpiritFrame = null; }
             if (ownsSlowMotion) { Time.timeScale = previousTimeScale; Time.fixedDeltaTime = previousFixedStep; ownsSlowMotion = false; }
             if (player)
             {
@@ -207,6 +308,12 @@ namespace GameJam.FireRescue
             if (!IsPlaying) return;
             int depth = GUI.depth; Color color = GUI.color;
             GUI.depth = -100; GUI.color = Color.black;
+            if (Kind == ShotKind.Spirits && SpiritFrozen && briefingVisible)
+            {
+                spiritCard.Draw(frozenSpiritFrame, player, CanContinueSpirit);
+                GUI.color = color; GUI.depth = depth;
+                return;
+            }
             float bar = Screen.height * .085f;
             GUI.DrawTexture(new Rect(0, 0, Screen.width, bar), Texture2D.whiteTexture);
             GUI.DrawTexture(new Rect(0, Screen.height - bar, Screen.width, bar), Texture2D.whiteTexture);
@@ -216,7 +323,7 @@ namespace GameJam.FireRescue
             caption.normal.textColor = new Color(1, .83f, .6f);
             GUI.color = Color.white;
             string message = Kind == ShotKind.Intro ? "ASHFALL  |  EVERY SECOND COUNTS" : Kind == ShotKind.Spirits ?
-                "DEFEND THE VILLAGE! SHOOT THE FIRE SPIRITS!" : "The Volcano has awakened";
+                "YENİ TEHDİT  /  ATEŞ RUHU" : "The Volcano has awakened";
             GUI.Label(new Rect(0, Screen.height - bar, Screen.width, bar), message, caption);
             GUI.color = color; GUI.depth = depth;
         }

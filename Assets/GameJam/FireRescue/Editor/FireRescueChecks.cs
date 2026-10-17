@@ -219,10 +219,10 @@ public static class FireRescueChecks
     {
         hose.Retract();
         player.SetDriving(true);
-        drive.body.linearVelocity = drive.transform.forward * 2f;
+        drive.body.linearVelocity = drive.transform.forward * 8f;
         float movingSpeed = drive.SpeedKph;
         bool movingExit = player.ExitVehicle();
-        Add("exit_blocked_while_moving", !movingExit && player.IsDriving,
+        Add("exit_blocked_above_20_kph", !movingExit && player.IsDriving,
             "SpeedKph=" + movingSpeed + "; ExitVehicle=" + movingExit + "; IsDriving=" + player.IsDriving);
 
         drive.body.linearVelocity = Vector3.zero;

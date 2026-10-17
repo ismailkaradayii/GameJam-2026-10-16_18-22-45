@@ -237,7 +237,8 @@ namespace GameJam.FireRescue
             if (!vitals) vitals = survivalObjective ? survivalObjective.vitals : FindFirstObjectByType<CreatureCombatPlayer>();
             if (canvas) canvas.enabled = !VolcanoCinematic.IsPlayingAny || flow.BlocksGameplay;
             bool playing = flow.State == RescueGameFlow.GameState.Playing;
-            if (gameplayGroup) gameplayGroup.alpha = playing && !VolcanoCinematic.IsPlayingAny ? 1f : 0f;
+            bool openingShot = missionDirector && missionDirector.story && missionDirector.story.OwnsMovement;
+            if (gameplayGroup) gameplayGroup.alpha = playing && !VolcanoCinematic.IsPlayingAny && !openingShot ? 1f : 0f;
             bool showMessage = playing && evacuation && evacuation.MessageRemaining > 0f;
             int standing = 0, burning = 0;
             foreach (var house in flow.targetBuildings) if (house) { if (!house.IsBurnedOut) standing++; if (house.IsBurning) burning++; }
@@ -459,10 +460,10 @@ namespace GameJam.FireRescue
                 questBodyText.text = mission.ObjectiveDetail;
                 if (evacuation && (mission.EruptionTriggered || evacuation.DeadCount > 0))
                     questBodyText.text += "\nSığınakta: " + evacuation.RescuedCount + "/" + evacuation.TotalCount + "  ·  Kayıp: " + evacuation.DeadCount + "  ·  Dışarıda: " + evacuation.RemainingCount;
-                questHintText.text = mission.EruptionTriggered ? "Wave " + Mathf.Max(1, encounter ? encounter.WaveNumber : 0) + "/" + (encounter ? encounter.WaveCount : 0) +
-                    "  |  Spirits remaining: " + (encounter ? encounter.PlannedCount - encounter.SpawnedCount + encounter.AliveCount : 0) :
-                    mission.Phase == VolcanoMissionDirector.MissionPhase.Evacuate && evacuation ? "Villagers Evacuated: " + evacuation.RescuedCount + "/" + evacuation.TotalCount + "  |  Called: " + evacuation.CalledCount :
-                    mission.Phase == VolcanoMissionDirector.MissionPhase.Refill ? "Water tank: " + Mathf.RoundToInt(hose.Tank01 * 100) + "%" : "";
+                questHintText.text = mission.EruptionTriggered ? "Dalga " + Mathf.Max(1, encounter ? encounter.WaveNumber : 0) + "/" + (encounter ? encounter.WaveCount : 0) +
+                    "  |  Kalan ruh: " + (encounter ? encounter.PlannedCount - encounter.SpawnedCount + encounter.AliveCount : 0) :
+                    mission.Phase == VolcanoMissionDirector.MissionPhase.Evacuate && evacuation ? "Sığınakta: " + evacuation.RescuedCount + "/" + evacuation.TotalCount + "  |  Çağrılan: " + evacuation.CalledCount :
+                    mission.Phase == VolcanoMissionDirector.MissionPhase.Refill ? "Su tankı: %" + Mathf.RoundToInt(hose.Tank01 * 100) : "";
                 questFill.fillAmount = mission.EruptionTriggered ? encounter && encounter.PlannedCount > 0 ? Mathf.Clamp01((float)(encounter.SpawnedCount - encounter.AliveCount) / encounter.PlannedCount) : 0 :
                     mission.Phase == VolcanoMissionDirector.MissionPhase.Evacuate && evacuation ? (float)evacuation.RescuedCount / Mathf.Max(1, evacuation.TotalCount) :
                     mission.Phase == VolcanoMissionDirector.MissionPhase.Refill ? hose.Tank01 : mission.PreparationComplete ? 1f : 0f;
@@ -475,7 +476,7 @@ namespace GameJam.FireRescue
                 questBodyText.text = "Sheltered  " + evacuation.RescuedCount + " / " + evacuation.TotalCount +
                     "     Called  " + evacuation.CalledCount + " / " + evacuation.TotalCount + "\n" +
                     (evacuation.CalledCount < evacuation.TotalCount ? "Alarm çaldı. Q ile 'Buraya gelin!' diye seslen." : "Köylüleri sığınağa götür.");
-                questHintText.text = player.IsDriving ? "F  Exit vehicle" : evacuation.CooldownRemaining > 0f ? "Q  Call again  ·  " + Mathf.CeilToInt(evacuation.CooldownRemaining) + " sec" : "Q  Buraya gelin!  ·  " + evacuation.DestinationHintForHud;
+                questHintText.text = player.IsDriving ? "E  Exit vehicle" : evacuation.CooldownRemaining > 0f ? "Q  Call again  ·  " + Mathf.CeilToInt(evacuation.CooldownRemaining) + " sec" : "Q  Buraya gelin!  ·  " + evacuation.DestinationHintForHud;
                 questFill.fillAmount = evacuation.TotalCount > 0 ? (float)evacuation.RescuedCount / evacuation.TotalCount : 0f;
                 return;
             }
@@ -483,7 +484,7 @@ namespace GameJam.FireRescue
             {
                 questTitleText.text = "Fill the water tank";
                 questBodyText.text = "Evacuation complete  ·  " + (evacuation ? evacuation.TotalCount : 7) + " / " + (evacuation ? evacuation.TotalCount : 7) + " safe.\nLower the hose into the lake and start the pump.";
-                questHintText.text = hose.IsDeployed ? "P  Toggle pump   ·   R  Retrieve hose" : "F  Exit vehicle   ·   E  Take hose";
+                questHintText.text = hose.IsDeployed ? "P  Toggle pump   ·   R  Retrieve hose" : "E  Exit vehicle   ·   E  Take hose";
                 questFill.fillAmount = hose.Tank01;
                 return;
             }
@@ -500,7 +501,7 @@ namespace GameJam.FireRescue
             questTitleText.text = "Defend the town";
             questBodyText.text = "Houses saved  " + flow.RescuedCount + " / " + Mathf.Max(1, flow.TargetCount) + "\n" +
                 (burning > 0 ? "Burning: " + burning + "  ·  Lost: " + lost + "  ·  Next collapse: " + Mathf.CeilToInt(nextCollapse) + " sec" : "Cool burning houses and approaching lava with water.");
-            questHintText.text = player.IsDriving ? "Aim with mouse   ·   Hold right click to spray" : "F  Enter fire truck   ·   E  Interact";
+            questHintText.text = player.IsDriving ? "Aim with mouse   ·   Hold right click to spray" : "E  Enter fire truck   ·   E  Interact";
             questFill.fillAmount = flow.TargetCount > 0 ? (float)flow.RescuedCount / flow.TargetCount : 0f;
         }
 
@@ -533,7 +534,7 @@ namespace GameJam.FireRescue
             {
                 var encounter = survivalObjective.encounter;
                 eruptionText.text = survivalObjective.State == VolcanoSurvivalObjective.MissionState.ReturnToTruck
-                    ? "Final step  ·  Return to the truck\nPress F at the driver's door"
+                    ? "Final step  ·  Return to the truck\nPress E at the driver's door"
                     : "Spirit wave  " + Mathf.Max(1, encounter.WaveNumber) + " / " + encounter.WaveCount +
                       "\nActive " + encounter.AliveCount + "  ·  Defeated " + encounter.DefeatedCount + " / " + encounter.PlannedCount;
                 return;

@@ -233,7 +233,7 @@ namespace GameJam.FireRescue
                 case ContextualInteractionKind.TruckExit:
                     if (!player.IsDriving || !player.drive) return false;
                     offer.title = words.exitTruck; offer.input = InteractionInput.ExitVehicle;
-                    offer.blocked = Mathf.Abs(player.drive.SpeedKph) > 4f;
+                    offer.blocked = !player.CanExitAtCurrentSpeed;
                     offer.detail = offer.blocked ? words.stopBeforeExit : !string.IsNullOrEmpty(player.ActiveNotice) ? player.ActiveNotice : drivingDetail;
                     return true;
                 case ContextualInteractionKind.Resident:
@@ -264,11 +264,11 @@ namespace GameJam.FireRescue
                     if (!player.IsDriving || !station || !station.InRange || !hose) return false;
                     if (station.IsFilling)
                     {
-                        offer.title = words.fillingTank; offer.detail = words.disconnect; offer.input = InteractionInput.Interact;
+                        offer.title = words.fillingTank; offer.detail = words.disconnect; offer.input = InteractionInput.Pump;
                         offer.showProgress = true; offer.progress = hose.Tank01; return true;
                     }
                     if (hose.Tank01 >= .999f) { offer.title = words.tankFull; offer.detail = words.returnToVillage; return true; }
-                    offer.title = words.fillTank; offer.input = InteractionInput.Interact; offer.blocked = !station.CanFill || !hose.fillingUnlocked;
+                    offer.title = words.fillTank; offer.input = InteractionInput.Pump; offer.blocked = !station.CanFill || !hose.fillingUnlocked;
                     offer.detail = !hose.fillingUnlocked ? hose.Status : Mathf.Abs(player.drive.SpeedKph) > station.maximumFillSpeedKph ? words.stopBeforeFill :
                         !station.water || !station.intakePoint || !station.water.ContainsIntake(station.intakePoint.position) ? words.intakeOutOfWater :
                         !hose.CanReach(station.intakePoint.position) ? words.hoseTooFar : "";

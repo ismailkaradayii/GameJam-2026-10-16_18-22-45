@@ -23,7 +23,7 @@ MonoBehaviour:
   walkOutside: "Kap\u0131dan d\u0131\u015Far\u0131 y\xFCr\xFC"
   enterTruck: Araca Bin
   exitTruck: "Ara\xE7tan \u0130n"
-  stopBeforeExit: "\u0130nmek i\xE7in \xF6nce arac\u0131 durdur"
+  stopBeforeExit: "\u0130nmek i\xE7in h\u0131z\u0131 20 km/sa alt\u0131na d\xFC\u015F\xFCr"
   drivingHint: "WASD ile s\xFCr \xB7 {0} su s\u0131k"
   clearExit: "\xC7\u0131k\u0131\u015F engellendi. A\xE7\u0131k bir yere park et."
   callVillagers: Buraya Gelin!
