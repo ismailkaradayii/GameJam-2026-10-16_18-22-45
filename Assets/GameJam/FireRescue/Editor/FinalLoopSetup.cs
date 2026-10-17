@@ -84,7 +84,7 @@ public static class FinalLoopSetup
         ConfigureTruck(player, firstHouse.transform, root.transform);
         ConfigureLake(root.transform, mission);
         ConfigureHud(hud, mission, root.transform);
-        RemoveUnwantedAudio(player, evacuation);
+        RemoveLegacyShoutAudio(evacuation);
         foreach (var component in new Object[] { player, player.transform, player.firstPerson, player.pistol, player.hose, player.cannon,
             mission, evacuation, sequence, mission.cinematic, encounter, survival, vitals, hud, hud.flow }) Dirty(component);
         Physics.SyncTransforms();
@@ -176,7 +176,7 @@ public static class FinalLoopSetup
         ConfigureTruckPace(player.drive);
         foreach (var resident in evacuation.residents)
             if (resident) { resident.catchUpSpeed = 28f; Dirty(resident); }
-        RemoveUnwantedAudio(player, evacuation);
+        RemoveLegacyShoutAudio(evacuation);
         EditorSceneManager.MarkSceneDirty(scene);
         EditorSceneManager.SaveScene(scene);
         AssetDatabase.SaveAssets();
@@ -210,20 +210,8 @@ public static class FinalLoopSetup
         drive.allWheelDrive = true; drive.smoothPedals = true; drive.hillHoldAssist = true;
         Dirty(drive);
     }
-    static void RemoveUnwantedAudio(FireRescuePlayer player, EvacuationMission evacuation)
+    static void RemoveLegacyShoutAudio(EvacuationMission evacuation)
     {
-        var movement = player.GetComponent<FireRescueMovementAudio>();
-        if (movement)
-        {
-            movement.enabled = false; Dirty(movement);
-            var data = new SerializedObject(movement);
-            var source = data.FindProperty("footstepSource").objectReferenceValue as AudioSource;
-            if (source)
-            {
-                source.Stop(); source.enabled = false; source.playOnAwake = false; source.clip = null;
-                Dirty(source);
-            }
-        }
         // This source was dedicated to the removed EveryoneOutside voice line.
         var voice = evacuation.GetComponent<AudioSource>();
         if (voice) Object.DestroyImmediate(voice);

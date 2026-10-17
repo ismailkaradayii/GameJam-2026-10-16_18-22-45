@@ -177,7 +177,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_FontData:
-    m_Font: {fileID: 12800000, guid: 2265b30c7ded6c4438a5d1815eed2ae4, type: 3}
+    m_Font: {fileID: 12800000, guid: 51242bdf1c52aa04886c81e6ea7bab73, type: 3}
     m_FontSize: 18
     m_FontStyle: 0
     m_BestFit: 0
@@ -523,7 +523,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_FontData:
-    m_Font: {fileID: 12800000, guid: 2265b30c7ded6c4438a5d1815eed2ae4, type: 3}
+    m_Font: {fileID: 12800000, guid: 51242bdf1c52aa04886c81e6ea7bab73, type: 3}
     m_FontSize: 18
     m_FontStyle: 0
     m_BestFit: 0
@@ -1353,7 +1353,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_FontData:
-    m_Font: {fileID: 12800000, guid: 2265b30c7ded6c4438a5d1815eed2ae4, type: 3}
+    m_Font: {fileID: 12800000, guid: 51242bdf1c52aa04886c81e6ea7bab73, type: 3}
     m_FontSize: 22
     m_FontStyle: 0
     m_BestFit: 0
@@ -1432,7 +1432,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_FontData:
-    m_Font: {fileID: 12800000, guid: 2265b30c7ded6c4438a5d1815eed2ae4, type: 3}
+    m_Font: {fileID: 12800000, guid: 51242bdf1c52aa04886c81e6ea7bab73, type: 3}
     m_FontSize: 18
     m_FontStyle: 0
     m_BestFit: 0
@@ -1511,7 +1511,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_FontData:
-    m_Font: {fileID: 12800000, guid: 2265b30c7ded6c4438a5d1815eed2ae4, type: 3}
+    m_Font: {fileID: 12800000, guid: 51242bdf1c52aa04886c81e6ea7bab73, type: 3}
     m_FontSize: 18
     m_FontStyle: 0
     m_BestFit: 0
@@ -1883,7 +1883,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_FontData:
-    m_Font: {fileID: 12800000, guid: 2265b30c7ded6c4438a5d1815eed2ae4, type: 3}
+    m_Font: {fileID: 12800000, guid: 51242bdf1c52aa04886c81e6ea7bab73, type: 3}
     m_FontSize: 18
     m_FontStyle: 0
     m_BestFit: 0
@@ -2396,7 +2396,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_FontData:
-    m_Font: {fileID: 12800000, guid: 2265b30c7ded6c4438a5d1815eed2ae4, type: 3}
+    m_Font: {fileID: 12800000, guid: 51242bdf1c52aa04886c81e6ea7bab73, type: 3}
     m_FontSize: 18
     m_FontStyle: 0
     m_BestFit: 0
@@ -2855,7 +2855,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_FontData:
-    m_Font: {fileID: 12800000, guid: c9ba91cafb1a830439403f3700b71c47, type: 3}
+    m_Font: {fileID: 12800000, guid: 51242bdf1c52aa04886c81e6ea7bab73, type: 3}
     m_FontSize: 17
     m_FontStyle: 0
     m_BestFit: 0
@@ -2867,7 +2867,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 1
     m_LineSpacing: 1.05
-  m_Text: "Di\u011Fer"
+  m_Text: Other
 --- !u!222 &203102100
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -3115,7 +3115,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_FontData:
-    m_Font: {fileID: 12800000, guid: c9ba91cafb1a830439403f3700b71c47, type: 3}
+    m_Font: {fileID: 12800000, guid: 51242bdf1c52aa04886c81e6ea7bab73, type: 3}
     m_FontSize: 17
     m_FontStyle: 0
     m_BestFit: 0
@@ -3362,7 +3362,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_FontData:
-    m_Font: {fileID: 12800000, guid: c9ba91cafb1a830439403f3700b71c47, type: 3}
+    m_Font: {fileID: 12800000, guid: 51242bdf1c52aa04886c81e6ea7bab73, type: 3}
     m_FontSize: 17
     m_FontStyle: 0
     m_BestFit: 0
@@ -3374,7 +3374,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 1
     m_LineSpacing: 1.05
-  m_Text: Silah
+  m_Text: Weapon
 --- !u!222 &235648210
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -3526,7 +3526,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_FontData:
-    m_Font: {fileID: 12800000, guid: 2265b30c7ded6c4438a5d1815eed2ae4, type: 3}
+    m_Font: {fileID: 12800000, guid: 51242bdf1c52aa04886c81e6ea7bab73, type: 3}
     m_FontSize: 18
     m_FontStyle: 0
     m_BestFit: 0
@@ -3899,7 +3899,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_FontData:
-    m_Font: {fileID: 12800000, guid: c9ba91cafb1a830439403f3700b71c47, type: 3}
+    m_Font: {fileID: 12800000, guid: 51242bdf1c52aa04886c81e6ea7bab73, type: 3}
     m_FontSize: 17
     m_FontStyle: 0
     m_BestFit: 0
@@ -4104,7 +4104,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_FontData:
-    m_Font: {fileID: 12800000, guid: c9ba91cafb1a830439403f3700b71c47, type: 3}
+    m_Font: {fileID: 12800000, guid: 51242bdf1c52aa04886c81e6ea7bab73, type: 3}
     m_FontSize: 17
     m_FontStyle: 0
     m_BestFit: 0
@@ -4116,10 +4116,9 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 1
     m_LineSpacing: 1.15
-  m_Text: "Ara\xE7tayken sa\u011F t\u0131k bas\u0131l\u0131 tut. Evleri s\xF6nd\xFCr,
-    lavlar\u0131 so\u011Fut ve ruhlara su s\u0131k. \u0130\u015Faret suyun tahmini
-    \xE7arpma noktas\u0131n\u0131 g\xF6sterir; suyun hedefe ula\u015Fmas\u0131n\u0131
-    bekle."
+  m_Text: Hold right click in the truck to extinguish houses, cool lava, and spray
+    spirits. The marker shows the predicted impact point; allow time for the water
+    to reach it.
 --- !u!222 &294247903
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -4186,7 +4185,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_FontData:
-    m_Font: {fileID: 12800000, guid: c9ba91cafb1a830439403f3700b71c47, type: 3}
+    m_Font: {fileID: 12800000, guid: 51242bdf1c52aa04886c81e6ea7bab73, type: 3}
     m_FontSize: 17
     m_FontStyle: 0
     m_BestFit: 0
@@ -4494,7 +4493,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_FontData:
-    m_Font: {fileID: 12800000, guid: c9ba91cafb1a830439403f3700b71c47, type: 3}
+    m_Font: {fileID: 12800000, guid: 51242bdf1c52aa04886c81e6ea7bab73, type: 3}
     m_FontSize: 17
     m_FontStyle: 0
     m_BestFit: 0
@@ -4905,7 +4904,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_FontData:
-    m_Font: {fileID: 12800000, guid: c9ba91cafb1a830439403f3700b71c47, type: 3}
+    m_Font: {fileID: 12800000, guid: 51242bdf1c52aa04886c81e6ea7bab73, type: 3}
     m_FontSize: 17
     m_FontStyle: 0
     m_BestFit: 0
@@ -4917,13 +4916,12 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 1
     m_LineSpacing: 1.15
-  m_Text: "Yatak odas\u0131ndaki tabancay\u0131 E ile al ve evden \xE7\u0131k. Q
-    ile k\xF6yl\xFCleri \xE7a\u011F\u0131r; YE\u015E\u0130L halkal\u0131 s\u0131\u011F\u0131na\u011Fa
-    g\xF6t\xFCr. Evin arkas\u0131ndaki itfaiyeye bin, MAV\u0130 g\xF6l i\u015Faretinde
-    E ile depoyu doldur. 120 saniye dolunca haz\u0131rl\u0131\u011F\u0131n bitmese
-    de volkan patlar. \xDC\xE7 alev ruhu dalgas\u0131n\u0131 durdur, yanan evleri
-    s\xF6nd\xFCr. En az bir ev ayakta kal\u0131rsa kazan\u0131rs\u0131n; b\xFCt\xFCn
-    evler y\u0131k\u0131l\u0131rsa kaybedersin. S\u0131cak lavdan uzak dur."
+  m_Text: Take the pistol from your bedroom with E and leave the house. Call villagers
+    with Q and lead them to the GREEN shelter ring. Enter the fire truck behind the
+    house and fill its tank with E at the BLUE lake marker. The volcano erupts after
+    120 seconds, even if preparations are incomplete. Stop three waves of fire spirits
+    and extinguish burning houses. You win if at least one house survives; you lose
+    if all are destroyed. Stay away from hot lava.
 --- !u!222 &357138007
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -5011,7 +5009,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_FontData:
-    m_Font: {fileID: 12800000, guid: c9ba91cafb1a830439403f3700b71c47, type: 3}
+    m_Font: {fileID: 12800000, guid: 51242bdf1c52aa04886c81e6ea7bab73, type: 3}
     m_FontSize: 18
     m_FontStyle: 0
     m_BestFit: 0
@@ -5217,7 +5215,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_FontData:
-    m_Font: {fileID: 12800000, guid: 2265b30c7ded6c4438a5d1815eed2ae4, type: 3}
+    m_Font: {fileID: 12800000, guid: 51242bdf1c52aa04886c81e6ea7bab73, type: 3}
     m_FontSize: 18
     m_FontStyle: 0
     m_BestFit: 0
@@ -5229,7 +5227,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 1
     m_LineSpacing: 1.05
-  m_Text: "\xC7ek / kald\u0131r"
+  m_Text: Draw / holster
 --- !u!222 &368830605
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -5443,7 +5441,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_FontData:
-    m_Font: {fileID: 12800000, guid: 2265b30c7ded6c4438a5d1815eed2ae4, type: 3}
+    m_Font: {fileID: 12800000, guid: 51242bdf1c52aa04886c81e6ea7bab73, type: 3}
     m_FontSize: 18
     m_FontStyle: 0
     m_BestFit: 0
@@ -5633,7 +5631,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_FontData:
-    m_Font: {fileID: 12800000, guid: c9ba91cafb1a830439403f3700b71c47, type: 3}
+    m_Font: {fileID: 12800000, guid: 51242bdf1c52aa04886c81e6ea7bab73, type: 3}
     m_FontSize: 17
     m_FontStyle: 0
     m_BestFit: 0
@@ -5712,7 +5710,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_FontData:
-    m_Font: {fileID: 12800000, guid: c9ba91cafb1a830439403f3700b71c47, type: 3}
+    m_Font: {fileID: 12800000, guid: 51242bdf1c52aa04886c81e6ea7bab73, type: 3}
     m_FontSize: 17
     m_FontStyle: 0
     m_BestFit: 0
@@ -5724,8 +5722,8 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 1
     m_LineSpacing: 1.15
-  m_Text: "Komodindeki tabancay\u0131 E ile al. 1 silah\u0131 \xE7ek/kald\u0131r,
-    0 silah\u0131 kald\u0131r. Ara\xE7tan inince silah geri gelir."
+  m_Text: Press E to take the bedside pistol. Press 1 to draw or holster it, or 0
+    to holster. Your weapon returns after exiting the truck.
 --- !u!222 &386650046
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -6003,7 +6001,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_FontData:
-    m_Font: {fileID: 12800000, guid: 2265b30c7ded6c4438a5d1815eed2ae4, type: 3}
+    m_Font: {fileID: 12800000, guid: 51242bdf1c52aa04886c81e6ea7bab73, type: 3}
     m_FontSize: 18
     m_FontStyle: 0
     m_BestFit: 0
@@ -6692,7 +6690,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_FontData:
-    m_Font: {fileID: 12800000, guid: 2265b30c7ded6c4438a5d1815eed2ae4, type: 3}
+    m_Font: {fileID: 12800000, guid: 51242bdf1c52aa04886c81e6ea7bab73, type: 3}
     m_FontSize: 18
     m_FontStyle: 0
     m_BestFit: 0
@@ -6771,7 +6769,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_FontData:
-    m_Font: {fileID: 12800000, guid: 2265b30c7ded6c4438a5d1815eed2ae4, type: 3}
+    m_Font: {fileID: 12800000, guid: 51242bdf1c52aa04886c81e6ea7bab73, type: 3}
     m_FontSize: 18
     m_FontStyle: 0
     m_BestFit: 0
@@ -7196,7 +7194,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_FontData:
-    m_Font: {fileID: 12800000, guid: 2265b30c7ded6c4438a5d1815eed2ae4, type: 3}
+    m_Font: {fileID: 12800000, guid: 51242bdf1c52aa04886c81e6ea7bab73, type: 3}
     m_FontSize: 18
     m_FontStyle: 0
     m_BestFit: 0
@@ -7371,7 +7369,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_FontData:
-    m_Font: {fileID: 12800000, guid: 2265b30c7ded6c4438a5d1815eed2ae4, type: 3}
+    m_Font: {fileID: 12800000, guid: 51242bdf1c52aa04886c81e6ea7bab73, type: 3}
     m_FontSize: 18
     m_FontStyle: 0
     m_BestFit: 0
@@ -7383,7 +7381,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 1
     m_LineSpacing: 1.05
-  m_Text: "\xC7\xF6mel"
+  m_Text: Crouch
 --- !u!222 &501716178
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -8310,7 +8308,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_FontData:
-    m_Font: {fileID: 12800000, guid: 2265b30c7ded6c4438a5d1815eed2ae4, type: 3}
+    m_Font: {fileID: 12800000, guid: 51242bdf1c52aa04886c81e6ea7bab73, type: 3}
     m_FontSize: 18
     m_FontStyle: 0
     m_BestFit: 0
@@ -8410,7 +8408,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_FontData:
-    m_Font: {fileID: 12800000, guid: c9ba91cafb1a830439403f3700b71c47, type: 3}
+    m_Font: {fileID: 12800000, guid: 51242bdf1c52aa04886c81e6ea7bab73, type: 3}
     m_FontSize: 17
     m_FontStyle: 0
     m_BestFit: 0
@@ -8489,7 +8487,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_FontData:
-    m_Font: {fileID: 12800000, guid: 2265b30c7ded6c4438a5d1815eed2ae4, type: 3}
+    m_Font: {fileID: 12800000, guid: 51242bdf1c52aa04886c81e6ea7bab73, type: 3}
     m_FontSize: 20
     m_FontStyle: 0
     m_BestFit: 0
@@ -8718,7 +8716,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_FontData:
-    m_Font: {fileID: 12800000, guid: 2265b30c7ded6c4438a5d1815eed2ae4, type: 3}
+    m_Font: {fileID: 12800000, guid: 51242bdf1c52aa04886c81e6ea7bab73, type: 3}
     m_FontSize: 18
     m_FontStyle: 0
     m_BestFit: 0
@@ -8893,7 +8891,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_FontData:
-    m_Font: {fileID: 12800000, guid: c9ba91cafb1a830439403f3700b71c47, type: 3}
+    m_Font: {fileID: 12800000, guid: 51242bdf1c52aa04886c81e6ea7bab73, type: 3}
     m_FontSize: 17
     m_FontStyle: 0
     m_BestFit: 0
@@ -8905,7 +8903,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 1
     m_LineSpacing: 1.15
-  m_Text: "Ara\xE7ta fren; yaya halde silah \xE7ekiliyken z\u0131pla."
+  m_Text: Brake in the vehicle; jump on foot with the weapon drawn.
 --- !u!222 &617656182
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -9063,7 +9061,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_FontData:
-    m_Font: {fileID: 12800000, guid: c9ba91cafb1a830439403f3700b71c47, type: 3}
+    m_Font: {fileID: 12800000, guid: 51242bdf1c52aa04886c81e6ea7bab73, type: 3}
     m_FontSize: 17
     m_FontStyle: 0
     m_BestFit: 0
@@ -9075,7 +9073,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 1
     m_LineSpacing: 1.15
-  m_Text: "Arka hortum etkile\u015Fimi yokken \u015Farj\xF6r de\u011Fi\u015Ftir."
+  m_Text: Reload when the rear hose interaction is unavailable.
 --- !u!222 &637891986
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -9623,7 +9621,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_FontData:
-    m_Font: {fileID: 12800000, guid: c9ba91cafb1a830439403f3700b71c47, type: 3}
+    m_Font: {fileID: 12800000, guid: 51242bdf1c52aa04886c81e6ea7bab73, type: 3}
     m_FontSize: 17
     m_FontStyle: 0
     m_BestFit: 0
@@ -9635,8 +9633,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 1
     m_LineSpacing: 1.15
-  m_Text: "Evlerin yak\u0131n\u0131nda 'Herkes d\u0131\u015Far\u0131ya!' diye seslen.
-    Halk\u0131 s\u0131\u011F\u0131na\u011Fa g\xF6t\xFCr."
+  m_Text: Call out near the houses and lead the villagers to shelter.
 --- !u!222 &662469167
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -9832,19 +9829,19 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_FontData:
-    m_Font: {fileID: 12800000, guid: 2265b30c7ded6c4438a5d1815eed2ae4, type: 3}
-    m_FontSize: 34
+    m_Font: {fileID: 12800000, guid: 51242bdf1c52aa04886c81e6ea7bab73, type: 3}
+    m_FontSize: 60
     m_FontStyle: 0
     m_BestFit: 0
-    m_MinSize: 10
-    m_MaxSize: 40
+    m_MinSize: 4
+    m_MaxSize: 60
     m_Alignment: 3
     m_AlignByGeometry: 0
     m_RichText: 0
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 1
     m_LineSpacing: 1.05
-  m_Text: "Nas\u0131l oynan\u0131r"
+  m_Text: How to play
 --- !u!222 &681294260
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -9982,7 +9979,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &692855432
 RectTransform:
   m_ObjectHideFlags: 0
@@ -10331,7 +10328,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_FontData:
-    m_Font: {fileID: 12800000, guid: 2265b30c7ded6c4438a5d1815eed2ae4, type: 3}
+    m_Font: {fileID: 12800000, guid: 51242bdf1c52aa04886c81e6ea7bab73, type: 3}
     m_FontSize: 18
     m_FontStyle: 0
     m_BestFit: 0
@@ -10710,7 +10707,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_FontData:
-    m_Font: {fileID: 12800000, guid: 2265b30c7ded6c4438a5d1815eed2ae4, type: 3}
+    m_Font: {fileID: 12800000, guid: 51242bdf1c52aa04886c81e6ea7bab73, type: 3}
     m_FontSize: 18
     m_FontStyle: 0
     m_BestFit: 0
@@ -11062,7 +11059,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_FontData:
-    m_Font: {fileID: 12800000, guid: 2265b30c7ded6c4438a5d1815eed2ae4, type: 3}
+    m_Font: {fileID: 12800000, guid: 51242bdf1c52aa04886c81e6ea7bab73, type: 3}
     m_FontSize: 20
     m_FontStyle: 0
     m_BestFit: 0
@@ -11141,7 +11138,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_FontData:
-    m_Font: {fileID: 12800000, guid: 2265b30c7ded6c4438a5d1815eed2ae4, type: 3}
+    m_Font: {fileID: 12800000, guid: 51242bdf1c52aa04886c81e6ea7bab73, type: 3}
     m_FontSize: 18
     m_FontStyle: 0
     m_BestFit: 0
@@ -11459,7 +11456,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_FontData:
-    m_Font: {fileID: 12800000, guid: 2265b30c7ded6c4438a5d1815eed2ae4, type: 3}
+    m_Font: {fileID: 12800000, guid: 51242bdf1c52aa04886c81e6ea7bab73, type: 3}
     m_FontSize: 18
     m_FontStyle: 0
     m_BestFit: 0
@@ -11471,7 +11468,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 1
     m_LineSpacing: 1.05
-  m_Text: "\u015Earj\xF6r"
+  m_Text: Reload
 --- !u!222 &839929801
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -11760,7 +11757,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_FontData:
-    m_Font: {fileID: 12800000, guid: c9ba91cafb1a830439403f3700b71c47, type: 3}
+    m_Font: {fileID: 12800000, guid: 51242bdf1c52aa04886c81e6ea7bab73, type: 3}
     m_FontSize: 17
     m_FontStyle: 0
     m_BestFit: 0
@@ -11772,7 +11769,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 1
     m_LineSpacing: 1.15
-  m_Text: "Oyunu duraklat; Devam Et ile s\xFCrd\xFCr veya ana men\xFCye d\xF6n."
+  m_Text: Pause the game; resume or return to the main menu.
 --- !u!222 &848614635
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -11839,7 +11836,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_FontData:
-    m_Font: {fileID: 12800000, guid: 2265b30c7ded6c4438a5d1815eed2ae4, type: 3}
+    m_Font: {fileID: 12800000, guid: 51242bdf1c52aa04886c81e6ea7bab73, type: 3}
     m_FontSize: 18
     m_FontStyle: 0
     m_BestFit: 0
@@ -12063,19 +12060,19 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_FontData:
-    m_Font: {fileID: 12800000, guid: 2265b30c7ded6c4438a5d1815eed2ae4, type: 3}
-    m_FontSize: 34
+    m_Font: {fileID: 12800000, guid: 51242bdf1c52aa04886c81e6ea7bab73, type: 3}
+    m_FontSize: 60
     m_FontStyle: 0
     m_BestFit: 0
-    m_MinSize: 10
-    m_MaxSize: 40
+    m_MinSize: 4
+    m_MaxSize: 60
     m_Alignment: 3
     m_AlignByGeometry: 0
     m_RichText: 0
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 1
     m_LineSpacing: 1.05
-  m_Text: Ayarlar
+  m_Text: Settings
 --- !u!222 &873661694
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -12422,7 +12419,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_FontData:
-    m_Font: {fileID: 12800000, guid: 2265b30c7ded6c4438a5d1815eed2ae4, type: 3}
+    m_Font: {fileID: 12800000, guid: 51242bdf1c52aa04886c81e6ea7bab73, type: 3}
     m_FontSize: 18
     m_FontStyle: 0
     m_BestFit: 0
@@ -13160,7 +13157,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_FontData:
-    m_Font: {fileID: 12800000, guid: c9ba91cafb1a830439403f3700b71c47, type: 3}
+    m_Font: {fileID: 12800000, guid: 51242bdf1c52aa04886c81e6ea7bab73, type: 3}
     m_FontSize: 17
     m_FontStyle: 0
     m_BestFit: 0
@@ -13172,7 +13169,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 1
     m_LineSpacing: 1.15
-  m_Text: "Arac\u0131n arkas\u0131nda hortumu topla; sonra araca binebilirsin."
+  m_Text: Retract the hose at the rear before entering the truck.
 --- !u!222 &1040235631
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -13904,7 +13901,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_FontData:
-    m_Font: {fileID: 12800000, guid: 2265b30c7ded6c4438a5d1815eed2ae4, type: 3}
+    m_Font: {fileID: 12800000, guid: 51242bdf1c52aa04886c81e6ea7bab73, type: 3}
     m_FontSize: 18
     m_FontStyle: 0
     m_BestFit: 0
@@ -13916,7 +13913,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 1
     m_LineSpacing: 1.05
-  m_Text: Su topu
+  m_Text: Water cannon
 --- !u!222 &1123526378
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -13983,7 +13980,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_FontData:
-    m_Font: {fileID: 12800000, guid: 2265b30c7ded6c4438a5d1815eed2ae4, type: 3}
+    m_Font: {fileID: 12800000, guid: 51242bdf1c52aa04886c81e6ea7bab73, type: 3}
     m_FontSize: 18
     m_FontStyle: 0
     m_BestFit: 0
@@ -14609,11 +14606,11 @@ MonoBehaviour:
   - {fileID: 126587893}
   - {fileID: 1893400394}
   - {fileID: 1456909799}
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
+  - {fileID: 34900330}
+  - {fileID: 478350370}
+  - {fileID: 707477313}
+  - {fileID: 1455950801}
+  - {fileID: 1771057460}
   hoverClip: {fileID: 8300000, guid: 2f49349eeb574e645883f8e48eca7aae, type: 3}
   clickClip: {fileID: 8300000, guid: 2f49349eeb574e645883f8e48eca7aae, type: 3}
   volume: 0.8
@@ -14950,7 +14947,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_FontData:
-    m_Font: {fileID: 12800000, guid: 2265b30c7ded6c4438a5d1815eed2ae4, type: 3}
+    m_Font: {fileID: 12800000, guid: 51242bdf1c52aa04886c81e6ea7bab73, type: 3}
     m_FontSize: 18
     m_FontStyle: 0
     m_BestFit: 0
@@ -14962,7 +14959,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 1
     m_LineSpacing: 1.05
-  m_Text: "Fren / z\u0131pla"
+  m_Text: Brake / jump
 --- !u!222 &1197699991
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -15029,7 +15026,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_FontData:
-    m_Font: {fileID: 12800000, guid: c9ba91cafb1a830439403f3700b71c47, type: 3}
+    m_Font: {fileID: 12800000, guid: 51242bdf1c52aa04886c81e6ea7bab73, type: 3}
     m_FontSize: 17
     m_FontStyle: 0
     m_BestFit: 0
@@ -15041,8 +15038,8 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 1
     m_LineSpacing: 1.15
-  m_Text: "Ara\xE7la MAV\u0130 g\xF6l halkas\u0131nda dur. E ba\u011Flant\u0131y\u0131
-    kurar; depo dolunca hortum otomatik toplan\u0131r."
+  m_Text: Stop in the BLUE lake ring and press E to connect. The hose retracts when
+    the tank is full.
 --- !u!222 &1209084851
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -15109,7 +15106,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_FontData:
-    m_Font: {fileID: 12800000, guid: c9ba91cafb1a830439403f3700b71c47, type: 3}
+    m_Font: {fileID: 12800000, guid: 51242bdf1c52aa04886c81e6ea7bab73, type: 3}
     m_FontSize: 17
     m_FontStyle: 0
     m_BestFit: 0
@@ -15121,7 +15118,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 1
     m_LineSpacing: 1.15
-  m_Text: "S\xFCr\xFCc\xFC kap\u0131s\u0131nda E ile bin; durduktan sonra F ile in."
+  m_Text: Press E at the driver's door to enter; stop and press F to exit.
 --- !u!222 &1211749335
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -15188,7 +15185,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_FontData:
-    m_Font: {fileID: 12800000, guid: c9ba91cafb1a830439403f3700b71c47, type: 3}
+    m_Font: {fileID: 12800000, guid: 51242bdf1c52aa04886c81e6ea7bab73, type: 3}
     m_FontSize: 17
     m_FontStyle: 0
     m_BestFit: 0
@@ -15200,7 +15197,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 1
     m_LineSpacing: 1.15
-  m_Text: "Silah \xE7ekiliyken \xE7\xF6mel / kalk."
+  m_Text: Crouch or stand with the weapon drawn.
 --- !u!222 &1234480637
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -15553,7 +15550,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_FontData:
-    m_Font: {fileID: 12800000, guid: 2265b30c7ded6c4438a5d1815eed2ae4, type: 3}
+    m_Font: {fileID: 12800000, guid: 51242bdf1c52aa04886c81e6ea7bab73, type: 3}
     m_FontSize: 18
     m_FontStyle: 0
     m_BestFit: 0
@@ -15632,7 +15629,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_FontData:
-    m_Font: {fileID: 12800000, guid: 2265b30c7ded6c4438a5d1815eed2ae4, type: 3}
+    m_Font: {fileID: 12800000, guid: 51242bdf1c52aa04886c81e6ea7bab73, type: 3}
     m_FontSize: 18
     m_FontStyle: 0
     m_BestFit: 0
@@ -15894,7 +15891,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_FontData:
-    m_Font: {fileID: 12800000, guid: 2265b30c7ded6c4438a5d1815eed2ae4, type: 3}
+    m_Font: {fileID: 12800000, guid: 51242bdf1c52aa04886c81e6ea7bab73, type: 3}
     m_FontSize: 20
     m_FontStyle: 0
     m_BestFit: 0
@@ -15973,7 +15970,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_FontData:
-    m_Font: {fileID: 12800000, guid: 2265b30c7ded6c4438a5d1815eed2ae4, type: 3}
+    m_Font: {fileID: 12800000, guid: 51242bdf1c52aa04886c81e6ea7bab73, type: 3}
     m_FontSize: 18
     m_FontStyle: 0
     m_BestFit: 0
@@ -15985,7 +15982,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 1
     m_LineSpacing: 1.05
-  m_Text: "Ate\u015F / ni\u015Fan"
+  m_Text: Fire / aim
 --- !u!222 &1290662054
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -16052,7 +16049,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_FontData:
-    m_Font: {fileID: 12800000, guid: 2265b30c7ded6c4438a5d1815eed2ae4, type: 3}
+    m_Font: {fileID: 12800000, guid: 51242bdf1c52aa04886c81e6ea7bab73, type: 3}
     m_FontSize: 18
     m_FontStyle: 0
     m_BestFit: 0
@@ -16064,7 +16061,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 1
     m_LineSpacing: 1.05
-  m_Text: Tahliye
+  m_Text: Evacuation
 --- !u!222 &1326304846
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -16281,7 +16278,7 @@ RectTransform:
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 0, y: 0}
   m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 28, y: 36}
+  m_SizeDelta: {x: 38, y: 46}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1347168678
 MonoBehaviour:
@@ -16290,7 +16287,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1347168676}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: e19747de3f5aca642ab2be37e372fb86, type: 3}
   m_Name: 
@@ -16311,16 +16308,16 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   m_Material: {fileID: 0}
-  m_Color: {r: 0.65, g: 0.6, b: 0.55, a: 1}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 21300000, guid: ec6de7ae7a99c6f458b1ec35d8abcd53, type: 3}
-  m_Type: 1
-  m_PreserveAspect: 0
+  m_Sprite: {fileID: 21300000, guid: f78da18ddb831954882d62b2a8d55d29, type: 3}
+  m_Type: 0
+  m_PreserveAspect: 1
   m_FillCenter: 1
   m_FillMethod: 4
   m_FillAmount: 1
@@ -16712,7 +16709,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_FontData:
-    m_Font: {fileID: 12800000, guid: c9ba91cafb1a830439403f3700b71c47, type: 3}
+    m_Font: {fileID: 12800000, guid: 51242bdf1c52aa04886c81e6ea7bab73, type: 3}
     m_FontSize: 17
     m_FontStyle: 0
     m_BestFit: 0
@@ -16724,7 +16721,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 1
     m_LineSpacing: 1.15
-  m_Text: "Yaya halde ko\u015F."
+  m_Text: Sprint on foot.
 --- !u!222 &1376299138
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -16876,7 +16873,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_FontData:
-    m_Font: {fileID: 12800000, guid: 2265b30c7ded6c4438a5d1815eed2ae4, type: 3}
+    m_Font: {fileID: 12800000, guid: 51242bdf1c52aa04886c81e6ea7bab73, type: 3}
     m_FontSize: 18
     m_FontStyle: 0
     m_BestFit: 0
@@ -16888,7 +16885,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 1
     m_LineSpacing: 1.05
-  m_Text: Bin / in
+  m_Text: Enter / exit
 --- !u!222 &1378258214
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -16955,7 +16952,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_FontData:
-    m_Font: {fileID: 12800000, guid: 2265b30c7ded6c4438a5d1815eed2ae4, type: 3}
+    m_Font: {fileID: 12800000, guid: 51242bdf1c52aa04886c81e6ea7bab73, type: 3}
     m_FontSize: 18
     m_FontStyle: 0
     m_BestFit: 0
@@ -17109,7 +17106,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_FontData:
-    m_Font: {fileID: 12800000, guid: 2265b30c7ded6c4438a5d1815eed2ae4, type: 3}
+    m_Font: {fileID: 12800000, guid: 51242bdf1c52aa04886c81e6ea7bab73, type: 3}
     m_FontSize: 18
     m_FontStyle: 0
     m_BestFit: 0
@@ -17342,7 +17339,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_FontData:
-    m_Font: {fileID: 12800000, guid: c9ba91cafb1a830439403f3700b71c47, type: 3}
+    m_Font: {fileID: 12800000, guid: 51242bdf1c52aa04886c81e6ea7bab73, type: 3}
     m_FontSize: 17
     m_FontStyle: 0
     m_BestFit: 0
@@ -17758,7 +17755,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_FontData:
-    m_Font: {fileID: 12800000, guid: 2265b30c7ded6c4438a5d1815eed2ae4, type: 3}
+    m_Font: {fileID: 12800000, guid: 51242bdf1c52aa04886c81e6ea7bab73, type: 3}
     m_FontSize: 18
     m_FontStyle: 0
     m_BestFit: 0
@@ -17837,7 +17834,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_FontData:
-    m_Font: {fileID: 12800000, guid: 2265b30c7ded6c4438a5d1815eed2ae4, type: 3}
+    m_Font: {fileID: 12800000, guid: 51242bdf1c52aa04886c81e6ea7bab73, type: 3}
     m_FontSize: 18
     m_FontStyle: 0
     m_BestFit: 0
@@ -17916,7 +17913,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_FontData:
-    m_Font: {fileID: 12800000, guid: 2265b30c7ded6c4438a5d1815eed2ae4, type: 3}
+    m_Font: {fileID: 12800000, guid: 51242bdf1c52aa04886c81e6ea7bab73, type: 3}
     m_FontSize: 34
     m_FontStyle: 0
     m_BestFit: 0
@@ -17928,7 +17925,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 1
     m_LineSpacing: 1.05
-  m_Text: "Nas\u0131l oynan\u0131r"
+  m_Text: How to play
 --- !u!222 &1448156692
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -18335,7 +18332,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_FontData:
-    m_Font: {fileID: 12800000, guid: c9ba91cafb1a830439403f3700b71c47, type: 3}
+    m_Font: {fileID: 12800000, guid: 51242bdf1c52aa04886c81e6ea7bab73, type: 3}
     m_FontSize: 17
     m_FontStyle: 0
     m_BestFit: 0
@@ -18844,7 +18841,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_FontData:
-    m_Font: {fileID: 12800000, guid: c9ba91cafb1a830439403f3700b71c47, type: 3}
+    m_Font: {fileID: 12800000, guid: 51242bdf1c52aa04886c81e6ea7bab73, type: 3}
     m_FontSize: 17
     m_FontStyle: 0
     m_BestFit: 0
@@ -18856,7 +18853,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 1
     m_LineSpacing: 1.05
-  m_Text: Hortum ve su
+  m_Text: Hose and water
 --- !u!222 &1515659513
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -18923,7 +18920,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_FontData:
-    m_Font: {fileID: 12800000, guid: 2265b30c7ded6c4438a5d1815eed2ae4, type: 3}
+    m_Font: {fileID: 12800000, guid: 51242bdf1c52aa04886c81e6ea7bab73, type: 3}
     m_FontSize: 18
     m_FontStyle: 0
     m_BestFit: 0
@@ -19301,7 +19298,7 @@ RectTransform:
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 0, y: 0}
   m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 28, y: 36}
+  m_SizeDelta: {x: 38, y: 46}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1570824083
 MonoBehaviour:
@@ -19310,7 +19307,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1570824081}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: e19747de3f5aca642ab2be37e372fb86, type: 3}
   m_Name: 
@@ -19331,16 +19328,16 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   m_Material: {fileID: 0}
-  m_Color: {r: 0.65, g: 0.6, b: 0.55, a: 1}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 21300000, guid: ec6de7ae7a99c6f458b1ec35d8abcd53, type: 3}
-  m_Type: 1
-  m_PreserveAspect: 0
+  m_Sprite: {fileID: 21300000, guid: f78da18ddb831954882d62b2a8d55d29, type: 3}
+  m_Type: 0
+  m_PreserveAspect: 1
   m_FillCenter: 1
   m_FillMethod: 4
   m_FillAmount: 1
@@ -19414,7 +19411,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_FontData:
-    m_Font: {fileID: 12800000, guid: c9ba91cafb1a830439403f3700b71c47, type: 3}
+    m_Font: {fileID: 12800000, guid: 51242bdf1c52aa04886c81e6ea7bab73, type: 3}
     m_FontSize: 17
     m_FontStyle: 0
     m_BestFit: 0
@@ -19493,7 +19490,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_FontData:
-    m_Font: {fileID: 12800000, guid: 2265b30c7ded6c4438a5d1815eed2ae4, type: 3}
+    m_Font: {fileID: 12800000, guid: 51242bdf1c52aa04886c81e6ea7bab73, type: 3}
     m_FontSize: 18
     m_FontStyle: 0
     m_BestFit: 0
@@ -19572,7 +19569,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_FontData:
-    m_Font: {fileID: 12800000, guid: 2265b30c7ded6c4438a5d1815eed2ae4, type: 3}
+    m_Font: {fileID: 12800000, guid: 51242bdf1c52aa04886c81e6ea7bab73, type: 3}
     m_FontSize: 18
     m_FontStyle: 0
     m_BestFit: 0
@@ -19651,7 +19648,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_FontData:
-    m_Font: {fileID: 12800000, guid: 2265b30c7ded6c4438a5d1815eed2ae4, type: 3}
+    m_Font: {fileID: 12800000, guid: 51242bdf1c52aa04886c81e6ea7bab73, type: 3}
     m_FontSize: 18
     m_FontStyle: 0
     m_BestFit: 0
@@ -19690,7 +19687,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &1603334095
 RectTransform:
   m_ObjectHideFlags: 0
@@ -19822,7 +19819,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_FontData:
-    m_Font: {fileID: 12800000, guid: 2265b30c7ded6c4438a5d1815eed2ae4, type: 3}
+    m_Font: {fileID: 12800000, guid: 51242bdf1c52aa04886c81e6ea7bab73, type: 3}
     m_FontSize: 18
     m_FontStyle: 0
     m_BestFit: 0
@@ -19834,7 +19831,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 1
     m_LineSpacing: 1.05
-  m_Text: Hareket
+  m_Text: Movement
 --- !u!222 &1614028319
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -19901,7 +19898,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_FontData:
-    m_Font: {fileID: 12800000, guid: 2265b30c7ded6c4438a5d1815eed2ae4, type: 3}
+    m_Font: {fileID: 12800000, guid: 51242bdf1c52aa04886c81e6ea7bab73, type: 3}
     m_FontSize: 18
     m_FontStyle: 0
     m_BestFit: 0
@@ -20065,7 +20062,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_FontData:
-    m_Font: {fileID: 12800000, guid: 2265b30c7ded6c4438a5d1815eed2ae4, type: 3}
+    m_Font: {fileID: 12800000, guid: 51242bdf1c52aa04886c81e6ea7bab73, type: 3}
     m_FontSize: 18
     m_FontStyle: 0
     m_BestFit: 0
@@ -20240,7 +20237,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_FontData:
-    m_Font: {fileID: 12800000, guid: 2265b30c7ded6c4438a5d1815eed2ae4, type: 3}
+    m_Font: {fileID: 12800000, guid: 51242bdf1c52aa04886c81e6ea7bab73, type: 3}
     m_FontSize: 18
     m_FontStyle: 0
     m_BestFit: 0
@@ -20252,7 +20249,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 1
     m_LineSpacing: 1.05
-  m_Text: Topla
+  m_Text: Retract
 --- !u!222 &1637583361
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -20319,7 +20316,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_FontData:
-    m_Font: {fileID: 12800000, guid: c9ba91cafb1a830439403f3700b71c47, type: 3}
+    m_Font: {fileID: 12800000, guid: 51242bdf1c52aa04886c81e6ea7bab73, type: 3}
     m_FontSize: 17
     m_FontStyle: 0
     m_BestFit: 0
@@ -20586,7 +20583,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_FontData:
-    m_Font: {fileID: 12800000, guid: 2265b30c7ded6c4438a5d1815eed2ae4, type: 3}
+    m_Font: {fileID: 12800000, guid: 51242bdf1c52aa04886c81e6ea7bab73, type: 3}
     m_FontSize: 18
     m_FontStyle: 0
     m_BestFit: 0
@@ -21329,7 +21326,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &1708030384
 RectTransform:
   m_ObjectHideFlags: 0
@@ -21685,7 +21682,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_FontData:
-    m_Font: {fileID: 12800000, guid: c9ba91cafb1a830439403f3700b71c47, type: 3}
+    m_Font: {fileID: 12800000, guid: 51242bdf1c52aa04886c81e6ea7bab73, type: 3}
     m_FontSize: 18
     m_FontStyle: 0
     m_BestFit: 0
@@ -22240,19 +22237,19 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_FontData:
-    m_Font: {fileID: 12800000, guid: 2265b30c7ded6c4438a5d1815eed2ae4, type: 3}
-    m_FontSize: 34
+    m_Font: {fileID: 12800000, guid: 51242bdf1c52aa04886c81e6ea7bab73, type: 3}
+    m_FontSize: 60
     m_FontStyle: 0
     m_BestFit: 0
-    m_MinSize: 10
-    m_MaxSize: 40
+    m_MinSize: 0
+    m_MaxSize: 60
     m_Alignment: 3
     m_AlignByGeometry: 0
     m_RichText: 0
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 1
-    m_LineSpacing: 1.05
-  m_Text: Yeni oyun
+    m_LineSpacing: 2
+  m_Text: New game
 --- !u!222 &1769671312
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -22575,7 +22572,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_FontData:
-    m_Font: {fileID: 12800000, guid: c9ba91cafb1a830439403f3700b71c47, type: 3}
+    m_Font: {fileID: 12800000, guid: 51242bdf1c52aa04886c81e6ea7bab73, type: 3}
     m_FontSize: 17
     m_FontStyle: 0
     m_BestFit: 0
@@ -22842,7 +22839,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_FontData:
-    m_Font: {fileID: 12800000, guid: 2265b30c7ded6c4438a5d1815eed2ae4, type: 3}
+    m_Font: {fileID: 12800000, guid: 51242bdf1c52aa04886c81e6ea7bab73, type: 3}
     m_FontSize: 18
     m_FontStyle: 0
     m_BestFit: 0
@@ -23035,7 +23032,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_FontData:
-    m_Font: {fileID: 12800000, guid: c9ba91cafb1a830439403f3700b71c47, type: 3}
+    m_Font: {fileID: 12800000, guid: 51242bdf1c52aa04886c81e6ea7bab73, type: 3}
     m_FontSize: 17
     m_FontStyle: 0
     m_BestFit: 0
@@ -23047,7 +23044,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 1
     m_LineSpacing: 1.15
-  m_Text: "Yaya hareket / ara\xE7 s\xFCr\xFC\u015F\xFC. Fareyle etrafa bak."
+  m_Text: Move on foot or drive. Look around with the mouse.
 --- !u!222 &1834315107
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -23210,7 +23207,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_FontData:
-    m_Font: {fileID: 12800000, guid: 2265b30c7ded6c4438a5d1815eed2ae4, type: 3}
+    m_Font: {fileID: 12800000, guid: 51242bdf1c52aa04886c81e6ea7bab73, type: 3}
     m_FontSize: 18
     m_FontStyle: 0
     m_BestFit: 0
@@ -23289,7 +23286,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_FontData:
-    m_Font: {fileID: 12800000, guid: 2265b30c7ded6c4438a5d1815eed2ae4, type: 3}
+    m_Font: {fileID: 12800000, guid: 51242bdf1c52aa04886c81e6ea7bab73, type: 3}
     m_FontSize: 18
     m_FontStyle: 0
     m_BestFit: 0
@@ -23443,7 +23440,7 @@ RectTransform:
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 0, y: 0}
   m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 28, y: 36}
+  m_SizeDelta: {x: 38, y: 46}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1860054517
 MonoBehaviour:
@@ -23452,7 +23449,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1860054515}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: e19747de3f5aca642ab2be37e372fb86, type: 3}
   m_Name: 
@@ -23473,16 +23470,16 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   m_Material: {fileID: 0}
-  m_Color: {r: 0.65, g: 0.6, b: 0.55, a: 1}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 21300000, guid: ec6de7ae7a99c6f458b1ec35d8abcd53, type: 3}
-  m_Type: 1
-  m_PreserveAspect: 0
+  m_Sprite: {fileID: 21300000, guid: f78da18ddb831954882d62b2a8d55d29, type: 3}
+  m_Type: 0
+  m_PreserveAspect: 1
   m_FillCenter: 1
   m_FillMethod: 4
   m_FillAmount: 1
@@ -23812,7 +23809,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_FontData:
-    m_Font: {fileID: 12800000, guid: 2265b30c7ded6c4438a5d1815eed2ae4, type: 3}
+    m_Font: {fileID: 12800000, guid: 51242bdf1c52aa04886c81e6ea7bab73, type: 3}
     m_FontSize: 18
     m_FontStyle: 0
     m_BestFit: 0
@@ -23824,7 +23821,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 1
     m_LineSpacing: 1.05
-  m_Text: "Volcano demo \u2014 kasabay\u0131 koru"
+  m_Text: "Volcano demo \u2014 defend the town"
 --- !u!222 &1886718488
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -23891,7 +23888,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_FontData:
-    m_Font: {fileID: 12800000, guid: 2265b30c7ded6c4438a5d1815eed2ae4, type: 3}
+    m_Font: {fileID: 12800000, guid: 51242bdf1c52aa04886c81e6ea7bab73, type: 3}
     m_FontSize: 18
     m_FontStyle: 0
     m_BestFit: 0
@@ -23903,7 +23900,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 1
     m_LineSpacing: 1.05
-  m_Text: "Ko\u015F"
+  m_Text: Sprint
 --- !u!222 &1892501797
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -24225,7 +24222,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_FontData:
-    m_Font: {fileID: 12800000, guid: c9ba91cafb1a830439403f3700b71c47, type: 3}
+    m_Font: {fileID: 12800000, guid: 51242bdf1c52aa04886c81e6ea7bab73, type: 3}
     m_FontSize: 18
     m_FontStyle: 0
     m_BestFit: 0
@@ -24518,7 +24515,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_FontData:
-    m_Font: {fileID: 12800000, guid: 2265b30c7ded6c4438a5d1815eed2ae4, type: 3}
+    m_Font: {fileID: 12800000, guid: 51242bdf1c52aa04886c81e6ea7bab73, type: 3}
     m_FontSize: 18
     m_FontStyle: 0
     m_BestFit: 0
@@ -24597,7 +24594,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_FontData:
-    m_Font: {fileID: 12800000, guid: 2265b30c7ded6c4438a5d1815eed2ae4, type: 3}
+    m_Font: {fileID: 12800000, guid: 51242bdf1c52aa04886c81e6ea7bab73, type: 3}
     m_FontSize: 34
     m_FontStyle: 0
     m_BestFit: 0
@@ -24676,7 +24673,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_FontData:
-    m_Font: {fileID: 12800000, guid: 2265b30c7ded6c4438a5d1815eed2ae4, type: 3}
+    m_Font: {fileID: 12800000, guid: 51242bdf1c52aa04886c81e6ea7bab73, type: 3}
     m_FontSize: 18
     m_FontStyle: 0
     m_BestFit: 0
@@ -24688,7 +24685,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 1
     m_LineSpacing: 1.05
-  m_Text: Duraklat
+  m_Text: Pause
 --- !u!222 &1936401079
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -24881,7 +24878,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_FontData:
-    m_Font: {fileID: 12800000, guid: c9ba91cafb1a830439403f3700b71c47, type: 3}
+    m_Font: {fileID: 12800000, guid: 51242bdf1c52aa04886c81e6ea7bab73, type: 3}
     m_FontSize: 17
     m_FontStyle: 0
     m_BestFit: 0
@@ -24893,7 +24890,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 1
     m_LineSpacing: 1.15
-  m_Text: "Haz\u0131rlanmak i\xE7in 120 saniyen var. Ard\u0131ndan k\xF6y\xFC savun."
+  m_Text: You have 120 seconds to prepare. Then defend the village.
 --- !u!222 &1949299727
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -24960,7 +24957,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_FontData:
-    m_Font: {fileID: 12800000, guid: 2265b30c7ded6c4438a5d1815eed2ae4, type: 3}
+    m_Font: {fileID: 12800000, guid: 51242bdf1c52aa04886c81e6ea7bab73, type: 3}
     m_FontSize: 18
     m_FontStyle: 0
     m_BestFit: 0
@@ -25253,7 +25250,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_FontData:
-    m_Font: {fileID: 12800000, guid: 2265b30c7ded6c4438a5d1815eed2ae4, type: 3}
+    m_Font: {fileID: 12800000, guid: 51242bdf1c52aa04886c81e6ea7bab73, type: 3}
     m_FontSize: 18
     m_FontStyle: 0
     m_BestFit: 0
@@ -25265,7 +25262,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 1
     m_LineSpacing: 1.05
-  m_Text: Hortum
+  m_Text: Hose
 --- !u!222 &1984504111
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -25412,7 +25409,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_FontData:
-    m_Font: {fileID: 12800000, guid: c9ba91cafb1a830439403f3700b71c47, type: 3}
+    m_Font: {fileID: 12800000, guid: 51242bdf1c52aa04886c81e6ea7bab73, type: 3}
     m_FontSize: 17
     m_FontStyle: 0
     m_BestFit: 0
@@ -25424,7 +25421,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 1
     m_LineSpacing: 1.15
-  m_Text: "Yaya halde sol t\u0131k ate\u015F, sa\u011F t\u0131k ni\u015Fan al."
+  m_Text: On foot, left click to fire and right click to aim.
 --- !u!222 &1998831488
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -25491,7 +25488,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_FontData:
-    m_Font: {fileID: 12800000, guid: c9ba91cafb1a830439403f3700b71c47, type: 3}
+    m_Font: {fileID: 12800000, guid: 51242bdf1c52aa04886c81e6ea7bab73, type: 3}
     m_FontSize: 17
     m_FontStyle: 0
     m_BestFit: 0
@@ -25991,7 +25988,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_FontData:
-    m_Font: {fileID: 12800000, guid: 2265b30c7ded6c4438a5d1815eed2ae4, type: 3}
+    m_Font: {fileID: 12800000, guid: 51242bdf1c52aa04886c81e6ea7bab73, type: 3}
     m_FontSize: 18
     m_FontStyle: 0
     m_BestFit: 0
@@ -26086,19 +26083,19 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_FontData:
-    m_Font: {fileID: 12800000, guid: 2265b30c7ded6c4438a5d1815eed2ae4, type: 3}
-    m_FontSize: 34
+    m_Font: {fileID: 12800000, guid: 51242bdf1c52aa04886c81e6ea7bab73, type: 3}
+    m_FontSize: 60
     m_FontStyle: 0
     m_BestFit: 0
-    m_MinSize: 10
-    m_MaxSize: 40
+    m_MinSize: 4
+    m_MaxSize: 60
     m_Alignment: 3
     m_AlignByGeometry: 0
     m_RichText: 0
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 1
     m_LineSpacing: 1.05
-  m_Text: "\xC7\u0131k\u0131\u015F"
+  m_Text: Exit
 --- !u!222 &2022276769
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -26165,7 +26162,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_FontData:
-    m_Font: {fileID: 12800000, guid: 2265b30c7ded6c4438a5d1815eed2ae4, type: 3}
+    m_Font: {fileID: 12800000, guid: 51242bdf1c52aa04886c81e6ea7bab73, type: 3}
     m_FontSize: 18
     m_FontStyle: 0
     m_BestFit: 0
@@ -26177,7 +26174,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 1
     m_LineSpacing: 1.05
-  m_Text: Pompa
+  m_Text: Pump
 --- !u!222 &2030235174
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -26796,7 +26793,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_FontData:
-    m_Font: {fileID: 12800000, guid: 2265b30c7ded6c4438a5d1815eed2ae4, type: 3}
+    m_Font: {fileID: 12800000, guid: 51242bdf1c52aa04886c81e6ea7bab73, type: 3}
     m_FontSize: 18
     m_FontStyle: 0
     m_BestFit: 0
@@ -26875,7 +26872,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_FontData:
-    m_Font: {fileID: 12800000, guid: 2265b30c7ded6c4438a5d1815eed2ae4, type: 3}
+    m_Font: {fileID: 12800000, guid: 51242bdf1c52aa04886c81e6ea7bab73, type: 3}
     m_FontSize: 18
     m_FontStyle: 0
     m_BestFit: 0
@@ -26954,7 +26951,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_FontData:
-    m_Font: {fileID: 12800000, guid: 2265b30c7ded6c4438a5d1815eed2ae4, type: 3}
+    m_Font: {fileID: 12800000, guid: 51242bdf1c52aa04886c81e6ea7bab73, type: 3}
     m_FontSize: 18
     m_FontStyle: 0
     m_BestFit: 0
@@ -27033,7 +27030,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_FontData:
-    m_Font: {fileID: 12800000, guid: 2265b30c7ded6c4438a5d1815eed2ae4, type: 3}
+    m_Font: {fileID: 12800000, guid: 51242bdf1c52aa04886c81e6ea7bab73, type: 3}
     m_FontSize: 18
     m_FontStyle: 0
     m_BestFit: 0
@@ -27592,7 +27589,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_FontData:
-    m_Font: {fileID: 12800000, guid: c9ba91cafb1a830439403f3700b71c47, type: 3}
+    m_Font: {fileID: 12800000, guid: 51242bdf1c52aa04886c81e6ea7bab73, type: 3}
     m_FontSize: 17
     m_FontStyle: 0
     m_BestFit: 0
@@ -27604,8 +27601,8 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 1
     m_LineSpacing: 1.15
-  m_Text: "\u0130stersen yaya halde arac\u0131n arkas\u0131ndan hortumu al, ucunu
-    g\xF6le b\u0131rak ve P ile pompay\u0131 a\xE7."
+  m_Text: On foot, take the hose from the rear of the truck, drop its intake in the
+    lake, and press P to start the pump.
 --- !u!222 &2119521428
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -27778,7 +27775,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_FontData:
-    m_Font: {fileID: 12800000, guid: c9ba91cafb1a830439403f3700b71c47, type: 3}
+    m_Font: {fileID: 12800000, guid: 51242bdf1c52aa04886c81e6ea7bab73, type: 3}
     m_FontSize: 17
     m_FontStyle: 0
     m_BestFit: 0
@@ -27790,7 +27787,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 1
     m_LineSpacing: 1.05
-  m_Text: "Hareket ve ara\xE7"
+  m_Text: Movement and vehicle
 --- !u!222 &2132797051
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -27842,7 +27839,7 @@ VideoPlayer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2133803275}
   m_Enabled: 1
-  m_VideoClip: {fileID: 32900000, guid: 4a6d9262bc258614b83802855280d529, type: 3}
+  m_VideoClip: {fileID: 32900000, guid: 6009c385f6b64104fb342ddb131fa429, type: 3}
   m_TargetCameraAlpha: 1
   m_TargetCamera3DLayout: 0
   m_TargetCamera: {fileID: 0}
@@ -27856,12 +27853,14 @@ VideoPlayer:
   m_TimeUpdateMode: 2
   m_PlaybackSpeed: 1
   m_AudioOutputMode: 0
-  m_TargetAudioSources: []
-  m_DirectAudioVolumes: []
+  m_TargetAudioSources:
+  - {fileID: 0}
+  m_DirectAudioVolumes:
+  - 1
   m_Url: 
-  m_EnabledAudioTracks: 
-  m_DirectAudioMutes: 
-  m_ControlledAudioTrackCount: 0
+  m_EnabledAudioTracks: 01
+  m_DirectAudioMutes: 00
+  m_ControlledAudioTrackCount: 1
   m_PlayOnAwake: 0
   m_SkipOnDrop: 1
   m_Looping: 0

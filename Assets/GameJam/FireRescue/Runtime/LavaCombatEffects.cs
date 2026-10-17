@@ -67,7 +67,7 @@ namespace GameJam.FireRescue
             return instance;
         }
 
-        public static void Hit(Vector3 point, Vector3 direction, bool bullet)
+        public static void Hit(Vector3 point, Vector3 direction, bool bullet, AudioClip impactOverride = null)
         {
             var fx = Get(); var b = fx.Rent(point, false);
             HitsPlayed++;
@@ -82,7 +82,7 @@ namespace GameJam.FireRescue
                         Random.rotation, Vector3.one * Random.Range(.045f, .105f), false, -direction);
                 b.ringNormal = direction.sqrMagnitude > .001f ? direction.normalized : Vector3.forward;
                 b.ringDuration = .18f; b.ringRadius = .85f; b.ring.enabled = true;
-                fx.Play(b, fx.hits[Random.Range(0, fx.hits.Length)], .9f);
+                fx.Play(b, impactOverride ? impactOverride : fx.hits[Random.Range(0, fx.hits.Length)], .9f);
             }
             b.light.color = bullet ? new Color(1f, .62f, .19f) : new Color(1f, .27f, .035f);
             b.light.intensity = bullet ? 4.8f : 1.2f;
@@ -380,7 +380,7 @@ namespace GameJam.FireRescue
         {
             if (!clip) return;
             b.audio.dopplerLevel = 0f;
-            b.audio.clip = clip; b.audio.volume = volume; b.audio.pitch = Random.Range(.93f, 1.07f); b.audio.Play();
+            b.audio.clip = clip; b.audio.volume = volume * Mathf.Clamp01(PlayerPrefs.GetFloat("Ashfall.SfxVolume", 1f)); b.audio.pitch = Random.Range(.93f, 1.07f); b.audio.Play();
         }
 
         static void Clear(Burst b)

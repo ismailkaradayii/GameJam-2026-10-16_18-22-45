@@ -75,12 +75,12 @@ namespace Itfaiye
             if(!pullPlayed && progress>=ItfaiyePistolReloadPose.SlidePullStarts)
             {
                 pullPlayed=true; SlidePullSoundCount++;
-                if(slidePullSound!=null && slideVolume>0) slideAudio.PlayOneShot(slidePullSound,slideVolume);
+                if(slidePullSound!=null && slideVolume>0) slideAudio.PlayOneShot(slidePullSound,slideVolume * SfxGain);
             }
             if(!releasePlayed && progress>=ItfaiyePistolReloadPose.SlideReleasedAt)
             {
                 releasePlayed=true; SlideReleaseSoundCount++;
-                if(slideReleaseSound!=null && slideVolume>0) slideAudio.PlayOneShot(slideReleaseSound,slideVolume);
+                if(slideReleaseSound!=null && slideVolume>0) slideAudio.PlayOneShot(slideReleaseSound,slideVolume * SfxGain);
             }
         }
 
@@ -127,10 +127,11 @@ namespace Itfaiye
             var clip=soft?softSurfaceClink:clips!=null && clips.Length>0?clips[(EjectedCount+bounce)%clips.Length]:null;
             if(clip==null || landingVolume<=0) return;
             float volume=landingVolume*Mathf.Lerp(.18f,1f,Mathf.InverseLerp(.35f,4f,strength))*Mathf.Pow(.52f,bounce)*(surface==ItfaiyeSurfaceKind.Dirt?.25f:soft?.65f:1f);
-            casing.PlayContact(clip,volume,Random.Range(.91f,1.12f));
+            casing.PlayContact(clip,volume * SfxGain,Random.Range(.91f,1.12f));
             ContactSoundCount++;
         }
 
+        static float SfxGain => Mathf.Clamp01(PlayerPrefs.GetFloat("Ashfall.SfxVolume", 1f));
         void OnDisable()
         {
             pendingEjections.Clear(); pullPlayed=releasePlayed=false;

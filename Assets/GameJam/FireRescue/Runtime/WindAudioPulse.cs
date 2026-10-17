@@ -133,6 +133,8 @@ namespace GameJam.FireRescue
         public void TickSequence(float deltaTime)
         {
             if (source == null || deltaTime <= 0f || float.IsNaN(deltaTime) || float.IsInfinity(deltaTime)) return;
+            if (state == PlaybackState.Explosion || state == PlaybackState.PostExplosion)
+                source.volume = explosionVolume * GetSfxVolume();
 
             if (state == PlaybackState.PostExplosion)
             {

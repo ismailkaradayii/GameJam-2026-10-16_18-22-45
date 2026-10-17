@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Collections;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
@@ -38,7 +39,7 @@ namespace Ashfall.MainMenu
                 wiredButtons.Add(button);
                 AshfallMenuButtonPointerAudio pointerAudio = button.GetComponent<AshfallMenuButtonPointerAudio>();
                 if (pointerAudio == null) pointerAudio = button.gameObject.AddComponent<AshfallMenuButtonPointerAudio>();
-                pointerAudio.Configure(hoverClip, volume);
+                pointerAudio.Configure(hoverClip, volume, this);
                 button.onClick.RemoveListener(PlayClick);
                 button.onClick.AddListener(PlayClick);
             }
@@ -50,16 +51,36 @@ namespace Ashfall.MainMenu
                 if (wiredButtons[i] != null) wiredButtons[i].onClick.RemoveListener(PlayClick);
         }
 
-        private void PlayClick() => Play(clickClip, volume);
+        private void PlayClick() { if (isActiveAndEnabled) Play(clickClip, volume); }
 
-        internal static void Play(AudioClip clip, float baseVolume)
+        private static AudioSource activeHover;
+
+        internal static void Play(AudioClip clip, float baseVolume, bool hover = false)
         {
             if (clip == null) return;
+            if (hover && activeHover && activeHover.isPlaying) return;
             float sfxVolume = Mathf.Clamp01(PlayerPrefs.GetFloat(SfxVolumeKey, 1f));
-            float volumeScale = Mathf.Clamp01(baseVolume) * sfxVolume;
+            float volumeScale = Mathf.Clamp01(baseVolume) * sfxVolume * (hover ? .45f : 1f);
             if (volumeScale <= 0f) return;
-            Camera menuCamera = Camera.main;
-            AudioSource.PlayClipAtPoint(clip, menuCamera != null ? menuCamera.transform.position : Vector3.zero, volumeScale);
+            var voice = new GameObject("UI Audio One Shot");
+            DontDestroyOnLoad(voice);
+            var source = voice.AddComponent<AudioSource>();
+            source.playOnAwake = false; source.spatialBlend = 0f;
+            source.ignoreListenerPause = true;
+            source.clip = clip; source.volume = volumeScale; source.Play();
+            if (hover) activeHover = source;
+            voice.AddComponent<AshfallUiSoundLifetime>().Begin(clip.length + .1f);
+        }
+    }
+
+    internal sealed class AshfallUiSoundLifetime : MonoBehaviour
+    {
+        public void Begin(float seconds) => StartCoroutine(DisposeAfter(seconds));
+
+        private IEnumerator DisposeAfter(float seconds)
+        {
+            yield return new WaitForSecondsRealtime(seconds);
+            Destroy(gameObject);
         }
     }
 
@@ -69,9 +90,11 @@ namespace Ashfall.MainMenu
     {
         private AudioClip hoverClip;
         private float volume;
+        private MonoBehaviour owner;
 
-        public void Configure(AudioClip clip, float playbackVolume)
+        public void Configure(AudioClip clip, float playbackVolume, MonoBehaviour feedback)
         {
+            owner = feedback;
             hoverClip = clip;
             volume = playbackVolume;
         }
@@ -79,8 +102,8 @@ namespace Ashfall.MainMenu
         public void OnPointerEnter(PointerEventData eventData)
         {
             Button button = GetComponent<Button>();
-            if (button != null && button.IsInteractable())
-                AshfallMenuAudioFeedback.Play(hoverClip, volume);
+            if (owner && owner.isActiveAndEnabled && button != null && button.IsInteractable())
+                AshfallMenuAudioFeedback.Play(hoverClip, volume, true);
         }
     }
 }

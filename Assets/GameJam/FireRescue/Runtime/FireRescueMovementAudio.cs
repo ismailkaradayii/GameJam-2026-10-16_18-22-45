@@ -55,7 +55,7 @@ namespace GameJam.FireRescue
         private void Update()
         {
             Itfaiye.ItfaiyeFirstPersonController locomotion = player != null ? player.firstPerson : null;
-            if (player == null || player.IsDriving || locomotion == null || !locomotion.IsGrounded ||
+            if (Time.timeScale <= 0f || player == null || player.GameplaySuspended || player.IsDriving || locomotion == null || !locomotion.IsGrounded ||
                 locomotion.CurrentSpeed < minimumHorizontalSpeed)
             {
                 StopForInactiveMovement();
@@ -107,13 +107,15 @@ namespace GameJam.FireRescue
             currentClip = clip;
             footstepSource.clip = clip;
             footstepSource.loop = true;
-            footstepSource.pitch = running ? Mathf.Lerp(1f, runningLoopPitch, speedBlend) : 1f;
+            footstepSource.pitch = running && clip == walkingClip ? Mathf.Lerp(1f, runningLoopPitch, speedBlend) : 1f;
             footstepSource.volume = volume;
             if (!footstepSource.isPlaying) footstepSource.Play();
         }
 
         private void PrepareOneShot(AudioClip clip)
         {
+            footstepSource.volume = 1f;
+            if (currentClip != clip) footstepSource.Stop();
             if (footstepSource.loop)
             {
                 footstepSource.Stop();
@@ -149,6 +151,10 @@ namespace GameJam.FireRescue
             if (clip != null) clip.LoadAudioData();
         }
 
-        private void OnDisable() => StopForInactiveMovement();
+        private void OnDisable()
+        {
+            StopForInactiveMovement();
+            if (footstepSource) footstepSource.Stop();
+        }
     }
 }

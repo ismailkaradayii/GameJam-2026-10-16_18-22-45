@@ -23,6 +23,16 @@ namespace GameJam.FireRescue
         [Min(0.1f)] public float groundProbeHeight = 8f;
 
         [SerializeField] private float tankLitres;
+        [Header("Tank filling audio")]
+        [SerializeField] private AudioClip tankFillClip;
+        [SerializeField, Range(0f, 1f)] private float emptyTankFillVolume = 0.65f;
+        [SerializeField, Range(0f, 1f)] private float fullTankFillVolume = 0.18f;
+        [SerializeField, Range(0f, 1f)] private float emptyTankEcho = 0.35f;
+        [SerializeField, Min(0.01f)] private float fillAudioFadeSpeed = 3f;
+        private AudioSource tankFillSource;
+        private AudioEchoFilter tankFillEcho;
+        private FireTruckDrive truckDrive;
+        private bool fillAudioPaused;
         private Transform carryingHand;
         private Vector3 deployedPoint;
         private Quaternion deployedRotation;
@@ -35,7 +45,7 @@ namespace GameJam.FireRescue
         public bool IsPumping { get; private set; }
         public float TankLitres => tankLitres;
         public float Tank01 => Mathf.Clamp01(tankLitres / Mathf.Max(1f, tankCapacityLitres));
-        public string Status { get; private set; } = "Hortum araçta.";
+        public string Status { get; private set; } = "Hose stowed on truck.";
         public WaterSourceVolume CurrentWaterSource { get; private set; }
         [System.NonSerialized] public bool fillingUnlocked = true;
 
@@ -45,6 +55,7 @@ namespace GameJam.FireRescue
             if (ignoredCollisionRoot == null)
                 ignoredCollisionRoot = transform;
             ConfigureHoseWidth();
+            ConfigureFillAudio();
         }
 
         private void Update()
@@ -57,12 +68,14 @@ namespace GameJam.FireRescue
         {
             UpdateNozzlePose();
             DrawHose();
+            UpdateFillAudio();
         }
 
         private void OnDisable()
         {
             PumpEnabled = false;
             IsPumping = false;
+            StopFillAudio();
             if (hoseLine != null)
                 hoseLine.enabled = false;
         }
@@ -152,48 +165,101 @@ namespace GameJam.FireRescue
         {
             IsPumping = false;
             CurrentWaterSource = null;
-            if (!fillingUnlocked) { Status = "Önce evlerdeki yedi kişiyi sığınağa götür."; return; }
+            if (!fillingUnlocked) { Status = "First lead all seven villagers to shelter."; return; }
             if (hoseSocket == null || nozzle == null)
             {
-                Status = "Hortum bağlantıları eksik.";
+                Status = "Hose connections are missing.";
                 return;
             }
             if (!IsDeployed)
             {
-                Status = "Hortum araçta.";
+                Status = "Hose stowed on truck.";
                 return;
             }
             if (IsCarried)
             {
                 Status = carryingHand != null && !CanReach(carryingHand.position)
-                    ? "Hortumun uzunluk sınırına ulaştın. Araca yaklaş."
-                    : "Emiş ucunu göle götürüp suya bırak.";
+                    ? "The hose is at its limit. Move closer to the truck."
+                    : "Carry the intake to the lake and drop it in the water.";
                 return;
             }
             if (!CanReach(nozzle.position))
             {
-                Status = "Hortum çok gergin. Aracı suya yaklaştır.";
+                Status = "Hose too taut. Move the truck closer to the water.";
                 return;
             }
             if (!WaterSourceVolume.TryFindSource(nozzle.position, out WaterSourceVolume source))
             {
-                Status = "Emiş ucu suda değil. Hortumu göle bırak.";
+                Status = "The intake is not in the water.";
                 return;
             }
             CurrentWaterSource = source;
             if (tankLitres >= Mathf.Max(1f, tankCapacityLitres))
             {
                 PumpEnabled = false;
-                Status = "Su deposu dolu. Pompa durdu.";
+                Status = "Tank full. Pump stopped.";
                 return;
             }
             if (!PumpEnabled)
             {
-                Status = "Emiş ucu suda. Pompayı açabilirsin.";
+                Status = "Intake submerged. Start the pump.";
                 return;
             }
             IsPumping = true;
-            Status = "Gölden su çekiliyor. Depo dolduruluyor.";
+            Status = "Pumping water from the lake.";
+        }
+
+        private void ConfigureFillAudio()
+        {
+            if (!tankFillClip) return;
+            var emitter = new GameObject("Tank Fill Audio");
+            emitter.transform.SetParent(transform, false);
+            tankFillSource = emitter.AddComponent<AudioSource>();
+            tankFillSource.playOnAwake = false;
+            tankFillSource.clip = tankFillClip;
+            tankFillSource.loop = true;
+            tankFillSource.volume = 0f;
+            tankFillSource.dopplerLevel = 0f;
+            tankFillSource.minDistance = 12f;
+            tankFillSource.maxDistance = 80f;
+            tankFillEcho = emitter.AddComponent<AudioEchoFilter>();
+            tankFillEcho.delay = 120f;
+            tankFillEcho.decayRatio = .25f;
+            tankFillEcho.dryMix = 1f;
+            tankFillEcho.wetMix = 0f;
+            truckDrive = GetComponent<FireTruckDrive>();
+            tankFillClip.LoadAudioData();
+        }
+
+        private void UpdateFillAudio()
+        {
+            if (!tankFillSource || !tankFillClip) return;
+            if (Time.timeScale <= 0f)
+            {
+                if (!fillAudioPaused && tankFillSource.isPlaying) tankFillSource.Pause();
+                fillAudioPaused = true;
+                return;
+            }
+            if (fillAudioPaused) { tankFillSource.UnPause(); fillAudioPaused = false; }
+
+            bool filling = IsPumping && fillRateLitresPerSecond > 0f;
+            float fullness = Tank01;
+            float sfx = Mathf.Clamp01(PlayerPrefs.GetFloat("Ashfall.SfxVolume", 1f));
+            float target = filling ? Mathf.Lerp(emptyTankFillVolume, fullTankFillVolume, fullness) * sfx : 0f;
+            tankFillSource.spatialBlend = truckDrive && truckDrive.IsDriven ? 0f : .7f;
+            tankFillEcho.wetMix = Mathf.MoveTowards(tankFillEcho.wetMix,
+                filling ? emptyTankEcho * (1f - fullness) : 0f, Time.deltaTime * 2f);
+            if (filling && !tankFillSource.isPlaying) tankFillSource.Play();
+            tankFillSource.volume = Mathf.MoveTowards(tankFillSource.volume, target, fillAudioFadeSpeed * Time.deltaTime);
+            if (!filling && tankFillSource.volume <= .001f && tankFillSource.isPlaying) tankFillSource.Stop();
+        }
+
+        private void StopFillAudio()
+        {
+            fillAudioPaused = false;
+            if (!tankFillSource) return;
+            tankFillSource.Stop();
+            tankFillSource.volume = 0f;
         }
 
         private Vector3 ClampToReach(Vector3 point) => hoseSocket.position +

@@ -1950,7 +1950,7 @@ MonoBehaviour:
   footstepSource: {fileID: 894814554}
   footstepClip: {fileID: 8300000, guid: 8372184b0e9c2bf428bc14b94a132d30, type: 3}
   walkingClip: {fileID: 8300000, guid: 8372184b0e9c2bf428bc14b94a132d30, type: 3}
-  runningClip: {fileID: 8300000, guid: 8372184b0e9c2bf428bc14b94a132d30, type: 3}
+  runningClip: {fileID: 8300000, guid: af27c2e0cc979c3409b9d684d099d487, type: 3}
   minimumHorizontalSpeed: 0.35
   runningSpeedThreshold: 0.65
   loopClipDurationThreshold: 1.2
@@ -1971,7 +1971,7 @@ AudioSource:
   OutputAudioMixerGroup: {fileID: 0}
   m_audioClip: {fileID: 0}
   m_Resource: {fileID: 0}
-  m_PlayOnAwake: 1
+  m_PlayOnAwake: 0
   m_Volume: 1
   m_Pitch: 1
   Loop: 0

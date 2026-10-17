@@ -23,7 +23,9 @@ namespace GameJam.FireRescue.Editor
         private const string FireClipPath = "Assets/Art/sesdosya/fire.wav";
         private const string WindClipPath = "Assets/Art/sesdosya/wind.wav";
         private const string FootstepClipPath = "Assets/Art/sesdosya/walksound.mp3";
-        private const string LavaBubblingClipPath = "Assets/Art/sesdosya/volkanbubbling.wav";
+        private const string LavaBubblingClipPath = "Assets/Art/sesdosya/Loops/LavaFlowLoop.wav";
+        private const string RunningClipPath = "Assets/Art/sesdosya/Loops/BreathingRunningLoop.wav";
+        private const string SpiritClipPath = "Assets/Art/sesdosya/alevruhu.wav";
         private const string PlayerPainClipPath = "Assets/Art/sesdosya/acı cekmek.mp3";
         private const string CrowdPanicClipPath = "Assets/Art/sesdosya/crowdpanic.mp3";
         private const string TargetImpactClipPath = "Assets/Art/sesdosya/çarpmases.mp3";
@@ -35,6 +37,7 @@ namespace GameJam.FireRescue.Editor
         [MenuItem("ASHFALL/Integrate Audio Systems")]
         public static void IntegrateAudioSystems()
         {
+            if (EditorApplication.isPlayingOrWillChangePlaymode) throw new System.InvalidOperationException("Stop Play Mode before audio authoring.");
             AudioClip clickClip = AssetDatabase.LoadAssetAtPath<AudioClip>(ClickClipPath);
             AudioClip engineClip = AssetDatabase.LoadAssetAtPath<AudioClip>(EngineClipPath);
             AudioClip fireClip = AssetDatabase.LoadAssetAtPath<AudioClip>(FireClipPath);
@@ -231,7 +234,7 @@ namespace GameJam.FireRescue.Editor
             RenderTexture backgroundTexture = AssetDatabase.LoadAssetAtPath<RenderTexture>(BackgroundRenderTexturePath);
             if (videoPlayer != null && compatibleVideo != null && backgroundTexture != null)
             {
-                videoPlayer.clip = compatibleVideo;
+                if (!videoPlayer.clip) videoPlayer.clip = compatibleVideo;
                 videoPlayer.renderMode = VideoRenderMode.RenderTexture;
                 videoPlayer.targetTexture = backgroundTexture;
                 videoPlayer.playOnAwake = false;
@@ -304,18 +307,37 @@ namespace GameJam.FireRescue.Editor
             AudioClip bubblingClip, AudioClip painClip, AudioClip crowdClip, AudioClip impactClip, AudioClip sprayClip)
         {
             ConfigureWindAudio(scene, windClip, explosionClip);
+            AudioClip runningClip = AssetDatabase.LoadAssetAtPath<AudioClip>(RunningClipPath);
+            AudioClip spiritClip = AssetDatabase.LoadAssetAtPath<AudioClip>(SpiritClipPath);
+            WarnMissing(RunningClipPath, runningClip);
+            WarnMissing(SpiritClipPath, spiritClip);
+            foreach (LavaCreatureActor actor in Object.FindObjectsByType<LavaCreatureActor>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+            {
+                var audio = actor.GetComponent<LavaSpiritAudio>();
+                if (!audio) audio = actor.gameObject.AddComponent<LavaSpiritAudio>();
+                audio.clip = spiritClip;
+                actor.bulletImpactClip = impactClip;
+                EditorUtility.SetDirty(actor);
+                PrefabUtility.RecordPrefabInstancePropertyModifications(actor);
+                EditorUtility.SetDirty(audio);
+                PrefabUtility.RecordPrefabInstancePropertyModifications(audio);
+            }
 
             foreach (ProgressiveLavaFlow flow in Object.FindObjectsByType<ProgressiveLavaFlow>(FindObjectsInactive.Include, FindObjectsSortMode.None))
             {
                 if (!bubblingClip) continue;
-                AudioSource source = flow.GetComponent<AudioSource>();
-                if (!source) source = flow.gameObject.AddComponent<AudioSource>();
-                Configure3DSource(source, true, 0f, 8f, 70f);
                 SerializedObject flowData = new SerializedObject(flow);
+                var previous = flowData.FindProperty("flowAudioSource").objectReferenceValue as AudioSource;
+                Transform emitter = flow.transform.Find("Lava Flow Audio");
+                if (!emitter) { var child = new GameObject("Lava Flow Audio"); emitter = child.transform; emitter.SetParent(flow.transform, false); }
+                AudioSource source = emitter.GetComponent<AudioSource>();
+                if (!source) source = emitter.gameObject.AddComponent<AudioSource>();
+                Configure3DSource(source, true, 0f, 8f, 70f);
                 flowData.FindProperty("flowAudioSource").objectReferenceValue = source;
                 flowData.FindProperty("bubblingClip").objectReferenceValue = bubblingClip;
                 flowData.FindProperty("bubblingVolume").floatValue = .5f;
                 flowData.ApplyModifiedPropertiesWithoutUndo();
+                if (previous && previous != source && previous.gameObject == flow.gameObject) Object.DestroyImmediate(previous);
                 EditorUtility.SetDirty(flow);
                 EditorUtility.SetDirty(source);
                 PrefabUtility.RecordPrefabInstancePropertyModifications(flow);
@@ -394,7 +416,7 @@ namespace GameJam.FireRescue.Editor
                 movementData.FindProperty("footstepSource").objectReferenceValue = footstepSource;
                 movementData.FindProperty("footstepClip").objectReferenceValue = footstepClip;
                 movementData.FindProperty("walkingClip").objectReferenceValue = footstepClip;
-                movementData.FindProperty("runningClip").objectReferenceValue = footstepClip;
+                movementData.FindProperty("runningClip").objectReferenceValue = runningClip;
                 movementData.FindProperty("minimumHorizontalSpeed").floatValue = 0.35f;
                 movementData.FindProperty("runningSpeedThreshold").floatValue = 0.65f;
                 movementData.FindProperty("loopClipDurationThreshold").floatValue = 1.2f;
@@ -403,10 +425,8 @@ namespace GameJam.FireRescue.Editor
                 movementData.FindProperty("walkingStepInterval").floatValue = 0.48f;
                 movementData.FindProperty("runningStepInterval").floatValue = 0.32f;
                 movementData.ApplyModifiedPropertiesWithoutUndo();
-                // The authored movement loop sounds like a vehicle while sprinting.
-                // Keep it silent until a suitable footstep recording is provided.
-                movementAudio.enabled = false;
-                footstepSource.enabled = false;
+                movementAudio.enabled = true;
+                footstepSource.enabled = true;
                 footstepSource.playOnAwake = false;
                 footstepSource.clip = null;
                 EditorUtility.SetDirty(footstepSource);

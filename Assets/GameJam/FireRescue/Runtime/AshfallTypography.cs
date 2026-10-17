@@ -10,9 +10,14 @@ namespace Ashfall.UI
         public enum Role { Heading, Body, Label, Caption, Button, Number }
         public static readonly Color Paper = new Color(.93f, .915f, .88f);
         public static readonly Color Secondary = new Color(.74f, .735f, .71f);
-        static Font regular, semibold;
-        public static Font Regular => regular ? regular : (regular = Resources.Load<Font>("ASHFALL/UI/Fonts/SourceSans3-Regular"));
-        public static Font Semibold => semibold ? semibold : (semibold = Resources.Load<Font>("ASHFALL/UI/Fonts/SourceSans3-Semibold"));
+        static Font modular;
+
+        // Modular is the project's single UI face.  It intentionally serves both weights:
+        // the authored size, colour and spacing establish hierarchy without introducing a
+        // second, visually unrelated font family.
+        public static Font Regular => Modular;
+        public static Font Semibold => Modular;
+        public static Font Modular => modular ? modular : (modular = Resources.Load<Font>("ASHFALL/UI/Fonts/Modular"));
 
         public static Role Infer(Text label)
         {

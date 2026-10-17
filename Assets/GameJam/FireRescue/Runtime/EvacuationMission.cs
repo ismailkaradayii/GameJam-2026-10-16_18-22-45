@@ -92,6 +92,13 @@ namespace GameJam.FireRescue
         void UpdateCrowdPanicAudio()
         {
             if (!crowdSource || !crowdPanicLoop) return;
+            if (Time.timeScale <= 0f)
+            {
+                if (!crowdPaused && crowdSource.isPlaying) crowdSource.Pause();
+                crowdPaused = true;
+                return;
+            }
+            if (crowdPaused) { crowdSource.UnPause(); crowdPaused = false; }
             int activeCount = 0;
             Vector3 center = Vector3.zero;
             if (IsActive && residents != null)
@@ -104,13 +111,6 @@ namespace GameJam.FireRescue
                 crowdSource.transform.position = center / activeCount;
                 if (!crowdSource.isPlaying) crowdSource.Play();
             }
-            if (Time.timeScale <= 0f)
-            {
-                if (!crowdPaused && crowdSource.isPlaying) crowdSource.Pause();
-                crowdPaused = true;
-                return;
-            }
-            if (crowdPaused) { crowdSource.UnPause(); crowdPaused = false; }
             float target = shouldPlay ? crowdPanicVolume * Mathf.Clamp01(PlayerPrefs.GetFloat("Ashfall.SfxVolume", 1f)) : 0f;
             crowdSource.volume = Mathf.MoveTowards(crowdSource.volume, target, Mathf.Max(.01f, crowdFadeSpeed) * Time.deltaTime);
             if (!shouldPlay && crowdSource.volume <= .001f && crowdSource.isPlaying) crowdSource.Stop();
@@ -119,18 +119,18 @@ namespace GameJam.FireRescue
         {
             if (IsActive || IsComplete) return;
             IsActive = true;
-            Say("MERKEZ: Volkan hareketlendi! Evlerdeki " + TotalCount + " kişiyi sığınağa götür.", 7f);
+            Say("DISPATCH: The volcano is active! Lead the " + TotalCount + " villagers to shelter.", 7f);
         }
         public bool Shout()
         {
             if (!IsActive || IsComplete || !PlayerTransform || Time.timeScale <= 0f || (player && player.GameplaySuspended) || Time.time < nextShout) return false;
-            if (player.IsDriving) { Say("Seslenmek için F ile araçtan in.", 3f); return false; }
+            if (player.IsDriving) { Say("Press F to leave the vehicle before calling out.", 3f); return false; }
             nextShout = Time.time + Mathf.Max(1f, shoutCooldown);
             int count = 0;
             foreach (var resident in residents)
                 if (resident && resident.houseExit && EvacuationResident.FlatDistance(PlayerTransform.position, resident.houseExit.position) <= shoutRadius && resident.CallOutside()) count++;
-            Say(count > 0 ? "SEN: Herkes dışarıya! Çabuk, beni takip edin!\n" + count + " kişi çağrını duydu." :
-                CalledCount < TotalCount ? "SEN: Herkes dışarıya!\nDiğer evlere yaklaşarak tekrar seslen." : "SEN: Beni takip edin! Sığınağa gidiyoruz!", 4.5f);
+            Say(count > 0 ? "YOU: Everyone outside! Follow me!\n" + count + " villagers heard your call." :
+                CalledCount < TotalCount ? "YOU: Everyone outside!\nMove closer to the other houses and call again." : "YOU: Follow me to the shelter!", 4.5f);
             return true;
         }
         void Say(string text, float seconds) { subtitle = text; subtitleUntil = Time.time + seconds; }
@@ -178,9 +178,9 @@ namespace GameJam.FireRescue
             if (RescuedCount == TotalCount && TotalCount > 0)
             {
                 IsComplete = true; IsActive = false;
-                Say("MERKEZ: " + TotalCount + " kişi de güvende!\nŞimdi itfaiyenin su deposunu gölden doldur.", 8f);
+                Say("DISPATCH: All " + TotalCount + " villagers are safe!\nNow fill the truck's tank at the lake.", 8f);
             }
-            else Say("Sığınağa ulaştı: " + RescuedCount + " / " + TotalCount, 3f);
+            else Say("Reached shelter: " + RescuedCount + " / " + TotalCount, 3f);
         }
         void OnGUI()
         {
@@ -205,14 +205,14 @@ namespace GameJam.FireRescue
             {
                 GUI.color = new Color(.035f, .07f, .065f, .92f); GUI.DrawTexture(new Rect(x,y,316,146),Texture2D.whiteTexture);
                 GUI.color = IsComplete ? new Color(.3f,1f,.65f) : new Color(1f,.75f,.3f);
-                GUI.Label(new Rect(x+12,y+8,292,24),IsComplete ? "TAHLİYE TAMAMLANDI" : "GÖREV · HALKI TAHLİYE ET",titleStyle);
+                GUI.Label(new Rect(x+12,y+8,292,24),IsComplete ? "EVACUATION COMPLETE" : "OBJECTIVE · EVACUATE",titleStyle);
                 GUI.color=Color.white;
-                GUI.Label(new Rect(x+12,y+38,292,44),"Sığınakta: "+RescuedCount+" / "+TotalCount+"    Çağrılan: "+CalledCount+" / "+TotalCount+"\n"+
-                    (IsComplete ? "Herkes güvende. Su deposunu doldur." : CalledCount<TotalCount ? "Evlerin yanına git ve halka seslen." : "Grubu SHELTER tabelalı sığınağa götür."),bodyStyle);
+                GUI.Label(new Rect(x+12,y+38,292,44),"Sheltered: "+RescuedCount+" / "+TotalCount+"    Called: "+CalledCount+" / "+TotalCount+"\n"+
+                    (IsComplete ? "Everyone is safe. Fill the water tank." : CalledCount<TotalCount ? "Go to the houses and call out." : "Lead the group to the shelter."),bodyStyle);
                 GUI.color=new Color(.15f,.23f,.24f);GUI.DrawTexture(new Rect(x+12,y+87,292,6),Texture2D.whiteTexture);
                 GUI.color=new Color(.2f,.85f,.6f);GUI.DrawTexture(new Rect(x+12,y+87,292*RescuedCount/Mathf.Max(1,TotalCount),6),Texture2D.whiteTexture);
                 GUI.color=Color.white;
-                string action = IsComplete ? "Volkan uyarısını takip et." : player && player.IsDriving ? "F: Araçtan in ve halka seslen" : CooldownRemaining>0 ? "Tekrar seslen: "+Mathf.CeilToInt(CooldownRemaining)+" sn" : "Q: “Herkes dışarıya!” diye bağır";
+                string action = IsComplete ? "Watch for the volcano warning." : player && player.IsDriving ? "F: Exit and call villagers" : CooldownRemaining>0 ? "Call again in: "+Mathf.CeilToInt(CooldownRemaining)+" sec" : "Q: Call villagers";
                 GUI.Label(new Rect(x+12,y+102,292,40),action+(IsComplete?"":"\n"+DestinationHint()),bodyStyle);
                 if(Time.time<subtitleUntil)
                 {
@@ -224,10 +224,10 @@ namespace GameJam.FireRescue
             if(IsActive && player && player.viewCamera)
             {
                 placedMarkerRects.Clear();
-                if(shelterApproach) Marker(shelterApproach.position+Vector3.up*3,"SIĞINAK",new Color(.35f,1,.7f),scale,w,h);
+                if(shelterApproach) Marker(shelterApproach.position+Vector3.up*3,"SHELTER",new Color(.35f,1,.7f),scale,w,h);
                 var seen=new HashSet<Transform>();
                 foreach(var r in residents) if(r && !r.IsCalled && r.houseExit && seen.Add(r.houseExit))
-                    Marker(r.houseExit.position+Vector3.up*4,"TAHLİYE",new Color(1,.8f,.35f),scale,w,h);
+                    Marker(r.houseExit.position+Vector3.up*4,"EVACUATE",new Color(1,.8f,.35f),scale,w,h);
             }
             GUI.matrix=oldMatrix;GUI.color=oldColor;
         }
@@ -273,8 +273,8 @@ namespace GameJam.FireRescue
             Vector3 delta=Vector3.ProjectOnPlane(target.position-PlayerTransform.position,Vector3.up);
             Vector3 forward=player.viewCamera?player.viewCamera.transform.forward:PlayerTransform.forward;
             float angle=Vector3.SignedAngle(Vector3.ProjectOnPlane(forward,Vector3.up),delta,Vector3.up);
-            string direction=Mathf.Abs(angle)>135?"Arkanda":angle>25?"Sağında":angle< -25?"Solunda":"Önünde";
-            return (house?"En yakın ev: ":"Sığınak: ")+Mathf.RoundToInt(delta.magnitude)+" m · "+direction;
+            string direction=Mathf.Abs(angle)>135?"Behind":angle>25?"Right":angle< -25?"Left":"Ahead";
+            return (house?"Nearest house: ":"Shelter: ")+Mathf.RoundToInt(delta.magnitude)+" m · "+direction;
         }
     }
 }

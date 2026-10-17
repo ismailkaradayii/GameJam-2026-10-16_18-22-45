@@ -55,6 +55,7 @@ namespace GameJam.FireRescue
         public Button resumeButton, pauseMenuButton, victoryMenuButton;
         public Button outcomeRestartButton;
         public Button pauseSettingsButton, pauseHowToPlayButton, restartButton, quitButton, settingsBackButton, howToPlayBackButton;
+        [SerializeField] AudioClip pauseClickClip;
         public Text victoryTitleText, victoryDetailText, victoryStatsText;
 
         [Header("Pause settings")]
@@ -76,6 +77,16 @@ namespace GameJam.FireRescue
             if (!missionDirector) missionDirector = FindFirstObjectByType<VolcanoMissionDirector>();
             if (!survivalObjective) survivalObjective = FindFirstObjectByType<VolcanoSurvivalObjective>();
             if (!evacuation && missionDirector) evacuation = missionDirector.evacuation;
+            if (pauseClickClip) pauseClickClip.LoadAudioData();
+            // Register the sound before actions that may immediately load another scene.
+            foreach (Button button in MenuButtons())
+            {
+                if (!button) continue;
+                Listen(button, PlayMenuClick);
+                var pointerAudio = button.GetComponent<Ashfall.MainMenu.AshfallMenuButtonPointerAudio>();
+                if (!pointerAudio) pointerAudio = button.gameObject.AddComponent<Ashfall.MainMenu.AshfallMenuButtonPointerAudio>();
+                pointerAudio.Configure(pauseClickClip, .8f, this);
+            }
             Listen(resumeButton, Resume);
             Listen(pauseMenuButton, ReturnToMenu);
             Listen(victoryMenuButton, ReturnToMenu);
@@ -107,6 +118,7 @@ namespace GameJam.FireRescue
 
         void OnDestroy()
         {
+            foreach (Button button in MenuButtons()) Unlisten(button, PlayMenuClick);
             Unlisten(resumeButton, Resume); Unlisten(pauseMenuButton, ReturnToMenu); Unlisten(victoryMenuButton, ReturnToMenu);
             Unlisten(outcomeRestartButton, RestartMission);
             Unlisten(pauseSettingsButton, OpenSettings); Unlisten(pauseHowToPlayButton, OpenHowToPlay);
@@ -118,6 +130,15 @@ namespace GameJam.FireRescue
             if (sensitivitySlider) sensitivitySlider.onValueChanged.RemoveListener(SetSensitivity);
             if (qualityDropdown) qualityDropdown.onValueChanged.RemoveListener(SetQuality);
             if (fullscreenToggle) fullscreenToggle.onValueChanged.RemoveListener(SetFullscreen);
+        }
+
+        Button[] MenuButtons() => new[] { resumeButton, pauseMenuButton, pauseSettingsButton,
+            pauseHowToPlayButton, restartButton, quitButton, settingsBackButton, howToPlayBackButton,
+            victoryMenuButton, outcomeRestartButton };
+
+        void PlayMenuClick()
+        {
+            if (isActiveAndEnabled) Ashfall.MainMenu.AshfallMenuAudioFeedback.Play(pauseClickClip, .8f);
         }
 
         void Resume() { if (flow) flow.Resume(); }
@@ -136,7 +157,7 @@ namespace GameJam.FireRescue
 
         void OnProgress(int saved, int total)
         {
-            if (toastText) toastText.text = "Ev kurtarıldı  ·  " + saved + " / " + total;
+            if (toastText) toastText.text = "House saved  ·  " + saved + " / " + total;
             toastUntil = Time.unscaledTime + 3.2f;
         }
 
@@ -148,11 +169,11 @@ namespace GameJam.FireRescue
             bool playing = flow.State == RescueGameFlow.GameState.Playing;
             int standing = 0, burning = 0;
             foreach (var house in flow.targetBuildings) if (house) { if (!house.IsBurnedOut) standing++; if (house.IsBurning) burning++; }
-            if (objectiveText) objectiveText.text = "Ayaktaki evler   " + standing + " / " + Mathf.Max(1, flow.TargetCount);
+            if (objectiveText) objectiveText.text = "Houses standing   " + standing + " / " + Mathf.Max(1, flow.TargetCount);
             if (missionDirector && (!objectiveSeen || previousPhase != missionDirector.Phase))
             {
                 if (objectiveSeen && !missionDirector.EruptionTriggered && missionDirector.Phase != VolcanoMissionDirector.MissionPhase.Weapon)
-                { if (toastText) toastText.text = "Görev tamamlandı"; toastUntil = Time.unscaledTime + 2.2f; }
+                { if (toastText) toastText.text = "Objective complete"; toastUntil = Time.unscaledTime + 2.2f; }
                 previousPhase = missionDirector.Phase; objectiveSeen = true; objectiveChangedAt = Time.unscaledTime;
             }
             if (objectiveGroup) objectiveGroup.alpha = Mathf.Lerp(.3f, 1f, Mathf.Clamp01((Time.unscaledTime - objectiveChangedAt) / .35f));
@@ -172,7 +193,7 @@ namespace GameJam.FireRescue
             if (waterText) waterText.text = Mathf.CeilToInt(hose.TankLitres) + " / " + Mathf.RoundToInt(hose.tankCapacityLitres) + " L";
             if (waterFill) waterFill.fillAmount = hose.Tank01;
             if (pumpText) pumpText.text = Ashfall.UI.AshfallTypography.NaturalCase(player.WaterStatus);
-            if (speedText) speedText.text = player.IsDriving && drive ? Mathf.RoundToInt(drive.SpeedKph) + " km/sa" : "Yaya";
+            if (speedText) speedText.text = player.IsDriving && drive ? Mathf.RoundToInt(drive.SpeedKph) + " km/h" : "On foot";
             bool showHealth = playing && vitals && vitals.Health < vitals.maximumHealth - .1f;
             if (healthPanel && healthPanel.activeSelf != showHealth) healthPanel.SetActive(showHealth);
             if (showHealth)
@@ -183,7 +204,7 @@ namespace GameJam.FireRescue
             UpdateQuest();
             if (lowWaterWarning) lowWaterWarning.SetActive(playing && player.IsDriving && hose.TankLitres < 200f);
             bool empty = hose.TankLitres <= 0f;
-            if (lowWaterText) lowWaterText.text = empty ? "Depo boş  ·  gölden doldur" : "Su az  ·  gölden doldur";
+            if (lowWaterText) lowWaterText.text = empty ? "Tank empty  ·  refill at lake" : "Low water  ·  refill at lake";
             if (lowWaterBackground) lowWaterBackground.color = empty ? new Color(.5f, .065f, .035f, .97f) : new Color(.4f, .12f, .04f, .95f);
             if (promptText)
             {
@@ -229,27 +250,27 @@ namespace GameJam.FireRescue
                 int saved = 0;
                 foreach (var house in flow.targetBuildings) if (house && !house.IsBurnedOut) saved++;
                 if (victoryTitleText) victoryTitleText.text = "Final Result: " + (won ? "SUCCESS" : "FAILED");
-                if (victoryDetailText) victoryDetailText.text = won ? "Alev dalgaları durduruldu. Köy korundu." :
-                    saved == 0 ? "Tüm evler kül oldu. Köy kaybedildi. Evler yanarken suyla söndürerek dayanıklılıklarını koru." : "Köyü kurtarmak için yeniden dene.";
+                if (victoryDetailText) victoryDetailText.text = won ? "The spirits were stopped. The village is safe." :
+                    saved == 0 ? "All houses burned down. Extinguish fires before the buildings collapse." : "Try again to save the village.";
                 if (victoryStatsText) victoryStatsText.text = "Saved Villagers   " + (evacuation ? evacuation.RescuedCount + " / " + evacuation.TotalCount : "0") +
                     "\nHouses Saved   " + saved + " / " + flow.TargetCount + "\nFires Extinguished   " + flow.RescuedCount;
                 if (outcomeRestartButton) outcomeRestartButton.gameObject.SetActive(true);
                 return;
             }
             bool survivalWon = survivalFinished && survivalObjective.State == VolcanoSurvivalObjective.MissionState.Won;
-            if (victoryTitleText) victoryTitleText.text = survivalFinished ? (survivalWon ? "Bölge güvende" : "Görev başarısız") : "Kasaba güvende";
+            if (victoryTitleText) victoryTitleText.text = survivalFinished ? (survivalWon ? "Area secure" : "Mission failed") : "Town secure";
             if (victoryDetailText) victoryDetailText.text = survivalFinished
-                ? (survivalWon ? "Alev dalgaları durduruldu. İtfaiye aracına başarıyla dönüldü." : "Canın tükendi. Hazırlanıp kasabayı yeniden savun.")
-                : "Beş ev de kurtarıldı. Tahliye edilen halk güvende.";
+                ? (survivalWon ? "The spirits were stopped and you returned to the truck." : "You ran out of health. Prepare and defend the town again.")
+                : "All five houses were saved. The evacuees are safe.";
             if (victoryStatsText)
             {
                 if (survivalFinished && survivalObjective.encounter)
                 {
                     var encounter = survivalObjective.encounter;
-                    victoryStatsText.text = "Durdurulan alev ruhu  " + encounter.DefeatedCount + " / " + encounter.PlannedCount +
-                        "     ·     Dalga  " + encounter.WaveNumber + " / " + encounter.WaveCount;
+                    victoryStatsText.text = "Spirits defeated  " + encounter.DefeatedCount + " / " + encounter.PlannedCount +
+                        "     ·     Wave  " + encounter.WaveNumber + " / " + encounter.WaveCount;
                 }
-                else victoryStatsText.text = "Kurtarılan ev  " + (flow ? flow.RescuedCount : 0) + " / " + (flow ? flow.TargetCount : 0);
+                else victoryStatsText.text = "Houses saved  " + (flow ? flow.RescuedCount : 0) + " / " + (flow ? flow.TargetCount : 0);
             }
             if (outcomeRestartButton) outcomeRestartButton.gameObject.SetActive(survivalFinished);
             if (victoryMenuButton) victoryMenuButton.GetComponent<RectTransform>().anchoredPosition = survivalFinished ? new Vector2(400, -340) : new Vector2(170, -340);
@@ -276,36 +297,36 @@ namespace GameJam.FireRescue
             VolcanoMissionDirector.MissionPhase phase = missionDirector ? missionDirector.Phase : VolcanoMissionDirector.MissionPhase.Defend;
             if (evacuation && !evacuation.IsComplete)
             {
-                questTitleText.text = "Halkı tahliye et";
-                questBodyText.text = "Sığınakta  " + evacuation.RescuedCount + " / " + evacuation.TotalCount +
-                    "     çağrılan  " + evacuation.CalledCount + " / " + evacuation.TotalCount + "\n" +
-                    (evacuation.CalledCount < evacuation.TotalCount ? "Evlerin yanına git ve Q ile halka seslen." : "Grubu SHELTER tabelalı sığınağa götür.");
-                questHintText.text = player.IsDriving ? "F  Araçtan in" : evacuation.CooldownRemaining > 0f ? "Q  Tekrar seslen  ·  " + Mathf.CeilToInt(evacuation.CooldownRemaining) + " sn" : "Q  Herkes dışarıya!  ·  " + evacuation.DestinationHintForHud;
+                questTitleText.text = "Evacuate the villagers";
+                questBodyText.text = "Sheltered  " + evacuation.RescuedCount + " / " + evacuation.TotalCount +
+                    "     Called  " + evacuation.CalledCount + " / " + evacuation.TotalCount + "\n" +
+                    (evacuation.CalledCount < evacuation.TotalCount ? "Go to the houses and call out with Q." : "Lead the group to the shelter.");
+                questHintText.text = player.IsDriving ? "F  Exit vehicle" : evacuation.CooldownRemaining > 0f ? "Q  Call again  ·  " + Mathf.CeilToInt(evacuation.CooldownRemaining) + " sec" : "Q  Call villagers  ·  " + evacuation.DestinationHintForHud;
                 questFill.fillAmount = evacuation.TotalCount > 0 ? (float)evacuation.RescuedCount / evacuation.TotalCount : 0f;
                 return;
             }
             if (phase == VolcanoMissionDirector.MissionPhase.Refill)
             {
-                questTitleText.text = "Su deposunu doldur";
-                questBodyText.text = "Tahliye tamamlandı  ·  " + (evacuation ? evacuation.TotalCount : 7) + " / " + (evacuation ? evacuation.TotalCount : 7) + " kişi güvende.\nHortumu göle indir ve su pompasını çalıştır.";
-                questHintText.text = hose.IsDeployed ? "P  Pompayı aç / kapat   ·   R  Hortumu topla" : "F  Araçtan in   ·   E  Arka hortumu al";
+                questTitleText.text = "Fill the water tank";
+                questBodyText.text = "Evacuation complete  ·  " + (evacuation ? evacuation.TotalCount : 7) + " / " + (evacuation ? evacuation.TotalCount : 7) + " safe.\nLower the hose into the lake and start the pump.";
+                questHintText.text = hose.IsDeployed ? "P  Toggle pump   ·   R  Retrieve hose" : "F  Exit vehicle   ·   E  Take hose";
                 questFill.fillAmount = hose.Tank01;
                 return;
             }
             if (phase <= VolcanoMissionDirector.MissionPhase.Cinematic)
             {
-                questTitleText.text = "Volkan uyanıyor";
-                questBodyText.text = eruption && eruption.Stage == VolcanoEruptionSequence.EruptionStage.Warning ? "Yer sarsılıyor. Patlama yaklaşıyor." : "Tahliye bitti. Kasabayı savunmaya hazırlan.";
-                questHintText.text = eruption && eruption.Stage == VolcanoEruptionSequence.EruptionStage.Waiting ? "Patlamaya  " + Mathf.CeilToInt(eruption.Countdown) + " sn" : "Tehlikeli bölgeden uzaklaş.";
+                questTitleText.text = "The volcano awakens";
+                questBodyText.text = eruption && eruption.Stage == VolcanoEruptionSequence.EruptionStage.Warning ? "The ground is shaking. An eruption is near." : "Evacuation complete. Prepare to defend the town.";
+                questHintText.text = eruption && eruption.Stage == VolcanoEruptionSequence.EruptionStage.Waiting ? "Eruption in  " + Mathf.CeilToInt(eruption.Countdown) + " sec" : "Leave the danger zone.";
                 questFill.fillAmount = flow.RescuedCount / 5f;
                 return;
             }
             int burning, lost; float nextCollapse;
             CountHouses(out burning, out lost, out nextCollapse);
-            questTitleText.text = "Kasabayı savun";
-            questBodyText.text = "Kurtarılan ev  " + flow.RescuedCount + " / " + Mathf.Max(1, flow.TargetCount) + "\n" +
-                (burning > 0 ? "Yanan ev: " + burning + "  ·  Kül olan: " + lost + "  ·  En acil: " + Mathf.CeilToInt(nextCollapse) + " sn" : "Yanan evleri ve yaklaşan lavları suyla soğut.");
-            questHintText.text = player.IsDriving ? "Fareyle nişan al   ·   Sağ tık basılı: Su püskürt" : "F  İtfaiye aracına bin   ·   E  Etkileşim";
+            questTitleText.text = "Defend the town";
+            questBodyText.text = "Houses saved  " + flow.RescuedCount + " / " + Mathf.Max(1, flow.TargetCount) + "\n" +
+                (burning > 0 ? "Burning: " + burning + "  ·  Lost: " + lost + "  ·  Next collapse: " + Mathf.CeilToInt(nextCollapse) + " sec" : "Cool burning houses and approaching lava with water.");
+            questHintText.text = player.IsDriving ? "Aim with mouse   ·   Hold right click to spray" : "F  Enter fire truck   ·   E  Interact";
             questFill.fillAmount = flow.TargetCount > 0 ? (float)flow.RescuedCount / flow.TargetCount : 0f;
         }
 
@@ -338,18 +359,18 @@ namespace GameJam.FireRescue
             {
                 var encounter = survivalObjective.encounter;
                 eruptionText.text = survivalObjective.State == VolcanoSurvivalObjective.MissionState.ReturnToTruck
-                    ? "Son adım  ·  Araca dön\nF ile sürücü kapısından bin"
-                    : "Alev dalgası  " + Mathf.Max(1, encounter.WaveNumber) + " / " + encounter.WaveCount +
-                      "\nSahada " + encounter.AliveCount + "  ·  Durdurulan " + encounter.DefeatedCount + " / " + encounter.PlannedCount;
+                    ? "Final step  ·  Return to the truck\nPress F at the driver's door"
+                    : "Spirit wave  " + Mathf.Max(1, encounter.WaveNumber) + " / " + encounter.WaveCount +
+                      "\nActive " + encounter.AliveCount + "  ·  Defeated " + encounter.DefeatedCount + " / " + encounter.PlannedCount;
                 return;
             }
             switch (eruption.Stage)
             {
                 case VolcanoEruptionSequence.EruptionStage.Waiting:
-                    eruptionText.text = "Volkan  ·  hazırlık\n" + (missionDirector && missionDirector.Phase == VolcanoMissionDirector.MissionPhase.Refill ? "Depo dolunca volkan uyanacak" : "Tahliye ve hazırlık sürüyor"); break;
-                case VolcanoEruptionSequence.EruptionStage.Warning: eruptionText.text = "Yer sarsılıyor\nPatlama yaklaşıyor"; break;
-                case VolcanoEruptionSequence.EruptionStage.Erupting: eruptionText.text = "Volkan patladı\nKasabayı koru"; break;
-                default: eruptionText.text = "Lav ilerliyor\nYanan evleri suyla söndür"; break;
+                    eruptionText.text = "Volcano  ·  preparation\n" + (missionDirector && missionDirector.Phase == VolcanoMissionDirector.MissionPhase.Refill ? "Fill the tank" : "Evacuation in progress"); break;
+                case VolcanoEruptionSequence.EruptionStage.Warning: eruptionText.text = "The ground is shaking\nEruption approaching"; break;
+                case VolcanoEruptionSequence.EruptionStage.Erupting: eruptionText.text = "The volcano has erupted\nProtect the town"; break;
+                default: eruptionText.text = "Lava advancing\nExtinguish burning houses"; break;
             }
         }
 
@@ -361,8 +382,8 @@ namespace GameJam.FireRescue
             if (targetGroup) targetGroup.SetActive(showTarget);
             if (showTarget)
             {
-                if (targetText) targetText.text = target.IsRescued ? "Ev güvende" : target.IsBurning ?
-                    (cannon.IsSpraying && cannon.HitFire == target ? "Yangın söndürülüyor" : "Yanan ev  ·  söndürme ilerlemesi") : "Ev henüz yanmıyor";
+                if (targetText) targetText.text = target.IsRescued ? "House safe" : target.IsBurning ?
+                    (cannon.IsSpraying && cannon.HitFire == target ? "Extinguishing fire" : "House on fire  ·  progress") : "House is not burning";
                 if (targetFill) targetFill.fillAmount = target.IsRescued ? 1f : target.IsBurning ? 1f - target.Heat : 0f;
             }
             if (!impactReticle) return;

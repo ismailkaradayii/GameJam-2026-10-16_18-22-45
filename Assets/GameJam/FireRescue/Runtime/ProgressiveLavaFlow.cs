@@ -84,8 +84,13 @@ namespace GameJam.FireRescue
         {
             if (IsInitialized)
                 return;
-            if (!flowAudioSource) flowAudioSource = GetComponent<AudioSource>();
-            if (!flowAudioSource) flowAudioSource = gameObject.AddComponent<AudioSource>();
+            if (!flowAudioSource)
+            {
+                var emitter = transform.Find("Lava Flow Audio");
+                if (!emitter) { var child = new GameObject("Lava Flow Audio"); emitter = child.transform; emitter.SetParent(transform, false); }
+                flowAudioSource = emitter.GetComponent<AudioSource>();
+                if (!flowAudioSource) flowAudioSource = emitter.gameObject.AddComponent<AudioSource>();
+            }
             flowAudioSource.playOnAwake = false;
             flowAudioSource.loop = true;
             flowAudioSource.spatialBlend = 1f;
@@ -287,6 +292,7 @@ namespace GameJam.FireRescue
         private void Update()
         {
             if (!flowAudioSource || !bubblingClip) return;
+            if (IsInitialized && flowAudioSource.transform != transform) flowAudioSource.transform.position = FrontPosition;
             if (Time.timeScale <= 0f)
             {
                 if (!audioPaused && flowAudioSource.isPlaying) flowAudioSource.Pause();
