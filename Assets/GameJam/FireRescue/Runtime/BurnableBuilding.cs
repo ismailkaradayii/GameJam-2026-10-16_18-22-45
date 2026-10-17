@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System;
 using UnityEngine;
 
 namespace GameJam.FireRescue
@@ -27,6 +28,7 @@ namespace GameJam.FireRescue
         private float smokeEmission;
         private float lightIntensity;
         private static readonly List<BurnableBuilding> Buildings = new List<BurnableBuilding>();
+        public static event Action FireStateChanged;
 
         public float Heat => heat;
         public bool IsBurning => heat > 0f;
@@ -34,7 +36,11 @@ namespace GameJam.FireRescue
         public static IReadOnlyList<BurnableBuilding> ActiveBuildings => Buildings;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-        private static void ResetBuildings() => Buildings.Clear();
+        private static void ResetBuildings()
+        {
+            Buildings.Clear();
+            FireStateChanged = null;
+        }
 
         private void Awake()
         {
@@ -55,11 +61,13 @@ namespace GameJam.FireRescue
             if (!Buildings.Contains(this))
                 Buildings.Add(this);
             UpdateVisuals();
+            FireStateChanged?.Invoke();
         }
 
         private void OnDisable()
         {
             Buildings.Remove(this);
+            FireStateChanged?.Invoke();
             StopParticles(flames, true);
             StopParticles(smoke, true);
             if (fireLight != null)
@@ -75,6 +83,7 @@ namespace GameJam.FireRescue
                 return;
             heat = 1f;
             UpdateVisuals();
+            FireStateChanged?.Invoke();
         }
 
         public void ApplyWater(float litres)
@@ -89,6 +98,7 @@ namespace GameJam.FireRescue
             if (wasBurning && !IsBurning)
                 cooldownSecondsRemaining = Mathf.Max(cooldownSecondsRemaining, extinguishedCooldownSeconds);
             UpdateVisuals();
+            if (wasBurning) FireStateChanged?.Invoke();
         }
 
         /// <summary>Explicit time step for deterministic checks of wet protection and reignition.</summary>

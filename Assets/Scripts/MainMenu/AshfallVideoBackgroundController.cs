@@ -47,6 +47,9 @@ namespace Ashfall.MainMenu
             }
 
             videoPlayer.playOnAwake = false;
+            // The menu animation is intentionally silent; all menu audio comes from the audio settings system.
+            videoPlayer.audioOutputMode = VideoAudioOutputMode.None;
+            videoPlayer.controlledAudioTrackCount = 0;
             // Native looping switches frames immediately. We restart manually to blend the seam.
             videoPlayer.isLooping = false;
             videoPlayer.waitForFirstFrame = true;
@@ -136,8 +139,9 @@ namespace Ashfall.MainMenu
 
         private void ShowFallback(string reason)
         {
-            if (failed || hasDisplayedFrame) return;
+            if (failed) return;
             failed = true;
+            if (videoPlayer != null && videoPlayer.isPlaying) videoPlayer.Stop();
             if (videoBackground != null) videoBackground.enabled = false;
             if (loopBlendImage != null) loopBlendImage.enabled = false;
             Debug.LogWarning($"ASHFALL menu video could not be displayed. The existing dark camera background remains visible. {reason}", this);
