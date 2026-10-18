@@ -3,7 +3,7 @@ using UnityEngine.UI;
 
 namespace GameJam.FireRescue
 {
-    /// <summary>Glowing circles mark destinations; road arrows guide the truck between them.</summary>
+    /// <summary>Glowing destinations and a truck-sized lake parking bay, connected by road arrows.</summary>
     [DisallowMultipleComponent, DefaultExecutionOrder(270)]
     public sealed class ObjectiveNavigation : MonoBehaviour
     {
@@ -39,6 +39,8 @@ namespace GameJam.FireRescue
         Transform presentedTarget;
         bool presentationVisible;
         Terrain[] terrains;
+        FireTruckDrive parkingTruck;
+        Vector2 parkingHalfSize = new Vector2(6.5f, 18f);
         public Transform CurrentTarget { get; private set; }
         public string CurrentLabel { get; private set; }
         readonly Vector3[] ringPoints = new Vector3[65];
@@ -91,10 +93,27 @@ namespace GameJam.FireRescue
             terrains = Terrain.activeTerrains;
             if (ring)
             {
+                bool alarmTarget = mission.villageAlarm && CurrentTarget == mission.villageAlarm.contactPoint;
+                Vector3 ringOrigin = world;
+                if (alarmTarget)
+                {
+                    var housing = mission.villageAlarm.GetComponent<Collider>();
+                    ringOrigin.y = housing && housing.enabled ? housing.bounds.min.y : world.y - .55f;
+                    if (housing && housing.enabled)
+                        radius = new Vector2(housing.bounds.extents.x, housing.bounds.extents.z).magnitude + .035f;
+                }
                 Vector3[] points = drivingArrow ? arrowPoints : ringPoints;
                 Vector3 origin = player.IsDriving && player.drive ? player.drive.transform.position : player.transform.position;
                 Vector3 forward = Vector3.ProjectOnPlane(world - origin, Vector3.up).normalized;
                 if (forward.sqrMagnitude < .01f) forward = Vector3.ProjectOnPlane(player.viewCamera.transform.forward, Vector3.up).normalized;
+                bool lakeParking = mission.fillStation && CurrentTarget == mission.fillStation.transform;
+                if (lakeParking)
+                {
+                    // The bay is fixed to the authored station, never to the approaching truck's heading.
+                    forward = Vector3.ProjectOnPlane(CurrentTarget.forward, Vector3.up).normalized;
+                    if (forward.sqrMagnitude < .01f) forward = Vector3.forward;
+                    MeasureParkingBay(player.drive);
+                }
                 if (drivingArrow)
                 {
                     guideForward = resetPresentation || guideForward.sqrMagnitude < .01f ? forward :
@@ -109,7 +128,12 @@ namespace GameJam.FireRescue
                     int edge = Mathf.Min(i / ArrowEdgeSteps, arrowOutline.Length - 2);
                     Vector2 outline = Vector2.Lerp(arrowOutline[edge], arrowOutline[edge + 1], (i - edge * ArrowEdgeSteps) / (float)ArrowEdgeSteps);
                     Vector3 p = drivingArrow ? world + (right * outline.x + forward * outline.y) * arrowSize :
-                        world + new Vector3(Mathf.Cos(angle), 0, Mathf.Sin(angle)) * radius;
+                        ringOrigin + new Vector3(Mathf.Cos(angle), 0, Mathf.Sin(angle)) * radius;
+                    if (lakeParking)
+                    {
+                        Vector2 corner = ParkingOutline(i, parkingHalfSize);
+                        p = world + right * corner.x + forward * corner.y;
+                    }
                     if (CurrentTarget != (mission.weaponPickup ? mission.weaponPickup.transform : null) &&
                         CurrentTarget != (mission.story ? mission.story.windowStop : null) &&
                         CurrentTarget != (mission.villageAlarm ? mission.villageAlarm.contactPoint : null))
@@ -118,7 +142,7 @@ namespace GameJam.FireRescue
                                 p.x <= terrain.transform.position.x + terrain.terrainData.size.x && p.z <= terrain.transform.position.z + terrain.terrainData.size.z)
                                 p.y = terrain.SampleHeight(p) + terrain.transform.position.y;
                     // Dense edges follow the road surface instead of cutting through crests between the eight corners.
-                    points[i] = p + Vector3.up * (drivingArrow ? .4f : .18f);
+                    points[i] = p + Vector3.up * (drivingArrow ? .4f : alarmTarget ? .015f : .18f);
                 }
                 ring.widthMultiplier = radius < 1 ? .08f : .25f;
                 ring.positionCount = points.Length; ring.SetPositions(points);
@@ -181,6 +205,49 @@ namespace GameJam.FireRescue
                 markerGlow.color = glow;
                 markerGlow.rectTransform.localScale = Vector3.one * (1f + .07f * Mathf.Sin(Time.unscaledTime * 2.6f));
             }
+        }
+        void MeasureParkingBay(FireTruckDrive truck)
+        {
+            if (!truck || parkingTruck == truck) return;
+            parkingTruck = truck;
+            // Measure the body in truck space so steering, cannon rotation and vehicle yaw cannot resize the bay.
+            Transform body = truck.transform.Find("Body");
+            var renderer = body ? body.GetComponent<Renderer>() : null;
+            Bounds bounds;
+            if (renderer)
+            {
+                Bounds source = renderer.localBounds;
+                bounds = new Bounds();
+                for (int i = 0; i < 8; i++)
+                {
+                    Vector3 corner = source.center + Vector3.Scale(source.extents,
+                        new Vector3((i & 1) == 0 ? -1 : 1, (i & 2) == 0 ? -1 : 1, (i & 4) == 0 ? -1 : 1));
+                    corner = truck.transform.InverseTransformPoint(body.TransformPoint(corner));
+                    if (i == 0) bounds = new Bounds(corner, Vector3.zero); else bounds.Encapsulate(corner);
+                }
+            }
+            else
+            {
+                var collider = truck.GetComponent<BoxCollider>();
+                if (!collider) return;
+                bounds = new Bounds(collider.center, collider.size);
+            }
+            parkingHalfSize = new Vector2(
+                truck.transform.TransformVector(Vector3.right * bounds.size.x).magnitude * .5f + 1f,
+                truck.transform.TransformVector(Vector3.forward * bounds.size.z).magnitude * .5f + 1.5f);
+        }
+        static Vector2 ParkingOutline(int index, Vector2 halfSize)
+        {
+            // Sixteen samples along each edge follow uneven shore terrain, including the closing corner.
+            int edge = Mathf.Min(index / 16, 3);
+            float t = (index - edge * 16) / 16f;
+            return edge switch
+            {
+                0 => new Vector2(Mathf.Lerp(-halfSize.x, halfSize.x, t), -halfSize.y),
+                1 => new Vector2(halfSize.x, Mathf.Lerp(-halfSize.y, halfSize.y, t)),
+                2 => new Vector2(Mathf.Lerp(halfSize.x, -halfSize.x, t), halfSize.y),
+                _ => new Vector2(-halfSize.x, Mathf.Lerp(halfSize.y, -halfSize.y, t))
+            };
         }
         Transform SelectTarget(ref Color color, ref float radius)
         {

@@ -4581,8 +4581,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: d1b9b301d200f12408da436dfa6994f8, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
+  m_Name:
+  m_EditorClassIdentifier:
   mission: {fileID: 2044167756}
   ring: {fileID: 1512601942}
   marker: {fileID: 825404291}
@@ -4657,6 +4657,9 @@ MonoBehaviour:
   - {fileID: 1398914576}
   drivingMarkerLookAhead: 34
   roadGuidanceDistance: 38
+  drivingGuideSmoothTime: 0.18
+  markerSmoothTime: 0.12
+  markerMaximumSpeed: 1000
 --- !u!4 &34337512 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 2623143632830717608, guid: 872d9bd6934a42c88f636721030560c8, type: 3}
@@ -6422,6 +6425,26 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 1341463367}
     m_Modifications:
+    - target: {fileID: 185882169374545826, guid: f2a56a55c2f94670a70dd5bf79bb6c99, type: 3}
+      propertyPath: m_StaticEditorFlags
+      value: 2147483647
+      objectReference: {fileID: 0}
+    - target: {fileID: 1870433620555264143, guid: f2a56a55c2f94670a70dd5bf79bb6c99, type: 3}
+      propertyPath: m_StaticEditorFlags
+      value: 2147483647
+      objectReference: {fileID: 0}
+    - target: {fileID: 2443937249826095499, guid: f2a56a55c2f94670a70dd5bf79bb6c99, type: 3}
+      propertyPath: m_StaticEditorFlags
+      value: 2147483647
+      objectReference: {fileID: 0}
+    - target: {fileID: 2920803549596120313, guid: f2a56a55c2f94670a70dd5bf79bb6c99, type: 3}
+      propertyPath: m_StaticEditorFlags
+      value: 2147483647
+      objectReference: {fileID: 0}
+    - target: {fileID: 7404290478807416360, guid: f2a56a55c2f94670a70dd5bf79bb6c99, type: 3}
+      propertyPath: m_StaticEditorFlags
+      value: 2147483647
+      objectReference: {fileID: 0}
     - target: {fileID: 485108942805124231, guid: 3bc090240c9448d8b63ca8e1d8a1e5a3, type: 3}
       propertyPath: m_LocalScale.x
       value: 10.699018
@@ -6499,26 +6522,6 @@ PrefabInstance:
       value: 2147483647
       objectReference: {fileID: 0}
     - target: {fileID: 7667364268578586236, guid: 3bc090240c9448d8b63ca8e1d8a1e5a3, type: 3}
-      propertyPath: m_StaticEditorFlags
-      value: 2147483647
-      objectReference: {fileID: 0}
-    - target: {fileID: 185882169374545826, guid: f2a56a55c2f94670a70dd5bf79bb6c99, type: 3}
-      propertyPath: m_StaticEditorFlags
-      value: 2147483647
-      objectReference: {fileID: 0}
-    - target: {fileID: 1870433620555264143, guid: f2a56a55c2f94670a70dd5bf79bb6c99, type: 3}
-      propertyPath: m_StaticEditorFlags
-      value: 2147483647
-      objectReference: {fileID: 0}
-    - target: {fileID: 2443937249826095499, guid: f2a56a55c2f94670a70dd5bf79bb6c99, type: 3}
-      propertyPath: m_StaticEditorFlags
-      value: 2147483647
-      objectReference: {fileID: 0}
-    - target: {fileID: 2920803549596120313, guid: f2a56a55c2f94670a70dd5bf79bb6c99, type: 3}
-      propertyPath: m_StaticEditorFlags
-      value: 2147483647
-      objectReference: {fileID: 0}
-    - target: {fileID: 7404290478807416360, guid: f2a56a55c2f94670a70dd5bf79bb6c99, type: 3}
       propertyPath: m_StaticEditorFlags
       value: 2147483647
       objectReference: {fileID: 0}
@@ -6668,8 +6671,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 67be539c958028146bc0abbea188893f, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
+  m_Name:
+  m_EditorClassIdentifier:
   flames: {fileID: 1210611716}
   smoke: {fileID: 1022766148}
   fireLight: {fileID: 1345248574}
@@ -6683,6 +6686,7 @@ MonoBehaviour:
   fitFireToBuilding: 1
   flameVisualScale: 1
   visualFireSpreadSeconds: 3.5
+  visualCollapseSeconds: 11
   heat: 0
 --- !u!1001 &50451449
 PrefabInstance:
@@ -14200,8 +14204,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 70bad5eacddc2da4489bd6354b730b40, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
+  m_Name:
+  m_EditorClassIdentifier:
   drive: {fileID: 56578727}
   hose: {fileID: 56578726}
   cannon: {fileID: 732629861}
@@ -14220,6 +14224,7 @@ MonoBehaviour:
   vehicleCameraBlendSeconds: 0.6
   firstPerson: {fileID: 95214801}
   pistol: {fileID: 95214800}
+  pistolAimAssist: {fileID: 0}
   startDriving: 0
   lockCursorOnStart: 1
   showHud: 0
@@ -39740,6 +39745,26 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 1341463367}
     m_Modifications:
+    - target: {fileID: 185882169374545826, guid: f2a56a55c2f94670a70dd5bf79bb6c99, type: 3}
+      propertyPath: m_StaticEditorFlags
+      value: 2147483647
+      objectReference: {fileID: 0}
+    - target: {fileID: 1870433620555264143, guid: f2a56a55c2f94670a70dd5bf79bb6c99, type: 3}
+      propertyPath: m_StaticEditorFlags
+      value: 2147483647
+      objectReference: {fileID: 0}
+    - target: {fileID: 2443937249826095499, guid: f2a56a55c2f94670a70dd5bf79bb6c99, type: 3}
+      propertyPath: m_StaticEditorFlags
+      value: 2147483647
+      objectReference: {fileID: 0}
+    - target: {fileID: 2920803549596120313, guid: f2a56a55c2f94670a70dd5bf79bb6c99, type: 3}
+      propertyPath: m_StaticEditorFlags
+      value: 2147483647
+      objectReference: {fileID: 0}
+    - target: {fileID: 7404290478807416360, guid: f2a56a55c2f94670a70dd5bf79bb6c99, type: 3}
+      propertyPath: m_StaticEditorFlags
+      value: 2147483647
+      objectReference: {fileID: 0}
     - target: {fileID: 485108942805124231, guid: 3bc090240c9448d8b63ca8e1d8a1e5a3, type: 3}
       propertyPath: m_LocalScale.x
       value: 7.414804
@@ -39817,26 +39842,6 @@ PrefabInstance:
       value: 2147483647
       objectReference: {fileID: 0}
     - target: {fileID: 7667364268578586236, guid: 3bc090240c9448d8b63ca8e1d8a1e5a3, type: 3}
-      propertyPath: m_StaticEditorFlags
-      value: 2147483647
-      objectReference: {fileID: 0}
-    - target: {fileID: 185882169374545826, guid: f2a56a55c2f94670a70dd5bf79bb6c99, type: 3}
-      propertyPath: m_StaticEditorFlags
-      value: 2147483647
-      objectReference: {fileID: 0}
-    - target: {fileID: 1870433620555264143, guid: f2a56a55c2f94670a70dd5bf79bb6c99, type: 3}
-      propertyPath: m_StaticEditorFlags
-      value: 2147483647
-      objectReference: {fileID: 0}
-    - target: {fileID: 2443937249826095499, guid: f2a56a55c2f94670a70dd5bf79bb6c99, type: 3}
-      propertyPath: m_StaticEditorFlags
-      value: 2147483647
-      objectReference: {fileID: 0}
-    - target: {fileID: 2920803549596120313, guid: f2a56a55c2f94670a70dd5bf79bb6c99, type: 3}
-      propertyPath: m_StaticEditorFlags
-      value: 2147483647
-      objectReference: {fileID: 0}
-    - target: {fileID: 7404290478807416360, guid: f2a56a55c2f94670a70dd5bf79bb6c99, type: 3}
       propertyPath: m_StaticEditorFlags
       value: 2147483647
       objectReference: {fileID: 0}
@@ -62072,8 +62077,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 67be539c958028146bc0abbea188893f, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
+  m_Name:
+  m_EditorClassIdentifier:
   flames: {fileID: 592220623}
   smoke: {fileID: 1355765910}
   fireLight: {fileID: 2113309322}
@@ -62087,6 +62092,7 @@ MonoBehaviour:
   fitFireToBuilding: 1
   flameVisualScale: 1
   visualFireSpreadSeconds: 3.5
+  visualCollapseSeconds: 11
   heat: 0
 --- !u!1 &337066972
 GameObject:
@@ -156226,8 +156232,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 67be539c958028146bc0abbea188893f, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
+  m_Name:
+  m_EditorClassIdentifier:
   flames: {fileID: 186827685}
   smoke: {fileID: 351257806}
   fireLight: {fileID: 833696672}
@@ -156242,6 +156248,7 @@ MonoBehaviour:
   fitFireToBuilding: 1
   flameVisualScale: 1
   visualFireSpreadSeconds: 3.5
+  visualCollapseSeconds: 11
   heat: 0
 --- !u!1001 &730927337
 PrefabInstance:
@@ -220184,8 +220191,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 648ea21b12767e941848916eb552a701, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
+  m_Name:
+  m_EditorClassIdentifier:
   sequence: {fileID: 1355333048}
   player: {fileID: 95214805}
   atmosphereVolume: {fileID: 173058026}
@@ -220206,6 +220213,10 @@ MonoBehaviour:
   defenseVignette: 0.14
   speedVignette: 0.04
   chromaticAmount: 0.025
+  descendingFogEnabled: 1
+  descendingFog: {fileID: 0}
+  indoorExposureLift: 0.28
+  ashSkyBounceIntensity: 0.34
 --- !u!4 &1058479194
 Transform:
   m_ObjectHideFlags: 0
@@ -267413,8 +267424,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 67be539c958028146bc0abbea188893f, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
+  m_Name:
+  m_EditorClassIdentifier:
   flames: {fileID: 587851690}
   smoke: {fileID: 1935250753}
   fireLight: {fileID: 439843348}
@@ -267428,6 +267439,7 @@ MonoBehaviour:
   fitFireToBuilding: 1
   flameVisualScale: 1
   visualFireSpreadSeconds: 3.5
+  visualCollapseSeconds: 11
   heat: 0
 --- !u!1001 &1303815391
 PrefabInstance:
@@ -271303,8 +271315,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 67be539c958028146bc0abbea188893f, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
+  m_Name:
+  m_EditorClassIdentifier:
   flames: {fileID: 624676743}
   smoke: {fileID: 228288279}
   fireLight: {fileID: 116981692}
@@ -271318,6 +271330,7 @@ MonoBehaviour:
   fitFireToBuilding: 1
   flameVisualScale: 1
   visualFireSpreadSeconds: 3.5
+  visualCollapseSeconds: 11
   heat: 0
 --- !u!1 &1333194112 stripped
 GameObject:
@@ -289078,10 +289091,9 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: acff33eca0f9ba34281856105da37889, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
+  m_Name:
+  m_EditorClassIdentifier:
   sequence: {fileID: 1355333048}
-  spiritVoiceClip: {fileID: 8300000, guid: 862b9237cf2b6954fb8ca44f6ea03696, type: 3}
   spawns:
   - creature: {fileID: 831010275}
     feed: {fileID: 1655391799}
@@ -289131,6 +289143,7 @@ MonoBehaviour:
     downhillFlows: []
     descentEndProgress: 0.9
     emergenceDepth: 2.2
+  spiritVoiceClip: {fileID: 8300000, guid: 862b9237cf2b6954fb8ca44f6ea03696, type: 3}
   enableWaves: 1
   enableFinalObjective: 1
   waveSizes: 040000000400000005000000
@@ -295641,6 +295654,26 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 1341463367}
     m_Modifications:
+    - target: {fileID: 185882169374545826, guid: f2a56a55c2f94670a70dd5bf79bb6c99, type: 3}
+      propertyPath: m_StaticEditorFlags
+      value: 2147483647
+      objectReference: {fileID: 0}
+    - target: {fileID: 1870433620555264143, guid: f2a56a55c2f94670a70dd5bf79bb6c99, type: 3}
+      propertyPath: m_StaticEditorFlags
+      value: 2147483647
+      objectReference: {fileID: 0}
+    - target: {fileID: 2443937249826095499, guid: f2a56a55c2f94670a70dd5bf79bb6c99, type: 3}
+      propertyPath: m_StaticEditorFlags
+      value: 2147483647
+      objectReference: {fileID: 0}
+    - target: {fileID: 2920803549596120313, guid: f2a56a55c2f94670a70dd5bf79bb6c99, type: 3}
+      propertyPath: m_StaticEditorFlags
+      value: 2147483647
+      objectReference: {fileID: 0}
+    - target: {fileID: 7404290478807416360, guid: f2a56a55c2f94670a70dd5bf79bb6c99, type: 3}
+      propertyPath: m_StaticEditorFlags
+      value: 2147483647
+      objectReference: {fileID: 0}
     - target: {fileID: 485108942805124231, guid: 3bc090240c9448d8b63ca8e1d8a1e5a3, type: 3}
       propertyPath: m_LocalScale.x
       value: 7.414804
@@ -295718,26 +295751,6 @@ PrefabInstance:
       value: 2147483647
       objectReference: {fileID: 0}
     - target: {fileID: 7667364268578586236, guid: 3bc090240c9448d8b63ca8e1d8a1e5a3, type: 3}
-      propertyPath: m_StaticEditorFlags
-      value: 2147483647
-      objectReference: {fileID: 0}
-    - target: {fileID: 185882169374545826, guid: f2a56a55c2f94670a70dd5bf79bb6c99, type: 3}
-      propertyPath: m_StaticEditorFlags
-      value: 2147483647
-      objectReference: {fileID: 0}
-    - target: {fileID: 1870433620555264143, guid: f2a56a55c2f94670a70dd5bf79bb6c99, type: 3}
-      propertyPath: m_StaticEditorFlags
-      value: 2147483647
-      objectReference: {fileID: 0}
-    - target: {fileID: 2443937249826095499, guid: f2a56a55c2f94670a70dd5bf79bb6c99, type: 3}
-      propertyPath: m_StaticEditorFlags
-      value: 2147483647
-      objectReference: {fileID: 0}
-    - target: {fileID: 2920803549596120313, guid: f2a56a55c2f94670a70dd5bf79bb6c99, type: 3}
-      propertyPath: m_StaticEditorFlags
-      value: 2147483647
-      objectReference: {fileID: 0}
-    - target: {fileID: 7404290478807416360, guid: f2a56a55c2f94670a70dd5bf79bb6c99, type: 3}
       propertyPath: m_StaticEditorFlags
       value: 2147483647
       objectReference: {fileID: 0}
@@ -306353,8 +306366,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 67be539c958028146bc0abbea188893f, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
+  m_Name:
+  m_EditorClassIdentifier:
   flames: {fileID: 1374601862}
   smoke: {fileID: 195626866}
   fireLight: {fileID: 1601635084}
@@ -306369,6 +306382,7 @@ MonoBehaviour:
   fitFireToBuilding: 1
   flameVisualScale: 1
   visualFireSpreadSeconds: 3.5
+  visualCollapseSeconds: 11
   heat: 0
 --- !u!1001 &1493887767
 PrefabInstance:
@@ -325486,8 +325500,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 67be539c958028146bc0abbea188893f, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
+  m_Name:
+  m_EditorClassIdentifier:
   flames: {fileID: 849048468}
   smoke: {fileID: 1713196329}
   fireLight: {fileID: 555248186}
@@ -325501,6 +325515,7 @@ MonoBehaviour:
   fitFireToBuilding: 1
   flameVisualScale: 1
   visualFireSpreadSeconds: 3.5
+  visualCollapseSeconds: 11
   heat: 0
 --- !u!1 &1624526497
 GameObject:
@@ -359782,6 +359797,26 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 1341463367}
     m_Modifications:
+    - target: {fileID: 185882169374545826, guid: f2a56a55c2f94670a70dd5bf79bb6c99, type: 3}
+      propertyPath: m_StaticEditorFlags
+      value: 2147483647
+      objectReference: {fileID: 0}
+    - target: {fileID: 1870433620555264143, guid: f2a56a55c2f94670a70dd5bf79bb6c99, type: 3}
+      propertyPath: m_StaticEditorFlags
+      value: 2147483647
+      objectReference: {fileID: 0}
+    - target: {fileID: 2443937249826095499, guid: f2a56a55c2f94670a70dd5bf79bb6c99, type: 3}
+      propertyPath: m_StaticEditorFlags
+      value: 2147483647
+      objectReference: {fileID: 0}
+    - target: {fileID: 2920803549596120313, guid: f2a56a55c2f94670a70dd5bf79bb6c99, type: 3}
+      propertyPath: m_StaticEditorFlags
+      value: 2147483647
+      objectReference: {fileID: 0}
+    - target: {fileID: 7404290478807416360, guid: f2a56a55c2f94670a70dd5bf79bb6c99, type: 3}
+      propertyPath: m_StaticEditorFlags
+      value: 2147483647
+      objectReference: {fileID: 0}
     - target: {fileID: 485108942805124231, guid: 3bc090240c9448d8b63ca8e1d8a1e5a3, type: 3}
       propertyPath: m_LocalScale.x
       value: 7.414804
@@ -359859,26 +359894,6 @@ PrefabInstance:
       value: 2147483647
       objectReference: {fileID: 0}
     - target: {fileID: 7667364268578586236, guid: 3bc090240c9448d8b63ca8e1d8a1e5a3, type: 3}
-      propertyPath: m_StaticEditorFlags
-      value: 2147483647
-      objectReference: {fileID: 0}
-    - target: {fileID: 185882169374545826, guid: f2a56a55c2f94670a70dd5bf79bb6c99, type: 3}
-      propertyPath: m_StaticEditorFlags
-      value: 2147483647
-      objectReference: {fileID: 0}
-    - target: {fileID: 1870433620555264143, guid: f2a56a55c2f94670a70dd5bf79bb6c99, type: 3}
-      propertyPath: m_StaticEditorFlags
-      value: 2147483647
-      objectReference: {fileID: 0}
-    - target: {fileID: 2443937249826095499, guid: f2a56a55c2f94670a70dd5bf79bb6c99, type: 3}
-      propertyPath: m_StaticEditorFlags
-      value: 2147483647
-      objectReference: {fileID: 0}
-    - target: {fileID: 2920803549596120313, guid: f2a56a55c2f94670a70dd5bf79bb6c99, type: 3}
-      propertyPath: m_StaticEditorFlags
-      value: 2147483647
-      objectReference: {fileID: 0}
-    - target: {fileID: 7404290478807416360, guid: f2a56a55c2f94670a70dd5bf79bb6c99, type: 3}
       propertyPath: m_StaticEditorFlags
       value: 2147483647
       objectReference: {fileID: 0}
@@ -440849,6 +440864,14 @@ MonoBehaviour:
   recognitionDelay: 6.5
   observationSeconds: 9.8
   subtitleFont: {fileID: 12800000, guid: 8fffa193f094abe4fbb05671e8107978, type: 3}
+  openingVoiceClips:
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  voiceVolume: 0.9
+  voiceLineGap: 0.25
 --- !u!1 &244357385
 GameObject:
   m_ObjectHideFlags: 0

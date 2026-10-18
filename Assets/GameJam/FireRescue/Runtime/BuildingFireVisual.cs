@@ -11,10 +11,7 @@ namespace GameJam.FireRescue
         ParticleSystem embers, steam;
         Material fireMaterial, smokeMaterial;
         readonly List<Vector3> seats = new List<Vector3>();
-        Renderer[] walls;
-        Color[] wallColors;
-        MaterialPropertyBlock[] wallBlocks;
-        float heat, age, flamesDue, smokeDue, embersDue, steamLeft, nextChar;
+        float heat, age, flamesDue, smokeDue, embersDue, steamLeft;
         float size, seed, lastHeat;
         int seat;
         bool built;
@@ -36,14 +33,6 @@ namespace GameJam.FireRescue
             var shader = Resources.Load<Shader>("BuildingFire/BuildingFire");
             if (!shader) return;
             building = owner;
-            walls = GetComponentsInChildren<MeshRenderer>();
-            wallColors = new Color[walls.Length]; wallBlocks = new MaterialPropertyBlock[walls.Length];
-            for (int i = 0; i < walls.Length; i++)
-            {
-                var material = walls[i].sharedMaterial;
-                wallColors[i] = material && material.HasProperty("_BaseColor") ? material.GetColor("_BaseColor") : Color.white;
-                wallBlocks[i] = new MaterialPropertyBlock(); walls[i].GetPropertyBlock(wallBlocks[i]);
-            }
             fireMaterial = new Material(shader) { name = "Layered building flames (runtime)" };
             smokeMaterial = new Material(shader) { name = "Turbulent building smoke (runtime)" }; smokeMaterial.SetFloat("_Smoke", 1);
             var box = owner.ignitionBounds; var half = box.size * .5f;
@@ -186,16 +175,6 @@ namespace GameJam.FireRescue
                         Vector3.one * size * 1.4f, 1.7f, new Color(.72f, .76f, .77f, .34f), true);
             }
             else Toggle(steam, false);
-            if (Time.time >= nextChar && building.BurnDamage > 0 && !building.IsBurnedOut)
-            {
-                nextChar = Time.time + .3f;
-                float charAmount = Mathf.Clamp01(building.BurnDamage / Mathf.Max(1, building.secondsToCollapse)) * .76f;
-                for (int i = 0; i < walls.Length; i++) if (walls[i])
-                {
-                    Color tint = Color.Lerp(wallColors[i], new Color(.16f, .135f, .11f), charAmount);
-                    wallBlocks[i].SetColor("_BaseColor", tint); wallBlocks[i].SetColor("_Color", tint); walls[i].SetPropertyBlock(wallBlocks[i]);
-                }
-            }
         }
 
         static void Emit(ParticleSystem ps, Vector3 p, Vector3 v, Vector3 size, float life, Color tint, bool rotate)

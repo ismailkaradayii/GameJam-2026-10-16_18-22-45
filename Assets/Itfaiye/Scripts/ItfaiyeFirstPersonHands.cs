@@ -102,11 +102,12 @@ namespace Itfaiye
         [Range(-60f, 60f)] public float slideThumbOpposition = 0f;
 
         // Metres in the weapon's unscaled reference frame. The model points along +Z.
-        // Rake the palm down the frontstrap around the thumb web, then seat it
-        // 3mm farther back. Moving the wrist sideways leaves the knuckles off the grip.
-        public static readonly Vector3 RightGrip = new Vector3(.006f, -.004f, -.132f);
-        public static readonly Vector3 LeftGrip = new Vector3(-.029f, -.021f, -.116f);
-        public static readonly Quaternion RightGripRotation = Quaternion.Euler(19f, 0f, 0f) * Quaternion.LookRotation(Vector3.down, Vector3.left);
+        // Seat the palm outside the right grip panel and behind the backstrap.
+        // A level palm raises the knuckles without lifting the thumb web into
+        // the beavertail; raising the wrist alone makes the frame cut through it.
+        public static readonly Vector3 RightGrip = new Vector3(.028f, -.014f, -.150f);
+        public static readonly Vector3 LeftGrip = new Vector3(-.031f, -.017f, -.124f);
+        public static readonly Quaternion RightGripRotation = Quaternion.LookRotation(Vector3.down, Vector3.left);
         public static readonly Quaternion LeftGripRotation = Quaternion.Euler(5f, 0f, 0f) * Quaternion.LookRotation(Vector3.up, Vector3.left);
         public static readonly Vector3 RearSight = new Vector3(0f, 1.53f, -1.55f);
         public static readonly Vector3 FrontSight = new Vector3(0f, 1.53f, 1.91f);
@@ -188,10 +189,10 @@ namespace Itfaiye
             handler.SetHumanPose(ref pose);
             if (poseIndex == 0 || poseIndex == 4)
             {
-                // Keep the thumb along the frame while the palm follows the grip's rake.
-                // Its small inward turn also removes the crossed, floating thumb silhouette.
+                // Rest the thumb alongside the left frame, below the slide,
+                // rather than crossing over the support hand's thumb.
                 var thumb = animator.GetBoneTransform(HumanBodyBones.RightThumbProximal);
-                var frameRotation = Quaternion.Euler(5f, 15f, 0f) * Quaternion.LookRotation(Vector3.down, Vector3.left);
+                var frameRotation = Quaternion.Euler(5f, 0f, 0f) * Quaternion.LookRotation(Vector3.down, Vector3.left);
                 thumb.localRotation = Quaternion.Inverse(RightGripRotation) * frameRotation * thumb.localRotation;
             }
             if (poseIndex == 3)
@@ -214,13 +215,13 @@ namespace Itfaiye
             if (name.Contains("Thumb"))
                 value = name.Contains("Spread") ? (left ? .9f : -1f) : first ? -1f : second ? (left ? .3f : .25f) : .8f;
             else if (name.Contains("Index"))
-                value = name.Contains("Spread") ? (left ? 0f : 1f) : first ? (left ? -.8f : -.25f) : second ? (left ? -.15f : -.35f) : (left ? -.1f : .25f);
+                value = name.Contains("Spread") ? (left ? 0f : -.3f) : first ? (left ? -.8f : .5f) : second ? (left ? -.15f : .1f) : (left ? -.1f : -.6f);
             else if (name.Contains("Middle"))
-                value = name.Contains("Spread") ? 0f : first ? -.85f : second ? (left ? 0f : -.35f) : (left ? -.15f : -.45f);
+                value = name.Contains("Spread") ? 0f : first ? (left ? -.85f : -.25f) : second ? (left ? 0f : -.35f) : (left ? -.15f : .15f);
             else if (name.Contains("Ring"))
-                value = name.Contains("Spread") ? -.2f : first ? -.9f : second ? (left ? -.05f : -.35f) : (left ? -.2f : -.45f);
+                value = name.Contains("Spread") ? -.2f : first ? (left ? -.9f : -.3f) : second ? (left ? -.05f : -.35f) : (left ? -.2f : .15f);
             else if (name.Contains("Little"))
-                value = name.Contains("Spread") ? -.4f : first ? -.9f : second ? (left ? -.15f : -.40f) : (left ? -.3f : -.45f);
+                value = name.Contains("Spread") ? -.4f : first ? (left ? -.9f : -.3f) : second ? (left ? -.15f : -.40f) : (left ? -.3f : .15f);
             else return false;
             return true;
         }

@@ -224,9 +224,11 @@ public static class CombatViewChecks
         Vector3 Reference(HumanBodyBones bone) => Quaternion.Inverse(p.weapon.transform.rotation) *
             (a.GetBoneTransform(bone).position-p.weapon.transform.position)/player.viewCamera.transform.lossyScale.x;
         var middle=Reference(HumanBodyBones.RightMiddleProximal);
-        // Measured frontstrap below the trigger guard: knuckles must sit below it,
-        // rather than checking only that the wrist matches its own authored constant.
-        Check("Right palm follows the grip below the trigger guard",middle.y<-.025f && middle.y>-.055f && middle.z<-.04f && middle.z>-.075f && middle.x>.008f && middle.x<.03f,middle.ToString("F4"));
+        // The knuckles stay outside the right grip panel, below the trigger guard.
+        // The old lower, inward position let the frame pass through the palm.
+        Check("Right palm wraps the outside of the grip",middle.y<.002f && middle.y>-.023f && middle.z<-.045f && middle.z>-.07f && middle.x>.03f && middle.x<.052f,middle.ToString("F4"));
+        var index=Reference(HumanBodyBones.RightIndexDistal);
+        Check("Index finger reaches inside the trigger guard",index.x>0f && index.x<.025f && index.y>.008f && index.y<.032f && index.z>-.025f && index.z<.012f,index.ToString("F4"));
         var thumb=Reference(HumanBodyBones.RightThumbDistal);
         Check("Right thumb stays alongside the frame",thumb.x>-.035f && thumb.x<-.005f && thumb.y>.015f,thumb.ToString("F4"));
         var hands = a.GetComponent<ItfaiyeFirstPersonHands>();

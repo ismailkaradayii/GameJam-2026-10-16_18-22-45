@@ -21,7 +21,7 @@ namespace GameJam.FireRescue
         public string callCoolingDown = "Rest your voice. You can call again shortly.";
         public string shelter = "Shelter", shelterAutomatic = "Villagers are rescued when they enter";
         public string fillTank = "Fill water tank", fillingTank = "Filling tank";
-        public string disconnect = "Disconnect", stopBeforeFill = "Stop in the blue ring to refill";
+        public string disconnect = "Disconnect", stopBeforeFill = "Stop in the blue parking bay to refill";
         public string tankFull = "Tank full", returnToVillage = "Return to the village";
         public string intakeOutOfWater = "Hose intake is not in water";
         public string hoseTooFar = "Move the truck closer to the water";

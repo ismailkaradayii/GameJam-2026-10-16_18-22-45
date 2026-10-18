@@ -25,6 +25,11 @@ namespace GameJam.FireRescue
         [Min(0f)] public float recognitionDelay = 6.5f;
         [Min(0f)] public float observationSeconds = 9.8f;
         public Font subtitleFont;
+        [Header("Opening voice: approach, unease, omen, recognition, weapon")]
+        [Tooltip("Empty entries load talk01 through talk05 from Resources/ASHFALL/Audio/Opening.")]
+        public AudioClip[] openingVoiceClips = new AudioClip[5];
+        [Range(0f, 1f)] public float voiceVolume = .9f;
+        [Min(0f)] public float voiceLineGap = .25f;
 
         public bool OpeningStarted { get; private set; }
         public bool OpeningComplete { get; private set; }
@@ -36,12 +41,16 @@ namespace GameJam.FireRescue
         public string CurrentLine => lineRemaining > 0f ? currentLine : string.Empty;
         public Thought CurrentThought { get; private set; }
         public bool HasSpoken(Thought thought) => spoken.Contains(thought);
+        public float OmenAt => Mathf.Max(omenDelay, VoiceDuration(Thought.Unease));
+        public float RecognitionAt => Mathf.Max(recognitionDelay, OmenAt + VoiceDuration(Thought.Omen));
+        public float ObservationDuration => Mathf.Max(observationSeconds, RecognitionAt + VoiceDuration(Thought.Foreseen));
 
         struct Line
         {
             public Thought thought;
             public string text;
             public float seconds;
+            public AudioClip voice;
         }
         readonly Queue<Line> pending = new Queue<Line>();
         readonly HashSet<Thought> spoken = new HashSet<Thought>();
@@ -53,11 +62,18 @@ namespace GameJam.FireRescue
         Vector3 baseViewLocalPosition;
         Quaternion smoothViewRotation;
         float openingFov;
+        AudioSource voiceSource;
+        bool voicePaused;
+        bool VoicePlaying => voiceSource && (voiceSource.isPlaying || voicePaused);
         FireRescuePlayer Player => mission ? mission.player : null;
 
         void Awake()
         {
             if (!mission) mission = GetComponent<VolcanoMissionDirector>();
+            if (openingVoiceClips == null || openingVoiceClips.Length < 5)
+                System.Array.Resize(ref openingVoiceClips, 5);
+            for (int i = 0; i < 5; i++)
+                if (!openingVoiceClips[i]) openingVoiceClips[i] = Resources.Load<AudioClip>("ASHFALL/Audio/Opening/talk" + (i + 1).ToString("00"));
             StopOmen();
         }
 
@@ -76,13 +92,15 @@ namespace GameJam.FireRescue
         void Update()
         {
             RemoveViewOffset();
-            if (!mission || !Player || Time.timeScale <= 0f || (mission.gameFlow && mission.gameFlow.BlocksGameplay)) return;
+            if (!mission || !Player) return;
             if (mission.EruptionTriggered)
             {
                 if (!stoppedForEruption) { CancelOpening(); stoppedForEruption = true; }
                 return;
             }
-            if (VolcanoCinematic.IsPlayingAny) return;
+            bool suspended = Time.timeScale <= 0f || (mission.gameFlow && mission.gameFlow.BlocksGameplay) || VolcanoCinematic.IsPlayingAny;
+            PauseVoice(suspended);
+            if (suspended) return;
             lineRemaining = Mathf.Max(0, lineRemaining - Time.deltaTime);
             if (lineRemaining <= 0 && pending.Count > 0) Present(pending.Dequeue());
             if (IsOpening) TickOpening();
@@ -95,7 +113,7 @@ namespace GameJam.FireRescue
             // Lean only after the body has stopped, rather than pushing the lens sideways into
             // bedroom geometry while the character is still negotiating the approach.
             float approach = AtWindow ? Mathf.SmoothStep(0, 1, ObservationElapsed / 1.6f) : 0f;
-            float leave = 1f - Mathf.SmoothStep(0, 1, Mathf.InverseLerp(observationSeconds - 1.2f, observationSeconds, ObservationElapsed));
+            float leave = 1f - Mathf.SmoothStep(0, 1, Mathf.InverseLerp(ObservationDuration - 1.2f, ObservationDuration, ObservationElapsed));
             var view = Player.viewCamera;
             baseViewLocalPosition = view.transform.localPosition;
             appliedViewOffset = windowEyeOffset * (approach * leave);
@@ -139,7 +157,6 @@ namespace GameJam.FireRescue
                 {
                     AtWindow = true;
                     if (!ownsMovement) { Player.SetCinematicLocked(true); Player.RefreshEquipmentState(); ownsMovement = true; }
-                    Speak(Thought.Unease, "Something is wrong with the volcano... It looks different today.", omenDelay, true);
                 }
                 else
                 {
@@ -162,16 +179,22 @@ namespace GameJam.FireRescue
             smoothViewRotation = Quaternion.Slerp(smoothViewRotation, facing, 1f - Mathf.Exp(-3f * dt));
             Player.SimulateCinematicWalk(Player.transform.position,
                 smoothViewRotation, 0f);
+            if (!HasSpoken(Thought.Unease))
+            {
+                // A short route must not cut off the first line on arrival.
+                if (VoiceFor(Thought.Approach) && (lineRemaining > 0f || VoicePlaying)) return;
+                Speak(Thought.Unease, "Something is wrong with the volcano... It looks different today.", OmenAt, true);
+            }
             ObservationElapsed += dt;
-            if (!OmenPlayed && ObservationElapsed >= omenDelay)
+            if (!OmenPlayed && ObservationElapsed >= OmenAt && !VoicePlaying)
             {
                 OmenPlayed = true;
                 PlayOmen(omenSmoke); PlayOmen(omenSparks);
-                Speak(Thought.Omen, "Smoke... and sparks. That's not a good sign.", recognitionDelay - omenDelay, true);
+                Speak(Thought.Omen, "Smoke... and sparks. That's not a good sign.", RecognitionAt - OmenAt, true);
             }
-            if (ObservationElapsed >= recognitionDelay)
-                Speak(Thought.Foreseen, "I knew this day would come.", observationSeconds - recognitionDelay, true);
-            if (ObservationElapsed >= observationSeconds)
+            if (OmenPlayed && ObservationElapsed >= RecognitionAt && !VoicePlaying)
+                Speak(Thought.Foreseen, "I knew this day would come.", ObservationDuration - RecognitionAt, true);
+            if (HasSpoken(Thought.Foreseen) && ObservationElapsed >= ObservationDuration && !VoicePlaying)
             {
                 IsOpening = false; OpeningComplete = true; ReleaseMovement();
                 Speak(Thought.Weapon, "I need my weapon first. Then I must sound the siren.", 5f, true);
@@ -198,19 +221,51 @@ namespace GameJam.FireRescue
         void Speak(Thought thought, string text, float seconds, bool interrupt = false)
         {
             if (!spoken.Add(thought)) return;
-            var line = new Line { thought = thought, text = text, seconds = Mathf.Max(1f, seconds) };
+            var clip = VoiceFor(thought);
+            var line = new Line { thought = thought, text = text, voice = clip,
+                seconds = clip ? clip.length + voiceLineGap : Mathf.Max(1f, seconds) };
             if (interrupt) { pending.Clear(); Present(line); }
             else if (lineRemaining <= 0) Present(line);
             else pending.Enqueue(line);
         }
-        void Present(Line line) { currentLine = line.text; lineRemaining = line.seconds; CurrentThought = line.thought; }
+        void Present(Line line)
+        {
+            StopVoice();
+            currentLine = line.text; lineRemaining = line.seconds; CurrentThought = line.thought;
+            if (!line.voice) return;
+            if (!voiceSource)
+            {
+                var voice = new GameObject("Opening inner monologue"); voice.transform.SetParent(transform, false);
+                voiceSource = voice.AddComponent<AudioSource>();
+                voiceSource.playOnAwake = false; voiceSource.loop = false; voiceSource.spatialBlend = 0f;
+                voiceSource.priority = 40; voiceSource.reverbZoneMix = 0f; voiceSource.dopplerLevel = 0f;
+            }
+            voiceSource.volume = voiceVolume; voiceSource.clip = line.voice; voiceSource.Play();
+        }
+        AudioClip VoiceFor(Thought thought)
+        {
+            int index = (int)thought;
+            return openingVoiceClips != null && index >= 0 && index < 5 && index < openingVoiceClips.Length ? openingVoiceClips[index] : null;
+        }
+        float VoiceDuration(Thought thought) => VoiceFor(thought) ? VoiceFor(thought).length + voiceLineGap : 0f;
+        void PauseVoice(bool paused)
+        {
+            if (!voiceSource) return;
+            if (paused && voiceSource.isPlaying) { voiceSource.Pause(); voicePaused = true; }
+            else if (!paused && voicePaused) { voiceSource.UnPause(); voicePaused = false; }
+        }
+        void StopVoice()
+        {
+            if (voiceSource) { voiceSource.Stop(); voiceSource.clip = null; }
+            voicePaused = false;
+        }
 
         public void CancelOpening()
         {
             RemoveViewOffset();
             IsOpening = false;
             pending.Clear(); currentLine = string.Empty; lineRemaining = 0;
-            StopOmen(); ReleaseMovement();
+            StopVoice(); StopOmen(); ReleaseMovement();
         }
         void ReleaseMovement()
         {

@@ -122,11 +122,22 @@ public static class VillageStatusAndSprayChecks
                 Add("Ruins have no fire lights",fire.GetComponentsInChildren<Light>().All(l=>!l.enabled));
                 var dust=fire.transform.Find("Burned house · ash and charred beams/Collapse ash cloud").GetComponent<ParticleSystem>();
                 Color tint=dust.main.startColor.color;
-                Add("Collapse emits only a short neutral ash puff",tint.r<.3f&&Mathf.Abs(tint.r-tint.g)<.04f&&Mathf.Abs(tint.g-tint.b)<.04f&&!dust.main.loop&&dust.main.startLifetime.constantMax<=2.5f);
+                Add("Collapse starts a textured staged ruin with neutral dust",fire.GetComponent<BuildingRuinVisual>().FragmentCount>3&&
+                    fire.GetComponent<BuildingRuinVisual>().IsCollapsing&&tint.r<.3f&&Mathf.Abs(tint.r-tint.g)<.04f&&
+                    Mathf.Abs(tint.g-tint.b)<.04f&&!dust.main.loop&&dust.main.startLifetime.constantMax<=3f);
                 Next(3);
             }
             else if(phase==3&&age>3.4f)
             {
+                var ruin=houses[1].GetComponent<BuildingRuinVisual>();
+                Add("Roof and walls fall over time instead of becoming instant ash",ruin.IsCollapsing&&ruin.CollapseProgress>.1f&&ruin.CollapseProgress<1);
+                Capture("02a-house-collapse-in-progress"); Next(30);
+            }
+            else if(phase==30&&age>.1f)
+            {
+                houses[1].GetComponent<BuildingRuinVisual>().TickCollapse(houses[1].visualCollapseSeconds+16);
+                foreach(var particles in houses[1].GetComponentsInChildren<ParticleSystem>()) particles.Simulate(4,false,false);
+                Add("Textured house sections finish settling",!houses[1].GetComponent<BuildingRuinVisual>().IsCollapsing);
                 Add("Ash settles without restarting yellow effects",houses[1].GetComponentsInChildren<ParticleSystem>().All(p=>p.particleCount==0&&!p.isEmitting));
                 var originalRenderers=houses[1].GetComponentsInChildren<Renderer>(true).Where(r=>
                     !r.transform.IsChildOf(houses[1].transform.Find("Burned house · ash and charred beams"))).ToArray();

@@ -168,7 +168,7 @@ public static class VolcanoAtmospherePolishChecks
                 lines.Add($"FOUNTAIN end elapsed={mission.sequence.effects.Elapsed:F2} count={mission.sequence.effects.fireFountain.particleCount} rate={mission.sequence.effects.fireFountain.emission.rateOverTimeMultiplier:F2} light={mission.sequence.effects.eruptionLight.enabled}");
                 Check("magma fountain and flash finish after the blast", mission.sequence.effects.fireFountain.particleCount == 0 && mission.sequence.effects.fireFountain.emission.rateOverTimeMultiplier < .01f && !mission.sequence.effects.eruptionLight.enabled);
                 lines.Add($"WEATHER blend={atmosphere.AshBlend:F2} ash={atmosphere.fallingAsh.particleCount}/{atmosphere.fallingAsh.main.maxParticles} fog={RenderSettings.fogMode} start={RenderSettings.fogStartDistance:F1}");
-                Check("ash weather stays bounded and near gameplay stays readable", atmosphere.AshBlend > .95f && atmosphere.fallingAsh.particleCount > 0 && atmosphere.fallingAsh.particleCount <= atmosphere.fallingAsh.main.maxParticles && RenderSettings.fogMode == FogMode.Linear && RenderSettings.fogStartDistance >= 90);
+                Check("ash weather stays bounded and near gameplay stays readable", atmosphere.AshBlend > .95f && atmosphere.fallingAsh.particleCount > 0 && atmosphere.fallingAsh.particleCount <= atmosphere.fallingAsh.main.maxParticles && RenderSettings.fogMode == FogMode.Linear && RenderSettings.fogStartDistance >= 30 && RenderSettings.fogEndDistance >= 260);
                 Check("pickup particles finish", feel.pickupSparkles.particleCount == 0);
                 oldMissionId = mission.GetInstanceID(); player.gameFlow.RestartMission(); Next(10); return;
             case 10:

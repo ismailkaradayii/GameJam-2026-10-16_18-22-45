@@ -30,9 +30,12 @@ namespace GameJam.FireRescue
         float savedSunIntensity, savedFillIntensity, savedFogStart, savedFogEnd, savedSkyExposure, savedAltitude, savedDepth, fullCoverage;
         int savedLayers;
         bool skyChanged, started, finalProbe;
+        VolcanoAtmospherePolish fogOwner;
+        bool WritesFog => !fogOwner || !fogOwner.isActiveAndEnabled;
 
         void Awake()
         {
+            fogOwner = FindFirstObjectByType<VolcanoAtmospherePolish>();
             savedSky = RenderSettings.skybox;
             savedSkyAmbient = RenderSettings.ambientSkyColor; savedEquator = RenderSettings.ambientEquatorColor; savedGround = RenderSettings.ambientGroundColor;
             savedFogColor = RenderSettings.fogColor; savedFogStart = RenderSettings.fogStartDistance; savedFogEnd = RenderSettings.fogEndDistance;
@@ -75,9 +78,14 @@ namespace GameJam.FireRescue
             RenderSettings.ambientSkyColor = Color.Lerp(savedSkyAmbient,volcanicAmbientSky,blend);
             RenderSettings.ambientEquatorColor = Color.Lerp(savedEquator,volcanicAmbientEquator,blend);
             RenderSettings.ambientGroundColor = Color.Lerp(savedGround,volcanicAmbientGround,blend);
-            RenderSettings.fogColor = Color.Lerp(savedFogColor,volcanicFogColor,blend);
-            RenderSettings.fogStartDistance = Mathf.Lerp(savedFogStart,volcanicFogStart,blend);
-            RenderSettings.fogEndDistance = Mathf.Lerp(savedFogEnd,volcanicFogEnd,blend);
+            // The scene atmosphere owns distance fog; weather retains sky, cloud deck and sunlight.
+            // Keep this fallback for scenes/review fixtures without an active atmosphere component.
+            if (WritesFog)
+            {
+                RenderSettings.fogColor = Color.Lerp(savedFogColor,volcanicFogColor,blend);
+                RenderSettings.fogStartDistance = Mathf.Lerp(savedFogStart,volcanicFogStart,blend);
+                RenderSettings.fogEndDistance = Mathf.Lerp(savedFogEnd,volcanicFogEnd,blend);
+            }
             if (environment && runtimeClouds)
             {
                 environment.cloudsMaterial = runtimeClouds;
@@ -100,7 +108,7 @@ namespace GameJam.FireRescue
         {
             RenderSettings.skybox = savedSky; RenderSettings.ambientSkyColor = savedSkyAmbient;
             RenderSettings.ambientEquatorColor = savedEquator; RenderSettings.ambientGroundColor = savedGround;
-            RenderSettings.fogColor = savedFogColor; RenderSettings.fogStartDistance = savedFogStart; RenderSettings.fogEndDistance = savedFogEnd;
+            if (WritesFog) { RenderSettings.fogColor = savedFogColor; RenderSettings.fogStartDistance = savedFogStart; RenderSettings.fogEndDistance = savedFogEnd; }
             if (sun) { sun.color = savedSunColor; sun.intensity = savedSunIntensity; sun.transform.rotation = savedSunRotation; }
             if (sunnyFill) sunnyFill.intensity = savedFillIntensity;
             if (environment) { environment.cloudsMaterial = savedClouds; environment.Altitude = savedAltitude; environment.volumeSize = savedDepth; environment.volumeSamples = savedLayers; }

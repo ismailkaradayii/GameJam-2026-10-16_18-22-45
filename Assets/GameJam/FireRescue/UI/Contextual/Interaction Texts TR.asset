@@ -35,7 +35,7 @@ MonoBehaviour:
   fillTank: "Fill water tank"
   fillingTank: "Filling tank"
   disconnect: "Disconnect"
-  stopBeforeFill: "Stop in the blue ring to refill"
+  stopBeforeFill: "Stop in the blue parking bay to refill"
   tankFull: "Tank full"
   returnToVillage: "Return to the village"
   intakeOutOfWater: "Hose intake is not in water"

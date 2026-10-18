@@ -79,6 +79,7 @@ namespace GameJam.FireRescue
         void Awake()
         {
             HideImmediately();
+            if (VolcanicHudTheme.Current) VolcanicHudTheme.Current.ApplyPrompt(this);
             if (player) player.contextualInteractions = this;
             if (hud) hud.contextualInteractions = this;
         }
@@ -333,14 +334,15 @@ namespace GameJam.FireRescue
             bool present = displayed.target;
             if (!present) return;
             SetText(titleText, displayed.title);
-            SetText(detailText, displayed.detail);
+            detailText.richText = true;
+            SetText(detailText, HudInputEmphasis.Format(displayed.detail));
             string key = Label(displayed.input);
             SetText(keyText, key);
             bool hasKey = !string.IsNullOrEmpty(key);
             if (keyText.gameObject.activeSelf != hasKey) keyText.gameObject.SetActive(hasKey);
-            ApplyPromptLayout(player.IsDriving && compactVehiclePrompts, hasKey);
-            keyText.color = displayed.blocked ? new Color(.85f, .84f, .8f, 1) : new Color(1, .98f, .92f, 1);
             if (progressGroup.activeSelf != displayed.showProgress) progressGroup.SetActive(displayed.showProgress);
+            ApplyPromptLayout(player.IsDriving && compactVehiclePrompts, hasKey);
+            keyText.color = displayed.blocked ? new Color(.56f, .64f, .68f, 1) : HudInputEmphasis.Blue;
             if (displayed.showProgress) progressFill.fillAmount = Mathf.Clamp01(displayed.progress);
         }
         void ApplyPromptLayout(bool vehicle, bool hasKey)
@@ -353,6 +355,12 @@ namespace GameJam.FireRescue
                 presentationCached = true;
             }
             vehicleLayout = vehicle;
+            if (VolcanicHudTheme.Current)
+            {
+                VolcanicHudTheme.Current.LayoutPrompt(this, vehicle, hasKey,
+                    worldPromptSize.x, worldTitleSize, worldKeySize, worldDetailSize);
+                return;
+            }
             float width = vehicle ? vehiclePromptWidth : worldPromptSize.x;
             if (changed)
             {

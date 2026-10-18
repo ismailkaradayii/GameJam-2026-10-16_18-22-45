@@ -1,0 +1,50 @@
+VOLCANO ASH FOG AND ATMOSPHERE
+
+The saved Volcano_Demo automatically initializes the effect through its existing
+VolcanoAtmospherePolish component. No scene rebuild or additional asset is needed.
+The authored UI, opening/ending, input, evacuation, water and combat bindings are
+left in place. No scene file or shared material/profile is modified by this work.
+
+After the existing eruption begins, a six-second delay precedes a 48-second ash
+front travelling down the actual terrain from the crater to the village. Six
+rolling banks descend; six low banks gradually spread around the settlement.
+They reuse the existing crater smoke material and its animation atlas in runtime
+copies. All twelve systems together are limited to 192 particles. They have no
+colliders, gameplay damage, shadow casting or additional probe lookups.
+
+Distance fog develops with the front rather than appearing instantly. In the
+settled storm it starts at 32 metres and reaches full density at 300 metres.
+Shelter/room exposure adapts smoothly, keeping nearby paths, people and doors
+readable. A weak cool sky bounce preserves house-front detail under the cloud
+deck; a local, shadow-free bedroom window bounce supports the starting interior.
+These are presentation lights; the authored sunny/volcanic sky transition and
+existing lamps/lava lights retain their own settings.
+
+VolcanoAtmospherePolish now owns distance fog while enabled.
+VolcanoWeatherTransition keeps sunlight, sky and the native cloud deck, with its
+old distance-fog behaviour available when the atmosphere component is absent or
+disabled. The two components no longer overwrite each other's fog each frame.
+
+Bloom uses a higher threshold and restrained intensity; vignette and chromatic
+aberration are reduced. A subtle warm/cool grade and white-balance transition
+separate the clear preparation from the ash-covered defense. Existing cinematic
+depth of field stays limited to the cinematic volume; gameplay remains sharp.
+All changed profile values live in runtime instances and are destroyed on unload.
+
+The front reads VolcanoEruptionEffects.Elapsed. Pause and spirit-introduction
+freezes therefore stop its travel. Restart resets the front, particles and grade.
+The existing victory sequence keeps its original camera and gameplay timing.
+
+Useful controls:
+VolcanoAtmospherePolish: descendingFogEnabled, indoorExposureLift,
+ashSkyBounceIntensity. The automatically created VolcanoDescendingAshFog exposes
+startDelay, descentSeconds, nearVisibility and farVisibility during Play Mode.
+
+Editor review: GameJam > Final Loop > Review descending ash fog.
+Local reports and comparison captures: Library/VolcanoFogReview/.
+Verified with Unity 6000.0.58f2: 15/15 fog/grade/light/lifecycle checks passed.
+The existing native ash-cloud travel suite also passed 18/18 checks; its report
+is Logs/NativeAshCloud/report.json. Shared native smoke assets remain unchanged.
+The review uses the saved scene and existing sequencer in controlled simulation
+steps, with disabled hazards and fixed camera viewpoints. It is not a complete
+manual battle, a player build or a hardware performance benchmark.

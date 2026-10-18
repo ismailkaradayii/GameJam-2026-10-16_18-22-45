@@ -118,6 +118,7 @@ namespace GameJam.FireRescue
             musicSourceBaseVolumes = CacheVolumes(musicSources);
             ApplySavedSettings();
             ConfigureReadableHudText();
+            if (VolcanicHudTheme.Current) VolcanicHudTheme.Current.Apply(this);
             HideTransientCenterNotifications();
             SetPanel(pausePanel, false);
             SetPanel(victoryPanel, false);
@@ -359,6 +360,11 @@ namespace GameJam.FireRescue
             if (!cleanSpeed && speedText) cleanSpeed = speedText.transform.parent as RectTransform;
             if (!cleanSubtitle && subtitleText) cleanSubtitle = subtitleText.transform.parent as RectTransform;
             if (!cleanToast && toastText) cleanToast = toastText.transform.parent as RectTransform;
+            if (VolcanicHudTheme.Current)
+            {
+                VolcanicHudTheme.Current.Layout(this);
+                return;
+            }
             if (layoutScreenWidth != Screen.width || layoutScreenHeight != Screen.height)
             {
                 layoutScreenWidth = Screen.width; layoutScreenHeight = Screen.height;

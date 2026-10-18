@@ -101,6 +101,12 @@ public static class VolcanoStoryChecks
             case 0:
                 if (!story.IsOpening) return;
                 Check("wake-up hands control to the window scene", mission.Phase == VolcanoMissionDirector.MissionPhase.Window && player.CinematicLocked && !mission.cinematic.IsPlaying);
+                Check("all five downloaded opening voices resolve in order", story.openingVoiceClips.Length >= 5 &&
+                    Enumerable.Range(0, 5).All(i => story.openingVoiceClips[i] && story.openingVoiceClips[i].name == "talk" + (i + 1).ToString("00")));
+                var voiceRoot = story.transform.Find("Opening inner monologue");
+                var openingVoice = voiceRoot ? voiceRoot.GetComponent<AudioSource>() : null;
+                Check("first inner thought starts as a dedicated 2D voice", openingVoice && openingVoice.isPlaying &&
+                    openingVoice.spatialBlend == 0f && openingVoice.clip == story.openingVoiceClips[0]);
                 Check("story reuses existing smoke and ember materials without eruption references", story.omenSmoke != mission.sequence.effects.smokePlume && story.omenSparks != mission.sequence.effects.lavaBombs &&
                     story.omenSmoke.GetComponent<Renderer>().sharedMaterial == mission.sequence.effects.smokePlume.GetComponent<Renderer>().sharedMaterial);
                 Check("original preparation and interaction parameters remain intact", mission.preparationSeconds == 120 && mission.tank.startingTankLitres == 0 && mission.evacuation.callKey == Key.Q && mission.evacuation.shoutRadius == 58 && mission.evacuation.villageWideCall);

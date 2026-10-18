@@ -25,6 +25,7 @@ namespace GameJam.FireRescue
         public bool fitFireToBuilding = true;
         [Range(.5f, 2f)] public float flameVisualScale = 1f;
         [Min(.2f)] public float visualFireSpreadSeconds = 3.5f;
+        [Min(2f)] public float visualCollapseSeconds = 11f;
         public bool IsBurnedOut { get; private set; }
         public float BurnDamage { get; private set; }
         public float Integrity01 => IsBurnedOut ? 0f : Mathf.Clamp01(1f - BurnDamage / Mathf.Max(1f, secondsToCollapse));
@@ -42,6 +43,7 @@ namespace GameJam.FireRescue
         private BuildingFirePresentation presentation;
         private BuildingFireVisual detailedFire;
         private Coroutine roofIgnition;
+        private BuildingRuinVisual ruin;
         private static readonly List<BurnableBuilding> Buildings = new List<BurnableBuilding>();
         public static event Action FireStateChanged;
 
@@ -154,12 +156,12 @@ namespace GameJam.FireRescue
             if (IsBurning && !IsBurnedOut)
             {
                 BurnDamage += deltaTime * heat;
+                if (!ruin) ruin = GetComponent<BuildingRuinVisual>() ?? gameObject.AddComponent<BuildingRuinVisual>();
+                ruin.SetDamage(this);
                 if (BurnDamage >= secondsToCollapse)
                 {
                     IsBurnedOut = true; heat = 0;
                     FireStateChanged?.Invoke();
-                    var ruin = GetComponent<BuildingRuinVisual>();
-                    if (!ruin) ruin = gameObject.AddComponent<BuildingRuinVisual>();
                     ruin.Collapse(this);
                 }
             }

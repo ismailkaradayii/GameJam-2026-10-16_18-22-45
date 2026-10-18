@@ -820,7 +820,7 @@ namespace GameJam.FireRescue
                 {
                     if (station.IsFilling) return "FILLING WATER TANK...  |  P: Disconnect  |  E: Exit";
                     if (hose && hose.Tank01 >= .999f) return "TANK FULL  |  Return to the village";
-                    return drive.SpeedKph > station.maximumFillSpeedKph ? "SPACE: Stop in the blue ring to refill" : "P: Fill water tank  |  E: Exit";
+                    return drive.SpeedKph > station.maximumFillSpeedKph ? "SPACE: Stop in the blue parking bay to refill" : "P: Fill water tank  |  E: Exit";
                 }
                 return "WASD: Drive  |  SPACE: Brake  |  RMB: Water cannon  |  E: Exit below 20 km/h";
             }
