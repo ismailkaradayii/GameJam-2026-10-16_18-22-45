@@ -10,6 +10,69 @@ using UnityEngine.Video;
 /// <summary>One-time authoring utility for the checked-in ASHFALL menu scene.</summary>
 public static class AshfallMenuSceneBuilder
 {
+    private const string LogoPath = "Assets/Art/UI/Volkanovski.png";
+
+    [MenuItem("ASHFALL/Build VOLKANOVSKI Logo Intro")]
+    public static void BuildLogoIntro()
+    {
+        TextureImporter importer = AssetImporter.GetAtPath(LogoPath) as TextureImporter;
+        if (importer == null) throw new System.Exception($"Required logo was not found: {LogoPath}");
+        importer.textureType = TextureImporterType.Sprite;
+        importer.spriteImportMode = SpriteImportMode.Single;
+        importer.alphaIsTransparency = true;
+        importer.mipmapEnabled = false;
+        importer.wrapMode = TextureWrapMode.Clamp;
+        importer.SaveAndReimport();
+
+        Sprite logo = AssetDatabase.LoadAssetAtPath<Sprite>(LogoPath);
+        if (logo == null) throw new System.Exception($"Logo could not be imported as a Sprite: {LogoPath}");
+
+        Scene scene = EditorSceneManager.OpenScene("Assets/Scenes/MainMenu.unity", OpenSceneMode.Single);
+        Transform canvas = GameObject.Find("Canvas")?.transform;
+        AshfallMenuController controller = Object.FindFirstObjectByType<AshfallMenuController>();
+        if (canvas == null || controller == null) throw new System.Exception("Existing Canvas or AshfallMenuController was not found.");
+
+        Transform logoTransform = FindChild(canvas, "VolkanovskiLogoIntro");
+        if (logoTransform == null)
+        {
+            GameObject logoObject = new GameObject("VolkanovskiLogoIntro", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(CanvasGroup), typeof(AspectRatioFitter));
+            logoObject.transform.SetParent(canvas, false);
+            logoTransform = logoObject.transform;
+        }
+
+        Image image = logoTransform.GetComponent<Image>();
+        image.sprite = logo;
+        image.preserveAspect = true;
+        image.raycastTarget = false;
+        image.color = Color.white;
+        AspectRatioFitter fitter = logoTransform.GetComponent<AspectRatioFitter>();
+        if (fitter == null) fitter = logoTransform.gameObject.AddComponent<AspectRatioFitter>();
+        fitter.aspectMode = AspectRatioFitter.AspectMode.FitInParent;
+        fitter.aspectRatio = logo.rect.width / logo.rect.height;
+        RectTransform rect = logoTransform.GetComponent<RectTransform>();
+        rect.anchorMin = new Vector2(0.04f, 0.61f);
+        rect.anchorMax = new Vector2(0.64f, 0.96f);
+        rect.offsetMin = Vector2.zero;
+        rect.offsetMax = Vector2.zero;
+        rect.localScale = Vector3.one;
+        CanvasGroup logoGroup = logoTransform.GetComponent<CanvasGroup>();
+        logoGroup.alpha = 0f;
+        logoGroup.interactable = false;
+        logoGroup.blocksRaycasts = false;
+
+        Transform mainMenu = FindChild(canvas, "MainMenuGroup");
+        if (mainMenu != null) logoTransform.SetSiblingIndex(mainMenu.GetSiblingIndex() + 1);
+        SerializedObject serialized = new SerializedObject(controller);
+        serialized.FindProperty("titleGroup").objectReferenceValue = logoGroup;
+        serialized.FindProperty("introDuration").floatValue = 4.5f;
+        serialized.ApplyModifiedPropertiesWithoutUndo();
+
+        EditorSceneManager.MarkSceneDirty(scene);
+        EditorSceneManager.SaveScene(scene);
+        AssetDatabase.SaveAssets();
+        Debug.Log("ASHFALL: VOLKANOVSKI logo intro added to the existing Canvas; the existing menu, video, panels, and button callbacks were preserved.");
+    }
+
     [MenuItem("ASHFALL/Integrate Menu Background Video")]
     public static void IntegrateVideoBackground()
     {

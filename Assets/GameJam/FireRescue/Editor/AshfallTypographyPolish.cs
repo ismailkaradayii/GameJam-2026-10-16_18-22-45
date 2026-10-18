@@ -57,10 +57,10 @@ public static class AshfallTypographyPolish
                 if (!button) continue;
                 var label = button.GetComponentInChildren<Text>(true);
                 if (!label) continue;
-                AshfallTypography.Apply(label, AshfallTypography.Role.Button, 34);
+                AshfallTypography.Apply(label, AshfallTypography.Role.Button, 48);
                 label.alignment = TextAnchor.MiddleLeft;
                 label.rectTransform.anchorMin = Vector2.zero; label.rectTransform.anchorMax = Vector2.one;
-                label.rectTransform.offsetMin = new Vector2(48, 8); label.rectTransform.offsetMax = new Vector2(-40, -8);
+                label.rectTransform.offsetMin = new Vector2(112, 14); label.rectTransform.offsetMax = new Vector2(-72, -14);
                 var plate = button.GetComponent<Image>();
                 if (plate) plate.color = new Color(.82f, .8f, .77f);
             }

@@ -10,7 +10,6 @@ using UnityEngine.UI;
 public static class AshfallMenuButtonStyleBuilder
 {
     private const string SpritePath = "Assets/Art/UI/AshfallMenuButton.png";
-
     [MenuItem("ASHFALL/Apply Lava Rock Menu Button Style")]
     public static void ApplyStyle()
     {
@@ -43,6 +42,8 @@ public static class AshfallMenuButtonStyleBuilder
             Image image = button.GetComponent<Image>();
             if (image == null) image = button.gameObject.AddComponent<Image>();
             image.sprite = plate;
+            // This artwork is a complete plate, not a tileable frame. Drawing it
+            // as a single image avoids collapsed 9-slice borders on compact buttons.
             image.type = Image.Type.Simple;
             image.fillCenter = true;
             image.preserveAspect = false;
@@ -53,12 +54,12 @@ public static class AshfallMenuButtonStyleBuilder
             button.transition = Selectable.Transition.ColorTint;
             ColorBlock colors = button.colors;
             colors.normalColor = Color.white;
-            colors.highlightedColor = new Color(1f, 0.82f, 0.66f, 1f);
-            colors.pressedColor = new Color(0.72f, 0.35f, 0.18f, 1f);
-            colors.selectedColor = new Color(1f, 0.9f, 0.78f, 1f);
+            colors.highlightedColor = new Color(1f, 0.88f, 0.72f, 1f);
+            colors.pressedColor = new Color(0.78f, 0.5f, 0.32f, 1f);
+            colors.selectedColor = colors.highlightedColor;
             colors.disabledColor = new Color(0.48f, 0.43f, 0.4f, 0.78f);
             colors.colorMultiplier = 1f;
-            colors.fadeDuration = 0.12f;
+            colors.fadeDuration = 0.1f;
             button.colors = colors;
 
             Transform oldAccent = button.transform.Find("Accent");
@@ -68,22 +69,35 @@ public static class AshfallMenuButtonStyleBuilder
             if (label != null)
             {
                 label.alignment = TextAnchor.MiddleLeft;
-                Ashfall.UI.AshfallTypography.Apply(label, Ashfall.UI.AshfallTypography.Role.Button, 34);
+                Ashfall.UI.AshfallTypography.Apply(label, Ashfall.UI.AshfallTypography.Role.Button, 48);
                 label.text = Ashfall.UI.AshfallTypography.NaturalCase(label.text);
                 label.raycastTarget = false;
                 RectTransform labelRect = label.rectTransform;
                 labelRect.anchorMin = Vector2.zero;
                 labelRect.anchorMax = Vector2.one;
                 labelRect.pivot = new Vector2(0.5f, 0.5f);
-                labelRect.offsetMin = new Vector2(42f, 0f);
-                labelRect.offsetMax = new Vector2(-24f, 0f);
+                labelRect.offsetMin = new Vector2(112f, 14f);
+                labelRect.offsetMax = new Vector2(-72f, -14f);
+                labelRect.localScale = Vector3.one;
             }
+
+            if (button.transform.parent != null) button.transform.parent.localScale = Vector3.one;
 
             EditorUtility.SetDirty(button.gameObject);
             styled++;
         }
 
         if (styled == 0) throw new System.Exception("No existing main menu buttons were assigned to AshfallMenuController.");
+        SerializedProperty mainMenuProperty = serialized.FindProperty("mainMenuGroup");
+        CanvasGroup mainMenu = mainMenuProperty != null ? mainMenuProperty.objectReferenceValue as CanvasGroup : null;
+        if (mainMenu != null)
+        {
+            RectTransform menuRect = mainMenu.GetComponent<RectTransform>();
+            menuRect.anchorMin = new Vector2(0.055f, 0.12f);
+            menuRect.anchorMax = new Vector2(0.43f, 0.60f);
+            menuRect.offsetMin = Vector2.zero;
+            menuRect.offsetMax = Vector2.zero;
+        }
         Scene scene = controller.gameObject.scene;
         EditorSceneManager.MarkSceneDirty(scene);
         EditorSceneManager.SaveScene(scene);
