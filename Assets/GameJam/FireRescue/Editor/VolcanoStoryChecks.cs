@@ -50,6 +50,9 @@ public static class VolcanoStoryChecks
         if (EditorApplication.isPlayingOrWillChangePlaymode) throw new InvalidOperationException("Use Edit Mode.");
         var authored = Object.FindFirstObjectByType<VolcanoMissionDirector>();
         if (!authored || !authored.story) throw new InvalidOperationException("Apply the volcano story first.");
+        // The old scenario below intentionally describes the former village-wide Q flow.
+        // The merged E-group mission has its own physical recruitment/deposit checks.
+        if (authored.evacuation && authored.evacuation.groupRescue) { Osman1810MergeChecks.Run(); return; }
         foreach (var root in authored.gameObject.scene.GetRootGameObjects())
             foreach (var t in root.GetComponentsInChildren<Transform>(true))
                 if (t.GetComponents<Component>().Any(c => !c)) throw new InvalidOperationException("Missing script: " + t.name);

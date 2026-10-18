@@ -281,6 +281,13 @@ namespace GameJam.FireRescue
             lookYaw = viewRotation.eulerAngles.y;
             lookPitch = Mathf.Clamp(Mathf.DeltaAngle(0, viewRotation.eulerAngles.x), -75f, 78f);
             Vector3 delta = Vector3.ProjectOnPlane(destination - playerBody.transform.position, Vector3.up);
+            if (firstPerson)
+            {
+                playerBody.transform.rotation = Quaternion.Euler(0f, lookYaw, 0f);
+                firstPerson.SimulateCinematicMovement(delta, maximumSpeed, lookPitch);
+                UpdateFootCamera();
+                return;
+            }
             float speed = firstPerson ? firstPerson.walkSpeed : walkSpeed;
             Vector3 local = Quaternion.Inverse(Quaternion.Euler(0, lookYaw, 0)) * delta.normalized;
             float input = Mathf.Min(Mathf.Max(0, maximumSpeed), delta.magnitude * 2f) / Mathf.Max(.1f, speed);
@@ -320,26 +327,20 @@ namespace GameJam.FireRescue
                 ShowNotice("Slow below 20 km/h before exiting.");
                 return false;
             }
-            Vector3 destination = exitPoint ? exitPoint.position : drive.transform.position - drive.transform.right * 3f;
-            destination = FindGround(destination);
-            if (!IsClearExit(destination))
+            if (!VehicleExitPlacement.TryFind(this, out Vector3 destination))
             {
-                Vector3 opposite = exitPoint ? drive.transform.InverseTransformPoint(exitPoint.position) : new Vector3(-3f, 0f, 0f);
-                opposite.x = -opposite.x;
-                destination = FindGround(drive.transform.TransformPoint(opposite));
-                if (!IsClearExit(destination))
-                {
-                    ShowNotice("Exit blocked. Park in an open area.");
-                    return false;
-                }
+                ShowNotice("Exit blocked. Park in an open area.");
+                return false;
             }
             playerBody.enabled = false;
-            playerBody.transform.position = destination;
             lookYaw = drive.transform.eulerAngles.y;
+            playerBody.transform.SetPositionAndRotation(destination, Quaternion.Euler(0f, lookYaw, 0f));
             lookPitch = 8f;
             verticalVelocity = 0f;
             if (mission && mission.fillStation) mission.fillStation.Cancel();
             SetDriving(false);
+            transitionLeft = 0f;
+            UpdateFootCamera();
             return true;
         }
 
@@ -468,6 +469,8 @@ namespace GameJam.FireRescue
                     case ContextualInteractionKind.Pistol: return mission.weaponPickup.TryPickUp();
                     case ContextualInteractionKind.VillageAlarm: return target.alarm && target.alarm.TryPress();
                     case ContextualInteractionKind.Door: return ToggleDoor(target.door);
+                    case ContextualInteractionKind.Resident: return mission && mission.evacuation && mission.evacuation.TryRecruitGroup(target.resident);
+                    case ContextualInteractionKind.AssemblyPoint: return mission && mission.evacuation && mission.evacuation.TryAssemblyInteraction();
                     case ContextualInteractionKind.TruckEntry: return EnterVehicle();
                     case ContextualInteractionKind.HoseDrop: InteractWithHose(); return true;
                     case ContextualInteractionKind.HosePickup:
@@ -481,6 +484,19 @@ namespace GameJam.FireRescue
             if (TryGetDoorTarget(out InteractiveDoor door))
             {
                 return ToggleDoor(door);
+            }
+            if (mission && mission.evacuation && mission.evacuation.groupRescue && mission.evacuation.IsActive)
+            {
+                var rescue = mission.evacuation;
+                if (rescue.PlayerAtAssembly && rescue.TryAssemblyInteraction()) return true;
+                EvacuationResident nearest = null; float distance = float.PositiveInfinity;
+                foreach (var r in rescue.residents)
+                {
+                    if (!rescue.CanRecruitGroup(r)) continue;
+                    float d = (r.transform.position - transform.position).sqrMagnitude;
+                    if (d < distance) { distance = d; nearest = r; }
+                }
+                if (nearest && rescue.TryRecruitGroup(nearest)) return true;
             }
             if (NearVehicleEntry()) return EnterVehicle();
             if (hose && hand && Near(hose.IsDeployed ? hose.nozzle : hose.hoseSocket, interactionDistance))
@@ -573,19 +589,6 @@ namespace GameJam.FireRescue
             foreach (RaycastHit hit in hits)
                 if (!IsOwnCollider(hit.collider)) return hit.point + Vector3.up * 0.12f;
             return point;
-        }
-
-        bool IsClearExit(Vector3 point)
-        {
-            float size = Mathf.Abs(playerBody.transform.lossyScale.y);
-            float radius = playerBody.radius * size;
-            float height = Mathf.Max(playerBody.height * size, radius * 2f);
-            Vector3 bottom = point + Vector3.up * (radius + 0.04f);
-            Vector3 top = point + Vector3.up * (height - radius);
-            Collider[] overlaps = Physics.OverlapCapsule(bottom, top, radius, ~0, QueryTriggerInteraction.Ignore);
-            foreach (Collider overlap in overlaps)
-                if (overlap && !overlap.transform.IsChildOf(playerBody.transform)) return false;
-            return true;
         }
 
         bool IsOwnCollider(Collider other)
@@ -830,7 +833,7 @@ namespace GameJam.FireRescue
             if (hose && Near(hose.hoseSocket, interactionDistance)) return hose.IsDeployed ? "R: Retract hose  |  P: Pump" : "E: Take intake hose";
             if (hose && hose.IsDeployed && Near(hose.nozzle, interactionDistance)) return "E: Take intake  |  P: Pump";
             if (mission && mission.evacuation && mission.evacuation.IsActive && !mission.evacuation.IsComplete)
-                return "Q: Call villagers  |  Lead them to the GREEN shelter ring";
+                return mission.evacuation.groupRescue ? mission.evacuation.GroupHint : "Q: Call villagers  |  Lead them to the GREEN shelter ring";
             if (HasPistol && pistol) return pistol.Equipped ? "LMB: Shoot  |  RMB: Aim  |  R: Reload  |  0: Holster" : "1: Select pistol  |  SHIFT: Sprint";
             return "WASD: Move  |  SHIFT: Sprint  |  E: Interact";
         }

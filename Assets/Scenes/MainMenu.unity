@@ -4919,12 +4919,14 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 1
     m_LineSpacing: 1.15
-  m_Text: Take the pistol from your bedroom with E and leave the house. Call villagers
-    with Q and lead them to the GREEN shelter ring. Enter the fire truck behind the
-    house and fill its tank with P at the BLUE lake marker. E exits below 20 km/h.
-    The volcano erupts after 120 seconds, even if preparations are incomplete. Stop
-    three waves of fire spirits and extinguish burning houses. You win if at least
-    one house survives; you lose if all are destroyed. Stay away from hot lava.
+  m_Text: Take the pistol from your bedroom with E and leave the house. Follow !
+    and press E to collect the next group. Bring them to the AMBER assembly area
+    and press E to leave them there. Repeat for all seven, then press E and lead
+    everyone to the GREEN shelter. Enter the fire truck behind the house and fill
+    its tank with P at the BLUE lake marker. E exits below 20 km/h. The volcano erupts
+    after 240 seconds, even if preparations are incomplete. Stop three waves of fire
+    spirits and extinguish burning houses. You win if at least one house survives;
+    you lose if all are destroyed. Stay away from hot lava.
 --- !u!222 &357138007
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -9637,7 +9639,8 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 1
     m_LineSpacing: 1.15
-  m_Text: Call out near the houses and lead the villagers to shelter.
+  m_Text: 'E near a group: follow. E at the amber assembly area: wait. All seven
+    assembled: E to depart for the shelter.'
 --- !u!222 &662469167
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -24537,7 +24540,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 1
     m_LineSpacing: 1.05
-  m_Text: Q
+  m_Text: E
 --- !u!222 &1928885257
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -24900,7 +24903,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 1
     m_LineSpacing: 1.15
-  m_Text: You have 120 seconds to prepare. Then defend the village.
+  m_Text: You have 240 seconds to prepare. Then defend the village.
 --- !u!222 &1949299727
 CanvasRenderer:
   m_ObjectHideFlags: 0

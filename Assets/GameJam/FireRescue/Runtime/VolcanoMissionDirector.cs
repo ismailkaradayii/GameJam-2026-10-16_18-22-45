@@ -173,7 +173,7 @@ namespace GameJam.FireRescue
             MissionPhase.Window => "LOOK AT THE VOLCANO FROM THE WINDOW",
             MissionPhase.Weapon => villageAlarm ? "TAKE YOUR WEAPON" : "TAKE YOUR WEAPON AND LEAVE THE HOUSE",
             MissionPhase.WarnVillage => villageAlarm ? "ACTIVATE THE VILLAGE ALARM" : "WARN THE VILLAGE",
-            MissionPhase.Evacuate => "EVACUATE THE VILLAGERS",
+            MissionPhase.Evacuate => evacuation && evacuation.groupRescue ? evacuation.GroupObjective : "EVACUATE THE VILLAGERS",
             MissionPhase.Truck => "PREPARE THE FIRE TRUCK",
             MissionPhase.Refill => "DRIVE TO THE LAKE",
             MissionPhase.Ready => story && story.defensePosition ? "PREPARE FOR THE LAVA" : "READY FOR THE ERUPTION",
@@ -196,7 +196,7 @@ namespace GameJam.FireRescue
                     MissionPhase.Weapon => player.HasPistol ? "Pistol in slot 1. Follow the marker to the front door. " + InputLabel(InteractionInput.Interact, "E") + " opens doors." : "Follow the glowing blue ring to the bedside pistol. Press " + InputLabel(InteractionInput.Interact, "E") + " to take it.",
                     MissionPhase.WarnVillage => villageAlarm ? "Approach the alarm button beneath the red light at the first house. " +
                         (player.contextualInteractions ? player.contextualInteractions.Label(InteractionInput.Interact) : "E") + " to press it and warn the village." : "Warn the village to begin the evacuation.",
-                    MissionPhase.Evacuate => "Villagers are leaving their houses. Press " + InputLabel(InteractionInput.CallVillagers, "Q") + " to call them, then follow the green marker to the shelter.",
+                    MissionPhase.Evacuate => evacuation && evacuation.groupRescue ? evacuation.GroupDetail : "Villagers are leaving their houses. Press " + InputLabel(InteractionInput.CallVillagers, "Q") + " to call them, then follow the green marker to the shelter.",
                     MissionPhase.Truck => "Find the truck behind your house. Approach the driver's door and press " +
                         (player.contextualInteractions ? player.contextualInteractions.Label(InteractionInput.Interact) : "E") + ".",
                     MissionPhase.Refill => "Follow the blue arrows to the lake and park in the blue parking bay. Press " + InputLabel(InteractionInput.Pump, "P") + " to connect the intake and fill the tank. " + InputLabel(InteractionInput.ExitVehicle, "E") + " exits the truck.",

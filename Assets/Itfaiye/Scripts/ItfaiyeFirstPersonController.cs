@@ -25,7 +25,7 @@ namespace Itfaiye
         [Min(.1f)] public float acceleration = 14f;
         [Min(.1f)] public float braking = 20f;
         public float gravity = -25f;
-        public float jumpHeight = .9f;
+        [Min(.1f)] public float jumpHeight = 2.4f;
 
         [Header("First person view")]
         [Range(.01f, .5f)] public float mouseSensitivity = .09f;
@@ -159,6 +159,20 @@ namespace Itfaiye
             AdvancePosture();
         }
 
+        // A scripted corner must follow its swept route exactly, without carrying the
+        // previous segment's acceleration sideways into a wall at a low frame rate.
+        public void SimulateCinematicMovement(Vector3 remaining, float maximumSpeed, float viewPitch)
+        {
+            float dt = Time.deltaTime;
+            if (!externalControl || dt <= 0f) return;
+            remaining.y = 0f;
+            float speed = Mathf.Min(Mathf.Max(0f, maximumSpeed), remaining.magnitude / dt);
+            planarVelocity = remaining.normalized * speed;
+            Vector3 local = transform.InverseTransformDirection(planarVelocity) / Mathf.Max(.1f, walkSpeed);
+            SimulateExternalMovement(new Vector2(local.x, local.z), false, false, false, true, viewPitch,
+                Vector2.zero, travel => Vector3.ClampMagnitude(Vector3.Project(travel, remaining), remaining.magnitude));
+        }
+
         void SimulateMovement(Vector2 move, bool sprint, bool jump, bool kneel, System.Func<Vector3, Vector3> constrainTravel, float swimVertical = 0f)
         {
             if (motor == null || !motor.enabled) return;
@@ -210,11 +224,13 @@ namespace Itfaiye
                 pendingJump -= dt;
                 if (pendingJump < 0f) verticalVelocity = Mathf.Sqrt(2f * Mathf.Abs(gravity) * jumpHeight);
             }
+            float previousVerticalVelocity = verticalVelocity;
             verticalVelocity = Mathf.Max(verticalVelocity + gravity * dt, -45f);
+            float verticalTravel = (previousVerticalVelocity + verticalVelocity) * .5f * dt;
             var previous = transform.position;
             Vector3 travel = planarVelocity * dt;
             if (constrainTravel != null) travel = constrainTravel(travel);
-            var collisions = motor.Move(travel + Vector3.up * verticalVelocity * dt);
+            var collisions = motor.Move(travel + Vector3.up * verticalTravel);
             if ((collisions & CollisionFlags.Above) != 0 && verticalVelocity > 0f) verticalVelocity = 0f;
             if ((collisions & CollisionFlags.Below) != 0)
             { verticalVelocity = -2f; lastGroundedAt = Time.time; }

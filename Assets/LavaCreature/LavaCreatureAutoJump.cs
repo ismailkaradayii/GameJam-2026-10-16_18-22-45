@@ -114,9 +114,8 @@ public sealed class LavaCreatureAutoJump : MonoBehaviour
     {
         CombatRoofWindup(direction, amount);
         if (!visualRoot) return;
-        float anger = Mathf.SmoothStep(0f, 1f, amount) * (1f - Mathf.InverseLerp(.82f, 1f, amount));
-        visualRoot.localRotation *= Quaternion.Euler(Mathf.Sin(amount * 48f) * 3f * anger,
-            Mathf.Sin(amount * 61f) * 2f * anger, 0f);
+        float load = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(amount / .82f));
+        visualRoot.localRotation *= Quaternion.AngleAxis(-8f * load, Vector3.right);
     }
 
     public void CombatLaunchPose(Vector3 position, Vector3 velocity, float progress)

@@ -50,11 +50,16 @@ namespace Itfaiye
         {
             if (!player || !animator || left == null) return;
             var state = animator.GetCurrentAnimatorStateInfo(0);
-            bool locomotion = state.IsName("Pistol Locomotion") || state.IsName("Unarmed") || state.IsName("Locomotion");
-            bool active = locomotion && !animator.IsInTransition(0) && player.IsGrounded && !player.IsKneeling;
+            bool supported = SupportsPose(state) && (!animator.IsInTransition(0) || SupportsPose(animator.GetNextAnimatorStateInfo(0)));
+            // The imported left calf also twists in the jump clips. Keep its bind-frame
+            // correction through take-off, flight and landing, including their crossfades.
+            bool active = supported && !player.IsSwimming && !player.IsKneeling;
             weight = Mathf.MoveTowards(weight, active ? 1f : 0f, Time.deltaTime / .10f);
             if (weight > 0f) Stabilize(weight, Time.deltaTime);
         }
+
+        static bool SupportsPose(AnimatorStateInfo state) => state.IsName("Pistol Locomotion") || state.IsName("Unarmed") ||
+            state.IsName("Locomotion") || state.IsName("Standing Jump") || state.IsName("Moving Jump");
 
         public void Stabilize(float amount, float dt)
         {

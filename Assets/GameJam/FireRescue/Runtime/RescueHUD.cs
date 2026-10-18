@@ -310,11 +310,12 @@ namespace GameJam.FireRescue
             // Keep generic progress toasts suppressed; only authored inner thoughts use subtitles.
             SetTextContainerActive(toastText, false);
             var story = missionDirector ? missionDirector.story : null;
-            bool showThought = playing && !VolcanoCinematic.IsPlayingAny && story && !string.IsNullOrEmpty(story.CurrentLine);
+            bool rescueLine = evacuation && evacuation.groupRescue && evacuation.MessageRemaining > 0f && !string.IsNullOrEmpty(evacuation.CurrentMessage);
+            bool showThought = playing && !VolcanoCinematic.IsPlayingAny && (rescueLine || story && !string.IsNullOrEmpty(story.CurrentLine));
             SetTextContainerActive(subtitleText, showThought);
             if (showThought && subtitleText)
             {
-                subtitleText.text = story.CurrentLine;
+                subtitleText.text = rescueLine ? evacuation.CurrentMessage : story.CurrentLine;
             }
             UpdateEruption(); UpdateTarget(playing);
             if (cleanPresentation)
@@ -478,16 +479,24 @@ namespace GameJam.FireRescue
                     questBodyText.text += "\nSheltered: " + evacuation.RescuedCount + "/" + evacuation.TotalCount + "  ·  Lost: " + evacuation.DeadCount + "  ·  Outside: " + evacuation.RemainingCount;
                 questHintText.text = mission.EruptionTriggered ? "Wave " + Mathf.Max(1, encounter ? encounter.WaveNumber : 0) + "/" + (encounter ? encounter.WaveCount : 0) +
                     "  |  Spirits remaining: " + (encounter ? encounter.PlannedCount - encounter.SpawnedCount + encounter.AliveCount : 0) :
-                    mission.Phase == VolcanoMissionDirector.MissionPhase.Evacuate && evacuation ? "Villagers Evacuated: " + evacuation.RescuedCount + "/" + evacuation.TotalCount + "  |  Called: " + evacuation.CalledCount :
+                    mission.Phase == VolcanoMissionDirector.MissionPhase.Evacuate && evacuation ? evacuation.groupRescue ? evacuation.GroupStatus : "Villagers Evacuated: " + evacuation.RescuedCount + "/" + evacuation.TotalCount + "  |  Called: " + evacuation.CalledCount :
                     mission.Phase == VolcanoMissionDirector.MissionPhase.Refill ? "Water tank: " + Mathf.RoundToInt(hose.Tank01 * 100) + "%" : "";
                 questFill.fillAmount = mission.EruptionTriggered ? encounter && encounter.PlannedCount > 0 ? Mathf.Clamp01((float)(encounter.SpawnedCount - encounter.AliveCount) / encounter.PlannedCount) : 0 :
-                    mission.Phase == VolcanoMissionDirector.MissionPhase.Evacuate && evacuation ? (float)evacuation.RescuedCount / Mathf.Max(1, evacuation.TotalCount) :
+                    mission.Phase == VolcanoMissionDirector.MissionPhase.Evacuate && evacuation ? evacuation.groupRescue ? evacuation.GroupProgress : (float)evacuation.RescuedCount / Mathf.Max(1, evacuation.TotalCount) :
                     mission.Phase == VolcanoMissionDirector.MissionPhase.Refill ? hose.Tank01 : mission.PreparationComplete ? 1f : 0f;
                 return;
             }
             VolcanoMissionDirector.MissionPhase phase = missionDirector ? missionDirector.Phase : VolcanoMissionDirector.MissionPhase.Defend;
             if (evacuation && !evacuation.IsComplete)
             {
+                if (evacuation.groupRescue)
+                {
+                    questTitleText.text = evacuation.GroupObjective;
+                    questBodyText.text = evacuation.GroupDetail;
+                    questHintText.text = evacuation.GroupStatus;
+                    questFill.fillAmount = evacuation.GroupProgress;
+                    return;
+                }
                 questTitleText.text = "Evacuate the villagers";
                 questBodyText.text = "Sheltered  " + evacuation.RescuedCount + " / " + evacuation.TotalCount +
                     "     Called  " + evacuation.CalledCount + " / " + evacuation.TotalCount + "\n" +

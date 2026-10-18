@@ -239,6 +239,20 @@ namespace GameJam.FireRescue
                     return true;
                 case ContextualInteractionKind.Resident:
                     if (player.IsDriving || !evacuation || !evacuation.IsActive || !target.resident || target.resident.IsSafe) return false;
+                    if (target.resident.IsDead || target.resident.IsBurning) return false;
+                    if (evacuation.groupRescue)
+                    {
+                        var r = target.resident;
+                        if (r.IsAtAssembly || r.IsMovingToAssembly)
+                        { offer.title = "Toplanma alanında bekliyor"; offer.detail = evacuation.GroupStatus; return true; }
+                        if (r.IsCalled)
+                        { offer.title = "Seni takip ediyor"; offer.detail = evacuation.EscortStarted ? "Yeşil işareti takip et" : "Grubu sarı halkaya getir"; return true; }
+                        if (!evacuation.CanRecruitGroup(r)) return false;
+                        offer.title = "Grubu yanına al";
+                        offer.detail = "Bu grubu toplanma alanına götür";
+                        offer.input = InteractionInput.Interact;
+                        return true;
+                    }
                     if (target.resident.IsCalled)
                     { offer.title = words.leadVillager; offer.detail = words.following; return true; }
                     if (!CanCall(target.resident)) return false;
@@ -253,6 +267,7 @@ namespace GameJam.FireRescue
                     CallOffer(ref offer, evacuation); return true;
                 case ContextualInteractionKind.Shelter:
                     if (player.IsDriving || !evacuation || !evacuation.IsActive || evacuation.CalledCount == 0) return false;
+                    if (evacuation.groupRescue && !evacuation.EscortStarted) return false;
                     offer.title = words.shelter;
                     if (cachedSafeCount != evacuation.RescuedCount || cachedTotalCount != evacuation.TotalCount)
                     {
@@ -260,6 +275,17 @@ namespace GameJam.FireRescue
                         shelterDetail = words.shelterAutomatic + "\n" + cachedSafeCount + " / " + cachedTotalCount + " safe";
                     }
                     offer.detail = shelterDetail; return true;
+                case ContextualInteractionKind.AssemblyPoint:
+                    if (player.IsDriving || !evacuation || !evacuation.groupRescue || !evacuation.IsActive || evacuation.EscortStarted) return false;
+                    offer.title = evacuation.AllAtAssembly ? "Herkesi yanına al" : evacuation.ActiveGroup >= 0 ? "Grubu burada bırak" : "Toplanma alanı";
+                    offer.detail = evacuation.GroupStatus;
+                    if (evacuation.ActiveGroup >= 0 || evacuation.AllAtAssembly)
+                    {
+                        offer.input = InteractionInput.Interact;
+                        offer.blocked = !evacuation.PlayerAtAssembly || !evacuation.AllAtAssembly && !evacuation.CanDepositGroup;
+                        if (offer.blocked) offer.detail += evacuation.IsDepositing ? "\nGrup yerini alıyor" : "\nGrubu sarı alanın içine getir";
+                    }
+                    return true;
                 case ContextualInteractionKind.LakeFill:
                     var station = mission.fillStation;
                     if (!player.IsDriving || !station || !station.InRange || !hose) return false;

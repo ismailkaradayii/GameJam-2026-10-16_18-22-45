@@ -1,0 +1,51 @@
+18 Ekim 2026 - Yerel son surum ile osman1810 dalinin main birlesimi
+
+Kaynaklar:
+- Yerel calismanin tam kaydi: 88645b0482eae49f405e3fe69c7f6f62d3724a29
+- osman1810: e785108572f2c20dcfec4f2f618354231cfad4f0
+- Ortak ata: 2e31462ff2a519151179f87837a529f10fcf5147
+- Birlesim oncesi guvenlik dali: backup/main-local-before-osman1810-20261018-0357
+
+Kullanicinin sectigi oynanis:
+- Osman'in E ile grup kurtarmasi kullanilir. Gruplar 2 / 2 / 3 kisidir.
+- Gruplar sari toplanma alanina getirilir; yedi kisi toplandiktan sonra
+  siginaga birlikte goturulur. Hazirlik suresi 240 saniyedir.
+- Menu yardimi, gorev metinleri, baglamsal E etkilesimi ve yonlendirme
+  bu akisla birlikte birlestirilmistir.
+
+Korunan yerel calisma:
+- Bes kayitli giris sesi, pencereye yuruyus, kucuk duman/kivilcim anlatimi.
+- Basari sonrasi kesintisiz siginaga donus ve onlem/farkindalik metinleri.
+  Kapanisin istege bagli ses destegi korunur; mevcut kayitlar yalnizca girise aittir.
+- Hizli itfaiye surusu, teker izleri ve toprak/toz efektleri.
+- Gol citi, hortum gecidi, yumusatilmis gol yon oku ve pompa mekanigi.
+- Tabanca/el ayarlari, nisan destegi, HUD/fontlar, sis ve bina efektleri.
+- Unity'deki kaydedilmemis sahne ve terrain degisiklikleri de yerel commit'e dahildir.
+
+Birlesim yontemi:
+- Sahne belge/fileID bazinda uc yonlu birlestirildi; tam kurulum araclari
+  calistirilmadi. Mevcut sahne ayarlari yeniden yazilmadi.
+- 8299 benzersiz kayit; yerelin 23 ve gelen dalin 91 yeni kaydi korunur.
+- Yeni eksik yerel referans, GUID cakismasi veya eksik meta bulunmadi.
+- Hizli arac, gol/hortum, tabanca ve kapanis kaynaklari yerel kayitla aynidir.
+- Terrain SHA256: DAF59805A4CCCBC274DEB5D150A7A84D2670F5ED7444A91EF69E5F815F14DAE3
+
+Dogrulama:
+- Unity 6000.0.58f2 derlemesi basarili.
+- Birlesmis sahne authoring dogrulamasi basarili; eksik script yok.
+- Birlesim test suiti: PASS; kayitli acilis ve bes ses sirayla calar.
+- Pencereye yuruyuste duvar temasi/takilma yok; sabit kamerada kayma sifir.
+- Soguyan lav ve 39 su/yangin kontrolu: PASS.
+- Gercek baglamsal E girdisiyle 2/2/3 grup kurtarmasi ve yedi kisinin
+  gercek NavMesh ajanlariyla siginaga ulasmasi: PASS (7/7).
+- Kapanis yazili anlatiminin grup kurtarmasindan sonra baslamasi: PASS.
+- Dort teker temasinda iz/toz ve hizli surus: PASS. 0-50 km/sa 0,66 sn;
+  olculen en yuksek ivme 26,89 m/sn2; uc saniyede 130,8 km/sa.
+
+Yerel raporlar (Library ve Logs Git'e eklenmez):
+Library/TeamMerge1810Current/scene-merge-resolution-report.json
+Library/TeamMerge1810Current/final-structural-asset-audit.json
+Logs/Osman1810Merge/checks.json
+Logs/OpeningCoolingPounce/opening-result-60fps.txt
+Logs/GroupRescue/checks.json
+Logs/TruckGroundFeel/checks.txt

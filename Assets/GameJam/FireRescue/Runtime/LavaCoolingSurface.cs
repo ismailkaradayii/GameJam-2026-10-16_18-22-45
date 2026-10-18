@@ -27,8 +27,10 @@ namespace GameJam.FireRescue
             public MeshRenderer renderer;
             public Mesh mesh;
             public Material material;
+            public MeshCollider solid;
         }
         readonly List<Patch> patches = new List<Patch>();
+        static readonly List<LavaCoolingSurface> surfaces = new List<LavaCoolingSurface>();
         readonly List<Vector3> polygon = new List<Vector3>(24), clipped = new List<Vector3>(24);
         readonly List<Vector3> vertices = new List<Vector3>();
         readonly List<Vector2> uv = new List<Vector2>();
@@ -42,6 +44,26 @@ namespace GameJam.FireRescue
         float RequiredWater => Mathf.Max(1f, litresPerPatch);
 
         void Awake() { source = GetComponent<LavaIgnitionSource>(); flow = GetComponent<ProgressiveLavaFlow>(); }
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        static void ResetSurfaces() => surfaces.Clear();
+        void OnEnable() { if (!surfaces.Contains(this)) surfaces.Add(this); }
+        void OnDisable() => surfaces.Remove(this);
+
+        // Overlapping lava branches share the same solid cover: the glowing mesh below
+        // a finished obsidian patch cannot damage someone standing on the visible rock.
+        public static bool IsSolidCrustAt(Vector3 point)
+        {
+            foreach (var surface in surfaces)
+                if (surface && surface.isActiveAndEnabled)
+                    foreach (var patch in surface.patches)
+                    {
+                        if (patch.water < surface.RequiredWater || !patch.solid || !patch.solid.enabled ||
+                            !Contains(patch.point, point, Mathf.Max(1f, surface.patchRadius))) continue;
+                        if (patch.solid.Raycast(new Ray(point + Vector3.up * 1.1f, Vector3.down), out var hit, 1.2f) &&
+                            hit.point.y >= point.y - .05f) return true;
+                    }
+            return false;
+        }
         void LateUpdate()
         {
             if (patches.Count == 0 || !source || !source.heatCollider) return;
@@ -54,7 +76,7 @@ namespace GameJam.FireRescue
         {
             float cooled = 0;
             foreach (var p in patches)
-                if (Contains(p.point, point, Mathf.Max(1f, patchRadius) * .98f))
+                if (Contains(p.point, point, Mathf.Max(1f, patchRadius)))
                     cooled = Mathf.Max(cooled, Mathf.Clamp01(p.water / RequiredWater));
             return cooled;
         }
@@ -107,7 +129,7 @@ namespace GameJam.FireRescue
             {
                 Vector3 point = new Vector3(Mathf.Lerp(lowX, highX, x / 8f), lava.max.y + 2, Mathf.Lerp(lowZ, highZ, z / 8f));
                 if (source.heatCollider.Raycast(new Ray(point, Vector3.down), out var hit, lava.size.y + 4) &&
-                    hit.point.y >= building.min.y - .2f && hit.point.y <= building.max.y && IsHotAt(hit.point)) return true;
+                    hit.point.y >= building.min.y - .2f && hit.point.y <= building.max.y && source.IsHotAt(hit.point)) return true;
             }
             return false;
         }
@@ -119,6 +141,8 @@ namespace GameJam.FireRescue
             patch.mesh.MarkDynamic();
             go.AddComponent<MeshFilter>().sharedMesh = patch.mesh;
             patch.renderer = go.AddComponent<MeshRenderer>();
+            patch.solid = go.AddComponent<MeshCollider>();
+            patch.solid.enabled = false;
             patch.renderer.shadowCastingMode = ShadowCastingMode.Off;
             patch.material = crustMaterial ? new Material(crustMaterial) : new Material(Shader.Find("Universal Render Pipeline/Lit"));
             patch.material.EnableKeyword("_EMISSION");
@@ -189,6 +213,13 @@ namespace GameJam.FireRescue
                 }
                 patch.mesh.Clear(); patch.mesh.SetVertices(vertices); patch.mesh.SetUVs(0, uv); patch.mesh.SetTriangles(indices, 0);
                 patch.mesh.RecalculateNormals(); patch.mesh.RecalculateTangents(); patch.mesh.RecalculateBounds();
+                // Keep the visible cooled surface and the walkable/wheel surface identical.
+                if (patch.solid)
+                {
+                    patch.solid.sharedMesh = null;
+                    patch.solid.enabled = progress >= 1f && indices.Count > 0;
+                    if (patch.solid.enabled) patch.solid.sharedMesh = patch.mesh;
+                }
             }
         }
         public void ResetCooling()

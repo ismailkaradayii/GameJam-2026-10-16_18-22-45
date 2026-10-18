@@ -11,6 +11,8 @@ namespace GameJam.FireRescue
         public VolcanoMissionDirector mission;
         [Header("Authored bedroom window and village defense position")]
         public Transform windowStop, volcanoLookTarget, defensePosition;
+        [Tooltip("Authored lens position inside the clear window pane, independent of the walking capsule.")]
+        public Transform windowViewPose;
         public Transform[] windowRoute = System.Array.Empty<Transform>();
         [Tooltip("A small lean toward the lower window pane; blended out before returning control.")]
         public Vector3 windowEyeOffset = new Vector3(-2.2f, -2.2f, 0);
@@ -58,8 +60,9 @@ namespace GameJam.FireRescue
         float lineRemaining, approachElapsed;
         int waypoint;
         bool ownsMovement, stoppedForEruption;
-        Vector3 appliedViewOffset;
-        Vector3 baseViewLocalPosition;
+        Vector3 windowBasePosition, windowEyePosition;
+        Quaternion windowBaseRotation, windowEyeRotation;
+        bool windowViewApplied;
         Quaternion smoothViewRotation;
         float openingFov;
         AudioSource voiceSource;
@@ -82,7 +85,6 @@ namespace GameJam.FireRescue
             if (OpeningStarted || !Player || Player.IsDriving || !windowStop || !volcanoLookTarget) return false;
             OpeningStarted = IsOpening = true;
             openingFov = Player.viewCamera.fieldOfView;
-            baseViewLocalPosition = Player.viewCamera.transform.localPosition;
             smoothViewRotation = Player.viewCamera.transform.rotation;
             Player.SetCinematicLocked(true); Player.RefreshEquipmentState(); ownsMovement = true;
             Speak(Thought.Approach, "I can't shake this feeling... I'll look out the window.", 6f, true);
@@ -91,7 +93,6 @@ namespace GameJam.FireRescue
 
         void Update()
         {
-            RemoveViewOffset();
             if (!mission || !Player) return;
             if (mission.EruptionTriggered)
             {
@@ -110,37 +111,24 @@ namespace GameJam.FireRescue
         void LateUpdate()
         {
             if (!IsOpening || !ownsMovement || !Player || !Player.viewCamera || VolcanoCinematic.IsPlayingAny) return;
-            // Lean only after the body has stopped, rather than pushing the lens sideways into
-            // bedroom geometry while the character is still negotiating the approach.
+            if (!AtWindow) return;
             float approach = AtWindow ? Mathf.SmoothStep(0, 1, ObservationElapsed / 1.6f) : 0f;
             float leave = 1f - Mathf.SmoothStep(0, 1, Mathf.InverseLerp(ObservationDuration - 1.2f, ObservationDuration, ObservationElapsed));
             var view = Player.viewCamera;
-            baseViewLocalPosition = view.transform.localPosition;
-            appliedViewOffset = windowEyeOffset * (approach * leave);
-            Vector3 origin = view.transform.position;
-            float length = appliedViewOffset.magnitude;
-            if (length > .001f)
-                foreach (var hit in Physics.SphereCastAll(origin, .08f, appliedViewOffset / length, length, ~0, QueryTriggerInteraction.Ignore))
-                    if (!hit.transform.IsChildOf(Player.transform))
-                        length = Mathf.Min(length, Mathf.Max(0, hit.distance - .1f));
-            appliedViewOffset = appliedViewOffset.normalized * length;
-            view.transform.position = origin + appliedViewOffset;
-            // Aim from the final lens position, not from the unshifted player's eye.
-            if (AtWindow)
-            {
-                Quaternion focus = Quaternion.LookRotation(volcanoLookTarget.position - view.transform.position);
-                view.transform.rotation = Quaternion.Slerp(smoothViewRotation, focus, approach * leave);
-            }
-            view.fieldOfView = Mathf.Lerp(openingFov, windowFieldOfView, approach * leave);
+            float blend = approach * leave;
+            view.transform.SetPositionAndRotation(Vector3.Lerp(windowBasePosition, windowEyePosition, blend),
+                Quaternion.Slerp(windowBaseRotation, windowEyeRotation, blend));
+            view.fieldOfView = Mathf.Lerp(openingFov, windowFieldOfView, blend);
+            windowViewApplied = true;
         }
         void RemoveViewOffset()
         {
-            if (Player && Player.viewCamera && appliedViewOffset.sqrMagnitude > 0f)
+            if (Player && Player.viewCamera && windowViewApplied)
             {
-                Player.viewCamera.transform.localPosition = baseViewLocalPosition;
+                Player.viewCamera.transform.SetPositionAndRotation(windowBasePosition, windowBaseRotation);
                 Player.viewCamera.fieldOfView = openingFov;
             }
-            appliedViewOffset = Vector3.zero;
+            windowViewApplied = false;
         }
 
         void TickOpening()
@@ -150,21 +138,39 @@ namespace GameJam.FireRescue
             {
                 approachElapsed += dt;
                 while (waypoint < windowRoute.Length && (!windowRoute[waypoint] ||
-                    EvacuationResident.FlatDistance(Player.transform.position, windowRoute[waypoint].position) <= arrivalRadius)) waypoint++;
+                    EvacuationResident.FlatDistance(Player.transform.position, windowRoute[waypoint].position) <= Mathf.Min(.04f, arrivalRadius))) waypoint++;
                 Transform destination = waypoint < windowRoute.Length ? windowRoute[waypoint] : windowStop;
                 float distance = EvacuationResident.FlatDistance(Player.transform.position, destination.position);
                 if (waypoint >= windowRoute.Length && distance <= arrivalRadius)
                 {
                     AtWindow = true;
                     if (!ownsMovement) { Player.SetCinematicLocked(true); Player.RefreshEquipmentState(); ownsMovement = true; }
+                    // Resolve the observation pose once. Continuing to turn/move the body while
+                    // restoring a lens offset every frame feeds camera motion back into aiming.
+                    smoothViewRotation = Quaternion.LookRotation(volcanoLookTarget.position - Player.viewCamera.transform.position);
+                    Player.SimulateCinematicWalk(Player.transform.position, smoothViewRotation, 0f);
+                    if (Player.firstPerson) Player.firstPerson.SuspendExternalMovement();
+                    windowBasePosition = Player.viewCamera.transform.position;
+                    windowBaseRotation = Player.viewCamera.transform.rotation;
+                    windowEyePosition = windowViewPose ? windowViewPose.position : windowBasePosition + windowEyeOffset;
+                    windowEyeRotation = windowViewPose ? windowViewPose.rotation : Quaternion.LookRotation(volcanoLookTarget.position - windowEyePosition);
                 }
                 else
                 {
                     if (ownsMovement)
                     {
-                        Vector3 focus = distance < 3f && waypoint >= windowRoute.Length ? volcanoLookTarget.position :
-                            destination.position + Vector3.up * (Player.viewCamera.transform.position.y - Player.transform.position.y);
-                        Quaternion look = Quaternion.LookRotation(focus - Player.viewCamera.transform.position);
+                        // The lens sits ahead of the capsule. Looking back at a waypoint after
+                        // the lens has passed it creates a feedback loop of rapid yaw reversals.
+                        Vector3 forward = Vector3.ProjectOnPlane(destination.position - Player.transform.position, Vector3.up).normalized;
+                        Quaternion look = Quaternion.LookRotation(forward);
+                        if (waypoint >= windowRoute.Length)
+                        {
+                            Vector3 eye = Player.transform.position + Vector3.up *
+                                (Player.viewCamera.transform.position.y - Player.transform.position.y);
+                            Quaternion volcano = Quaternion.LookRotation(volcanoLookTarget.position - eye);
+                            float focus = Mathf.SmoothStep(0, 1, Mathf.InverseLerp(5f, 1f, distance));
+                            look = Quaternion.Slerp(look, volcano, focus);
+                        }
                         smoothViewRotation = Quaternion.Slerp(smoothViewRotation, look, 1f - Mathf.Exp(-2.7f * dt));
                         Player.SimulateCinematicWalk(destination.position,
                             smoothViewRotation, approachSpeed);
@@ -175,10 +181,6 @@ namespace GameJam.FireRescue
                     return;
                 }
             }
-            Quaternion facing = Quaternion.LookRotation(volcanoLookTarget.position - Player.viewCamera.transform.position);
-            smoothViewRotation = Quaternion.Slerp(smoothViewRotation, facing, 1f - Mathf.Exp(-3f * dt));
-            Player.SimulateCinematicWalk(Player.transform.position,
-                smoothViewRotation, 0f);
             if (!HasSpoken(Thought.Unease))
             {
                 // A short route must not cut off the first line on arrival.
@@ -196,6 +198,7 @@ namespace GameJam.FireRescue
                 Speak(Thought.Foreseen, "I knew this day would come.", ObservationDuration - RecognitionAt, true);
             if (HasSpoken(Thought.Foreseen) && ObservationElapsed >= ObservationDuration && !VoicePlaying)
             {
+                RemoveViewOffset();
                 IsOpening = false; OpeningComplete = true; ReleaseMovement();
                 Speak(Thought.Weapon, "I need my weapon first. Then I must sound the siren.", 5f, true);
             }
