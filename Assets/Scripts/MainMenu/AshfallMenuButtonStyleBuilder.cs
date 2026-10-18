@@ -47,11 +47,11 @@ public static class AshfallMenuButtonStyleBuilder
             image.type = Image.Type.Simple;
             image.fillCenter = true;
             image.preserveAspect = false;
-            image.color = Color.white;
+            image.color = new Color(1f, 1f, 1f, 0f);
             image.raycastTarget = true;
 
             button.targetGraphic = image;
-            button.transition = Selectable.Transition.ColorTint;
+            button.transition = Selectable.Transition.None;
             ColorBlock colors = button.colors;
             colors.normalColor = Color.white;
             colors.highlightedColor = new Color(1f, 0.88f, 0.72f, 1f);
@@ -70,7 +70,9 @@ public static class AshfallMenuButtonStyleBuilder
             {
                 label.alignment = TextAnchor.MiddleLeft;
                 Ashfall.UI.AshfallTypography.Apply(label, Ashfall.UI.AshfallTypography.Role.Button, 48);
-                label.text = Ashfall.UI.AshfallTypography.NaturalCase(label.text);
+                if (Ashfall.UI.AshfallTypography.MainMenuDisplay != null)
+                    label.font = Ashfall.UI.AshfallTypography.MainMenuDisplay;
+                label.text = label.text.ToUpperInvariant();
                 label.raycastTarget = false;
                 RectTransform labelRect = label.rectTransform;
                 labelRect.anchorMin = Vector2.zero;

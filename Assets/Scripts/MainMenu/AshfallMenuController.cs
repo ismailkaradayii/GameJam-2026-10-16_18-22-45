@@ -47,6 +47,7 @@ namespace Ashfall.MainMenu
         public string GameplaySceneName => gameplaySceneName;
 
         private Vector3 cameraRestPosition;
+        private Material volcanicTextMaterial;
         private bool panelOpen;
         private bool panelClosing;
         private CanvasGroup activePanel;
@@ -97,8 +98,10 @@ namespace Ashfall.MainMenu
                 logoRect.offsetMax = Vector2.zero;
             }
             if (menuButtons == null) return;
-            foreach (Button button in menuButtons)
+            string[] menuLabels = { "NEW GAME", "SETTINGS", "HOW TO PLAY", "EXIT" };
+            for (int buttonIndex = 0; buttonIndex < menuButtons.Length; buttonIndex++)
             {
+                Button button = menuButtons[buttonIndex];
                 if (button == null) continue;
                 Image plate = button.GetComponent<Image>();
                 if (plate == null || plate.sprite == null) continue;
@@ -108,13 +111,21 @@ namespace Ashfall.MainMenu
                 plate.type = Image.Type.Simple;
                 plate.preserveAspect = false;
                 plate.fillCenter = true;
-                plate.color = Color.white;
+                plate.color = new Color(1f, 1f, 1f, 0f);
                 plate.raycastTarget = true;
                 button.targetGraphic = plate;
+                button.transition = Selectable.Transition.None;
 
                 Text label = button.GetComponentInChildren<Text>(true);
                 if (label != null)
                 {
+                    if (buttonIndex < menuLabels.Length) label.text = menuLabels[buttonIndex];
+                    // Keep the authored lava-rock display face on the four primary
+                    // menu labels without changing typography elsewhere in the UI.
+                    Font volcanicFace = Ashfall.UI.AshfallTypography.MainMenuDisplay;
+                    if (volcanicFace != null) label.font = volcanicFace;
+                    ApplyVolcanicTextMaterial(label, plate.sprite.texture);
+                    label.fontStyle = FontStyle.Normal;
                     label.alignment = TextAnchor.MiddleLeft;
                     label.resizeTextForBestFit = false;
                     label.fontSize = 48;
@@ -127,6 +138,10 @@ namespace Ashfall.MainMenu
                     labelRect.localScale = Vector3.one;
                 }
 
+                AshfallMenuButtonPointerAudio pointer = button.GetComponent<AshfallMenuButtonPointerAudio>();
+                if (pointer == null) pointer = button.gameObject.AddComponent<AshfallMenuButtonPointerAudio>();
+                pointer.ConfigureVisual(plate, label);
+
                 ColorBlock colors = button.colors;
                 colors.normalColor = Color.white;
                 colors.highlightedColor = new Color(1f, 0.88f, 0.72f, 1f);
@@ -137,6 +152,33 @@ namespace Ashfall.MainMenu
                 colors.fadeDuration = 0.1f;
                 button.colors = colors;
             }
+        }
+
+        private void ApplyVolcanicTextMaterial(Text label, Texture lavaTexture)
+        {
+            if (volcanicTextMaterial == null)
+            {
+                Shader shader = Resources.Load<Shader>("ASHFALL/UI/Shaders/VolcanicText");
+                if (shader == null)
+                {
+                    Debug.LogWarning("ASHFALL: Volcanic text shader could not be loaded; menu text will use its fallback color.", this);
+                    return;
+                }
+                volcanicTextMaterial = new Material(shader)
+                {
+                    name = "Volcanovski Lava Text (Runtime)",
+                    hideFlags = HideFlags.HideAndDontSave
+                };
+                volcanicTextMaterial.SetFloat("_Brightness", 1.45f);
+                volcanicTextMaterial.SetFloat("_EdgeCutoff", 0.18f);
+            }
+            if (lavaTexture != null) volcanicTextMaterial.SetTexture("_LavaTex", lavaTexture);
+            label.material = volcanicTextMaterial;
+        }
+
+        private void OnDestroy()
+        {
+            if (volcanicTextMaterial != null) Destroy(volcanicTextMaterial);
         }
 
         private void WireButtonCallbacks()
@@ -154,6 +196,11 @@ namespace Ashfall.MainMenu
 
         private IEnumerator Start()
         {
+            // Runtime font initializers also run between Awake and Start. Reapply
+            // the authored main-menu face here so entering Play Mode or returning
+            // to this scene cannot restore the generic UI font.
+            NormalizeMenuButtonImages();
+
             if (!playIntro)
             {
                 yield return RevealMenu();

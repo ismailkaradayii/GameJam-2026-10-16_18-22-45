@@ -86,11 +86,19 @@ namespace Ashfall.MainMenu
 
     /// <summary>Small pointer listener attached only to actual buttons.</summary>
     [DisallowMultipleComponent]
-    internal sealed class AshfallMenuButtonPointerAudio : MonoBehaviour, IPointerEnterHandler
+    internal sealed class AshfallMenuButtonPointerAudio : MonoBehaviour, IPointerEnterHandler,
+        IPointerExitHandler, IPointerDownHandler, IPointerUpHandler, ISelectHandler, IDeselectHandler
     {
         private AudioClip hoverClip;
         private float volume;
         private MonoBehaviour owner;
+        private Image hoverBackground;
+        private Graphic labelGraphic;
+        private Coroutine visualRoutine;
+        private Color labelRestColor;
+        private Vector3 labelRestScale;
+        private bool hovered;
+        private static AshfallMenuButtonPointerAudio activeVisual;
 
         public void Configure(AudioClip clip, float playbackVolume, MonoBehaviour feedback)
         {
@@ -99,11 +107,110 @@ namespace Ashfall.MainMenu
             volume = playbackVolume;
         }
 
+        public void ConfigureVisual(Image background, Graphic label)
+        {
+            hoverBackground = background;
+            labelGraphic = label;
+            if (labelGraphic != null)
+            {
+                labelRestColor = labelGraphic.color;
+                labelRestScale = labelGraphic.rectTransform.localScale;
+                labelGraphic.raycastTarget = false;
+            }
+            SetVisualImmediate(false, false);
+        }
+
         public void OnPointerEnter(PointerEventData eventData)
         {
             Button button = GetComponent<Button>();
             if (owner && owner.isActiveAndEnabled && button != null && button.IsInteractable())
                 AshfallMenuAudioFeedback.Play(hoverClip, volume, true);
+            ActivateVisual();
+        }
+
+        public void OnPointerExit(PointerEventData eventData) => DeactivateVisual();
+        public void OnSelect(BaseEventData eventData) => ActivateVisual();
+        public void OnDeselect(BaseEventData eventData) => DeactivateVisual();
+
+        public void OnPointerDown(PointerEventData eventData)
+        {
+            if (!hovered || labelGraphic == null) return;
+            if (visualRoutine != null) StopCoroutine(visualRoutine);
+            visualRoutine = StartCoroutine(FadeVisual(true, true));
+        }
+
+        public void OnPointerUp(PointerEventData eventData)
+        {
+            if (!hovered) return;
+            if (visualRoutine != null) StopCoroutine(visualRoutine);
+            visualRoutine = StartCoroutine(FadeVisual(true, false));
+        }
+
+        private void ActivateVisual()
+        {
+            Button button = GetComponent<Button>();
+            if (hoverBackground == null || button == null || !button.IsInteractable()) return;
+            if (activeVisual != null && activeVisual != this) activeVisual.DeactivateVisual();
+            activeVisual = this;
+            hovered = true;
+            if (visualRoutine != null) StopCoroutine(visualRoutine);
+            visualRoutine = StartCoroutine(FadeVisual(true, false));
+        }
+
+        private void DeactivateVisual()
+        {
+            if (activeVisual == this) activeVisual = null;
+            hovered = false;
+            if (visualRoutine != null) StopCoroutine(visualRoutine);
+            if (isActiveAndEnabled) visualRoutine = StartCoroutine(FadeVisual(false, false));
+            else SetVisualImmediate(false, false);
+        }
+
+        private IEnumerator FadeVisual(bool show, bool pressed)
+        {
+            float duration = pressed ? 0.07f : 0.16f;
+            float elapsed = 0f;
+            Color backgroundStart = hoverBackground != null ? hoverBackground.color : Color.clear;
+            Color backgroundTarget = pressed ? new Color(1f, 0.7f, 0.45f, 1f)
+                : new Color(1f, 1f, 1f, show ? 0.94f : 0f);
+            Color labelStart = labelGraphic != null ? labelGraphic.color : Color.white;
+            Color labelTarget = show ? new Color(1f, 0.94f, 0.82f, labelRestColor.a) : labelRestColor;
+            Vector3 scaleStart = labelGraphic != null ? labelGraphic.rectTransform.localScale : Vector3.one;
+            Vector3 scaleTarget = labelRestScale * (pressed ? 0.985f : show ? 1.025f : 1f);
+            while (elapsed < duration)
+            {
+                elapsed += Time.unscaledDeltaTime;
+                float t = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(elapsed / duration));
+                if (hoverBackground != null) hoverBackground.color = Color.Lerp(backgroundStart, backgroundTarget, t);
+                if (labelGraphic != null)
+                {
+                    labelGraphic.color = Color.Lerp(labelStart, labelTarget, t);
+                    labelGraphic.rectTransform.localScale = Vector3.Lerp(scaleStart, scaleTarget, t);
+                }
+                yield return null;
+            }
+            SetVisualImmediate(show, pressed);
+            visualRoutine = null;
+        }
+
+        private void SetVisualImmediate(bool show, bool pressed)
+        {
+            if (hoverBackground != null)
+                hoverBackground.color = pressed ? new Color(1f, 0.7f, 0.45f, 1f) : new Color(1f, 1f, 1f, show ? 0.94f : 0f);
+            if (labelGraphic != null)
+            {
+                labelGraphic.color = show ? new Color(1f, 0.94f, 0.82f, labelRestColor.a) : labelRestColor;
+                labelGraphic.rectTransform.localScale = labelRestScale * (pressed ? 0.985f : show ? 1.025f : 1f);
+            }
+        }
+
+        private void OnDisable()
+        {
+            if (activeVisual == this) activeVisual = null;
+            if (visualRoutine != null) StopCoroutine(visualRoutine);
+            visualRoutine = null;
+            hovered = false;
+            SetVisualImmediate(false, false);
         }
     }
 }

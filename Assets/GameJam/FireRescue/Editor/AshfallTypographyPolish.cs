@@ -58,6 +58,7 @@ public static class AshfallTypographyPolish
                 var label = button.GetComponentInChildren<Text>(true);
                 if (!label) continue;
                 AshfallTypography.Apply(label, AshfallTypography.Role.Button, 48);
+                if (AshfallTypography.MainMenuDisplay) label.font = AshfallTypography.MainMenuDisplay;
                 label.alignment = TextAnchor.MiddleLeft;
                 label.rectTransform.anchorMin = Vector2.zero; label.rectTransform.anchorMax = Vector2.one;
                 label.rectTransform.offsetMin = new Vector2(112, 14); label.rectTransform.offsetMax = new Vector2(-72, -14);
