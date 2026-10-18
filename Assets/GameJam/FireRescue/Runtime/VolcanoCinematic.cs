@@ -141,7 +141,7 @@ namespace GameJam.FireRescue
         }
         public void TickShot(float dt)
         {
-            if (!IsPlaying || dt <= 0 || !float.IsFinite(dt)) return;
+            if (!IsPlaying || Ashfall.MainMenu.AshfallLoadingScreen.IsLoading || dt <= 0 || !float.IsFinite(dt)) return;
             if (Kind == ShotKind.Spirits)
             {
                 Elapsed += dt;

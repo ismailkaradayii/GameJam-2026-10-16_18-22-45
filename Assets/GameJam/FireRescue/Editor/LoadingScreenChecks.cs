@@ -3,12 +3,14 @@ using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using Ashfall.MainMenu;
 using GameJam.FireRescue;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using UnityEngine.Rendering;
 using UnityEngine.UI;
 using UnityEngine.Video;
 using Object = UnityEngine.Object;
@@ -26,7 +28,7 @@ public static class LoadingScreenChecks
     [Serializable] public sealed class Report
     {
         public string status = "RUNNING", startedUtc, finishedUtc, restoredEditScene;
-        public string method = "Actual menu button, duplicate NewGame calls, decoded RenderTexture pixels, centered black overlay, muted looping playback and the real asynchronous Volcano_Demo transition. No authored scene, gameplay state, clip or player preference is changed by the fixture.";
+        public string method = "Actual menu button, duplicate requests, native video replay across the clip boundary, decoded pixels, covered gameplay camera renders, frozen opening timing, real asynchronous scene activation, and isolated missing-clip/decoder-error fallbacks. Video seeking only accelerates the loop check; authored assets and player preferences are unchanged.";
         public List<Check> checks = new List<Check>();
         public List<string> errors = new List<string>();
         public List<string> videoSamples = new List<string>();
@@ -103,6 +105,12 @@ public sealed class LoadingScreenProbe : MonoBehaviour
     VideoClip authoredClip;
     long firstFrame = -1;
     double nextSample;
+    AshfallLoadingScreen screen;
+    VolcanoMissionDirector mission;
+    RenderTexture decodedTarget;
+    int nativeLoops, coveredCameraFrames, loadingMissionFrames, lastCoveredFrame = -1;
+    bool activationCovered, activationAnimationVisible, activationLoading, loopReturnedToStart, sceneReadySeen;
+    float maximumHiddenIntroElapsed, minimumHiddenPreparation = float.MaxValue;
 
     public void Begin()
     {
@@ -112,11 +120,12 @@ public sealed class LoadingScreenProbe : MonoBehaviour
         previousBackground = Application.runInBackground;
         previousTimeScale = Time.timeScale;
         Application.runInBackground = true;
-        deadline = EditorApplication.timeSinceStartup + 65;
+        deadline = EditorApplication.timeSinceStartup + 120;
         EditorApplication.update += Watch;
         EditorApplication.playModeStateChanged += PlayState;
         Application.logMessageReceived += Log;
         SceneManager.activeSceneChanged += SceneChanged;
+        RenderPipelineManager.endCameraRendering += CameraRendered;
         StartCoroutine(Guarded(Checks()));
     }
 
@@ -143,6 +152,7 @@ public sealed class LoadingScreenProbe : MonoBehaviour
         yield return null;
         loading = GameObject.Find("Loading screen");
         Require(loading, "The button must create the loading screen.");
+        screen = loading.GetComponent<AshfallLoadingScreen>();
         var screens = Object.FindObjectsByType<Canvas>(FindObjectsSortMode.None).Where(c => c.name == "Loading screen").ToArray();
         Check("Repeated NewGame requests create a single loading screen", screens.Length == 1, "canvases=" + screens.Length);
         var canvas = loading.GetComponent<Canvas>();
@@ -154,17 +164,18 @@ public sealed class LoadingScreenProbe : MonoBehaviour
         animation = loading.GetComponentsInChildren<RawImage>(true).SingleOrDefault(i => i.name == "Loading animation");
         video = loading.GetComponentInChildren<VideoPlayer>(true);
         Require(animation && video, "The loading animation and VideoPlayer are required.");
+        video.loopPointReached += VideoLooped;
         Check("The downloaded video loops without audio", video.clip == authoredClip && video.isLooping &&
             video.audioOutputMode == VideoAudioOutputMode.None, "clip=" + video.clip?.name + "; audio=" + video.audioOutputMode);
         Check("The animation is centered and fits inside the display", IsCentered(animation.rectTransform), animation.rectTransform.rect.ToString());
         while (loading && (!video.isPrepared || !video.isPlaying || video.frame < 0 || !animation.enabled || !video.targetTexture || !video.targetTexture.IsCreated()))
         {
-            Require(!loading.transform.Find("Loading fallback"), "The native loading decoder must start playback before the five-second timeout.");
             yield return null;
         }
         Require(loading && video && video.frame >= 0, "A decoded video frame must appear before gameplay activation.");
         firstVisibleAt = Time.realtimeSinceStartup;
         firstFrame = video.frame;
+        decodedTarget = video.targetTexture;
         Check("A real decoded video texture is displayed", animation.enabled && animation.texture == video.targetTexture &&
             video.targetTexture.IsCreated() && video.isPlaying, "frame=" + video.frame + "; texture=" + video.targetTexture.width + "x" + video.targetTexture.height);
         yield return new WaitForSecondsRealtime(.2f);
@@ -175,20 +186,36 @@ public sealed class LoadingScreenProbe : MonoBehaviour
         Check("The loading video advances while the gameplay scene is being prepared", video.frame != firstFrame,
             "frames=" + firstFrame + " -> " + video.frame);
         Check("Decoded video pixels contain the visible loading symbol", ContainsVisiblePixels(video.targetTexture));
+        Check("The complete downloaded loading animation is ten seconds long", Math.Abs(video.length - 10) < .1,
+            "clip seconds=" + video.length.ToString("F3"));
+        // Seek near the actual native clip boundary so fast machines also exercise replay.
+        // Playback speed stays at the authored 1x and no production readiness condition is delayed.
+        video.time = Math.Max(0, video.length - .35);
         yield return new WaitForEndOfFrame();
         var pixels = ScreenCapture.CaptureScreenshotAsTexture();
         Require(pixels, "The loading screenshot must be captured.");
         File.WriteAllBytes(LoadingScreenChecks.Folder + "/loading-screen.png", pixels.EncodeToPNG());
         Destroy(pixels);
+        while (loading && (nativeLoops == 0 || !loopReturnedToStart)) yield return null;
+        Check("The native video crosses its final frame and continues another loop", nativeLoops > 0 && loopReturnedToStart,
+            "loop events=" + nativeLoops + "; decoded restart=" + loopReturnedToStart);
         while (SceneManager.GetActiveScene().name != "Volcano_Demo") yield return null;
+        while (loading) yield return null;
         yield return null;
         yield return null;
-        report.loadingVisibleSeconds = activatedAt > 0 ? activatedAt - firstVisibleAt : Time.realtimeSinceStartup - firstVisibleAt;
-        Check("Gameplay activation waits for the visible loading animation", report.loadingVisibleSeconds >= 1.3f,
-            "observed visible seconds=" + report.loadingVisibleSeconds.ToString("F3") + "; tolerance accounts for one observed frame");
-        Check("The menu loading screen and decoder are released on gameplay activation", !loading && !video &&
-            !GameObject.Find("Loading screen") && !Object.FindFirstObjectByType<AshfallMenuController>());
-        var mission = Object.FindFirstObjectByType<VolcanoMissionDirector>();
+        report.loadingVisibleSeconds = Time.realtimeSinceStartup - firstVisibleAt;
+        Check("Scene activation preserves the opaque animated loading screen", activatedAt > 0 && activationCovered &&
+            activationAnimationVisible && activationLoading,
+            "covered=" + activationCovered + "; animation=" + activationAnimationVisible + "; loading=" + activationLoading);
+        Check("Gameplay renders behind the loading screen before it is ready to reveal", sceneReadySeen && coveredCameraFrames >= 2,
+            "covered gameplay camera frames=" + coveredCameraFrames + "; scene ready=" + sceneReadySeen);
+        Check("The opening and mission deadline do not advance behind the loading screen", loadingMissionFrames >= 2 &&
+            maximumHiddenIntroElapsed < .001f && mission && minimumHiddenPreparation >= mission.preparationSeconds - .001f,
+            "sampled frames=" + loadingMissionFrames + "; hidden intro seconds=" + maximumHiddenIntroElapsed.ToString("F4") +
+            "; minimum preparation seconds=" + minimumHiddenPreparation.ToString("F3"));
+        Check("The loading screen, decoder and texture are released after readiness", !loading && !video && !decodedTarget &&
+            !AshfallLoadingScreen.IsLoading && !GameObject.Find("Loading screen") && !Object.FindFirstObjectByType<AshfallMenuController>());
+        mission = Object.FindFirstObjectByType<VolcanoMissionDirector>();
         Check("The real authored mission starts with its player and wake-up cinematic intact", mission && mission.player &&
             mission.cinematic && mission.cinematic.HasIntroPlayed && (mission.cinematic.IsPlaying || mission.story && mission.story.OpeningStarted),
             mission ? "phase=" + mission.Phase + "; intro=" + mission.cinematic?.HasIntroPlayed : "missing mission");
@@ -196,7 +223,52 @@ public sealed class LoadingScreenProbe : MonoBehaviour
             mission.sequence.Stage == VolcanoEruptionSequence.EruptionStage.Waiting && !mission.gameFlow.HasResult &&
             mission.PreparationRemaining > mission.preparationSeconds - 3,
             mission ? "remaining=" + mission.PreparationRemaining + "; eruption=" + mission.sequence.Stage : "missing mission");
+        yield return new WaitForEndOfFrame();
+        var reveal = ScreenCapture.CaptureScreenshotAsTexture();
+        Require(reveal, "The first revealed gameplay screenshot must be captured.");
+        File.WriteAllBytes(LoadingScreenChecks.Folder + "/gameplay-reveal.png", reveal.EncodeToPNG());
+        Check("The first revealed gameplay image contains the rendered world", reveal.GetPixels32().Count(p =>
+            p.r > 45 || p.g > 45 || p.b > 45) > reveal.width * reveal.height / 25);
+        Destroy(reveal);
+        yield return Guarded(FallbackChecks());
+        if (finished) yield break;
         Finish(null);
+    }
+
+    IEnumerator FallbackChecks()
+    {
+        var missing = CreateFallbackFixture(null);
+        var label = missing.GetComponentsInChildren<Text>(true).SingleOrDefault(t => t.name == "Loading fallback");
+        Check("A missing video keeps a visible loading status instead of an empty curtain", label && label.gameObject.activeSelf &&
+            !string.IsNullOrWhiteSpace(label.text) && label.color.a > .99f && !missing.GetComponentInChildren<VideoPlayer>(true));
+        Destroy(missing);
+        yield return null;
+        yield return null;
+        Check("The missing-clip fallback releases its canvas", !missing);
+
+        var failed = CreateFallbackFixture(authoredClip);
+        var decoder = failed.GetComponentInChildren<VideoPlayer>(true);
+        var failedTarget = decoder.targetTexture;
+        typeof(AshfallLoadingScreen).GetMethod("VideoError", BindingFlags.Instance | BindingFlags.NonPublic)
+            .Invoke(failed.GetComponent<AshfallLoadingScreen>(), new object[] { decoder, "Integration check: simulated decode failure" });
+        label = failed.GetComponentsInChildren<Text>(true).SingleOrDefault(t => t.name == "Loading fallback");
+        var failedAnimation = failed.GetComponentsInChildren<RawImage>(true).Single(i => i.name == "Loading animation");
+        Check("A decoder error replaces the video with a visible loading status", label && label.gameObject.activeSelf &&
+            label.color.a > .99f && !failedAnimation.enabled && !decoder.isPlaying);
+        Destroy(failed);
+        yield return null;
+        yield return null;
+        Check("The decoder-error fallback releases its canvas and render texture", !failed && !decoder && !failedTarget);
+    }
+
+    static GameObject CreateFallbackFixture(VideoClip clip)
+    {
+        var root = new GameObject("Loading fallback check", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler),
+            typeof(GraphicRaycaster), typeof(CanvasGroup), typeof(AshfallLoadingScreen));
+        typeof(AshfallLoadingScreen).GetMethod("Build", BindingFlags.Instance | BindingFlags.NonPublic)
+            .Invoke(root.GetComponent<AshfallLoadingScreen>(), new object[] { clip });
+        root.GetComponent<CanvasGroup>().alpha = 1;
+        return root;
     }
 
     static bool CoversScreen(RectTransform rect)
@@ -238,7 +310,37 @@ public sealed class LoadingScreenProbe : MonoBehaviour
         }
     }
 
-    void SceneChanged(Scene previous, Scene next) { if (next.name == "Volcano_Demo") activatedAt = Time.realtimeSinceStartup; }
+    void VideoLooped(VideoPlayer source) => nativeLoops++;
+    void SceneChanged(Scene previous, Scene next)
+    {
+        if (next.name != "Volcano_Demo") return;
+        activatedAt = Time.realtimeSinceStartup;
+        activationCovered = loading && loading.GetComponent<CanvasGroup>().alpha > .99f;
+        activationAnimationVisible = animation && animation.enabled && animation.color.a > .99f && video && video.isPlaying;
+        activationLoading = AshfallLoadingScreen.IsLoading;
+        mission = Object.FindFirstObjectByType<VolcanoMissionDirector>();
+    }
+    void CameraRendered(ScriptableRenderContext context, Camera camera)
+    {
+        if (!loading || !AshfallLoadingScreen.IsLoading || loading.GetComponent<CanvasGroup>().alpha < .99f ||
+            lastCoveredFrame == Time.frameCount) return;
+        if (!mission) mission = Object.FindFirstObjectByType<VolcanoMissionDirector>();
+        if (mission && mission.player && (camera == mission.player.viewCamera || mission.cinematic && camera == mission.cinematic.ShotCamera))
+        {
+            lastCoveredFrame = Time.frameCount;
+            coveredCameraFrames++;
+        }
+    }
+    void LateUpdate()
+    {
+        if (finished) return;
+        if (video && nativeLoops > 0 && video.frame >= 0 && video.time < video.length - .1) loopReturnedToStart = true;
+        if (screen && screen.SceneReady) sceneReadySeen = true;
+        if (!loading || !AshfallLoadingScreen.IsLoading || !mission) return;
+        loadingMissionFrames++;
+        if (mission.cinematic) maximumHiddenIntroElapsed = Mathf.Max(maximumHiddenIntroElapsed, mission.cinematic.Elapsed);
+        minimumHiddenPreparation = Mathf.Min(minimumHiddenPreparation, mission.PreparationRemaining);
+    }
     void Watch()
     {
         if (video && EditorApplication.timeSinceStartup >= nextSample)
@@ -251,7 +353,7 @@ public sealed class LoadingScreenProbe : MonoBehaviour
                 "; reference=" + video.timeReference + "; scale=" + Time.timeScale + "; focus=" + Application.isFocused);
             Save();
         }
-        if (!finished && EditorApplication.timeSinceStartup > deadline) Finish("Loading checks exceeded the 65-second wall-clock deadline.");
+        if (!finished && EditorApplication.timeSinceStartup > deadline) Finish("Loading checks exceeded the 120-second wall-clock deadline.");
     }
     void PlayState(PlayModeStateChange state) { if (!finished && state == PlayModeStateChange.ExitingPlayMode) Finish("Play Mode was interrupted.", false); }
     void Log(string message, string stack, LogType type)
@@ -274,6 +376,8 @@ public sealed class LoadingScreenProbe : MonoBehaviour
         EditorApplication.playModeStateChanged -= PlayState;
         Application.logMessageReceived -= Log;
         SceneManager.activeSceneChanged -= SceneChanged;
+        RenderPipelineManager.endCameraRendering -= CameraRendered;
+        if (video) video.loopPointReached -= VideoLooped;
         if (!string.IsNullOrEmpty(error)) report.errors.Add(error);
         report.status = report.errors.Count == 0 ? "COMPLETED" : "FAILED";
         report.finishedUtc = DateTime.UtcNow.ToString("O");

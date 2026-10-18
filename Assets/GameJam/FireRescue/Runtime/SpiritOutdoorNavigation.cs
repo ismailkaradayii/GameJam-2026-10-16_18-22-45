@@ -8,6 +8,7 @@ namespace GameJam.FireRescue
     // The small village graph is rebuilt only when the destination changes or a route expires.
     public sealed class SpiritOutdoorNavigation
     {
+        public const float ArrivalDistance = .4f;
         readonly List<Vector3> route = new List<Vector3>();
         readonly List<Vector3> nodes = new List<Vector3>();
         NavMeshPath navPath;
@@ -28,7 +29,7 @@ namespace GameJam.FireRescue
             goal = Outside(goal, from, clearance + .15f, vehicle);
             if (route.Count == 0 || Time.time >= refreshAt || Flat(goal, destination) > 2.5f)
                 Build(from, goal, clearance);
-            while (corner < route.Count - 1 && Flat(from, route[corner]) < .4f) corner++;
+            while (corner < route.Count - 1 && Flat(from, route[corner]) < ArrivalDistance) corner++;
             // Skip already passed corners only when the shortcut cannot cross a house.
             while (corner + 1 < route.Count && !Blocked(from, route[corner + 1], clearance, vehicle)) corner++;
             return corner < route.Count ? route[corner] : goal;

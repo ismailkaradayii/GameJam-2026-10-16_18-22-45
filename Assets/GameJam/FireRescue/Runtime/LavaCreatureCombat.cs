@@ -32,6 +32,11 @@ namespace GameJam.FireRescue
         bool assignedHouseOnly;
         float lifetime, retaliationUntil, progressClock;
         Vector3 progressPosition;
+        bool routeMovementExpected;
+        Vector3 routeGoal, recoveryWaypoint;
+        float recoveryWaypointSeconds;
+        Collider lastRouteObstacle;
+        float nextRouteDiagnosticAt;
         readonly SpiritOutdoorNavigation navigation = new SpiritOutdoorNavigation();
         readonly SpiritRoofFlight roofFlight = new SpiritRoofFlight();
         public float RoofAttackCharge => State == Motion.Igniting ? Mathf.Clamp01(elapsed / duration) : 0f;
@@ -119,6 +124,7 @@ namespace GameJam.FireRescue
             AssignedBuilding = house;
             assignedHouseOnly = house;
             BuildingTarget = house;
+            routeMovementExpected = false; recoveryWaypointSeconds = 0f;
             navigation.Invalidate();
         }
 
@@ -134,6 +140,7 @@ namespace GameJam.FireRescue
             descentPath = null; descentDistances = null; descentIndex = 0; descentDistance = 0;
             villageEmergence = true; emergenceSplash = false; emergenceDepth = Mathf.Max(.5f, depth);
             lifetime = progressClock = 0; RouteRecoveries++;
+            routeMovementExpected = false; recoveryWaypointSeconds = 0f;
             cooldown = Mathf.Max(cooldown, 1f); retaliationUntil = Time.time + 1.5f; alerted = true;
             jump.TakeCombatControl();
             grounded = GroundAt(point); jump.CombatGrounded(grounded);
@@ -240,6 +247,9 @@ namespace GameJam.FireRescue
             if (!initialized || !actor || actor.IsDefeated) return;
             dt = Mathf.Min(dt, .1f);
             RefreshTruckFootprint();
+            // Run before the state machine: waiting at an unreachable corner used to
+            // return before the watchdog, so its timer never advanced.
+            TrackRouteProgress(dt);
             // A moving truck may cover a spirit between hops. Resolve its footprint before
             // terrain grounding can leave the visible core pinned underneath the chassis.
             if (!IsIntroductionJump && !IsDescending && State != Motion.Emerging && State != Motion.RoofLeaping)
@@ -271,6 +281,7 @@ namespace GameJam.FireRescue
                     if (elapsed >= duration) { jump.CombatGrounded(landing); Change(Motion.Searching, 0f); }
                     break;
                 case Motion.Searching:
+                    routeMovementExpected = false;
                     bool siege = PrioritizesBuilding && FindBuilding();
                     if (assignedHouseOnly && !siege && !IsDescending)
                     {
@@ -300,12 +311,22 @@ namespace GameJam.FireRescue
                     {
                         goal = ApproachPoint(); offset = goal - transform.position; offset.y = 0f;
                     }
-                    if (!downhillLeap && !attacking)
+                    routeGoal = goal;
+                    routeMovementExpected = !attacking && FlatDistance(transform.position, goal) > SpiritOutdoorNavigation.ArrivalDistance;
+                    if (recoveryWaypointSeconds > 0f && FlatDistance(transform.position, recoveryWaypoint) < SpiritOutdoorNavigation.ArrivalDistance)
+                    { recoveryWaypointSeconds = 0f; navigation.Invalidate(); }
+                    if (!downhillLeap && !attacking && recoveryWaypointSeconds > 0f)
+                    {
+                        goal = recoveryWaypoint;
+                        offset = goal - transform.position; offset.y = 0f;
+                        routeMovementExpected = true;
+                    }
+                    else if (!downhillLeap && !attacking)
                     {
                         goal = navigation.Next(transform.position, goal, radius + .45f, truckFootprint);
                         offset = goal - transform.position; offset.y = 0;
                     }
-                    if (!attacking && offset.magnitude < .65f) return;
+                    if (!attacking && offset.magnitude < SpiritOutdoorNavigation.ArrivalDistance) return;
                     direction = offset.sqrMagnitude > .001f ? offset.normalized : Vector3.forward;
                     start = downhillLeap ? transform.position : GroundAt(transform.position);
                     // Commit to the player's position now: strafing can evade the pounce.
@@ -439,16 +460,55 @@ namespace GameJam.FireRescue
                     if (recovery >= 1f) { grounded = GroundAt(transform.position); transform.position = grounded; jump.CombatGrounded(grounded); Change(Motion.Recovery, .1f); }
                     break;
             }
-            if (!IsDescending && State != Motion.Staggered && State != Motion.Igniting && State != Motion.RoofLeaping)
+        }
+
+        void TrackRouteProgress(float dt)
+        {
+            recoveryWaypointSeconds = Mathf.Max(0f, recoveryWaypointSeconds - dt);
+            if (!routeMovementExpected || attacking || IsDescending || IsIntroductionJump ||
+                State == Motion.Emerging || State == Motion.Staggered || State == Motion.Igniting ||
+                State == Motion.RoofLeaping || State == Motion.Settling)
             {
-                progressClock += dt;
-                if (progressClock >= 2.5f)
+                progressClock = 0f; progressPosition = transform.position;
+                return;
+            }
+            if (FlatDistance(progressPosition, transform.position) >= .35f)
+            { progressClock = 0f; progressPosition = transform.position; lastRouteObstacle = null; return; }
+            progressClock += dt;
+            if (progressClock < 1.25f) return;
+            progressClock = 0f; progressPosition = transform.position;
+            navigation.Invalidate(); detourSide = detourSide <= 0 ? 1 : -1; RouteRecoveries++;
+
+            // A short, swept sideways hop can get around a prop that is absent from
+            // the house route graph. Never teleport or cross a solid footprint.
+            Vector3 from = GroundAt(transform.position);
+            Vector3 forward = Vector3.ProjectOnPlane(routeGoal - from, Vector3.up).normalized;
+            if (forward.sqrMagnitude < .01f) forward = Vector3.forward;
+            float best = float.NegativeInfinity;
+            float reach = Mathf.Min(hopDistance, Mathf.Max(2.5f, radius * 4f));
+            recoveryWaypointSeconds = 0f;
+            for (int i = 0; i < 16; i++)
+            {
+                float angle = i * 22.5f * detourSide;
+                Vector3 heading = Quaternion.AngleAxis(angle, Vector3.up) * forward;
+                float clear = ClearDistance(from, heading, reach);
+                Vector3 candidate = GroundAt(from + heading * clear);
+                if (clear < .6f || Mathf.Abs(candidate.y - from.y) > 1.7f ||
+                    SpiritOutdoorNavigation.Contains(candidate, radius + .2f, truckFootprint)) continue;
+                float score = clear + Vector3.Dot(candidate - from, forward) * .15f - Occupancy(candidate);
+                if (score > best)
                 {
-                    if (FlatDistance(progressPosition, transform.position) < .6f)
-                    { navigation.Invalidate(); detourSide = detourSide == 0 ? 1 : -detourSide; RouteRecoveries++; }
-                    progressClock = 0; progressPosition = transform.position;
+                    best = score; recoveryWaypoint = candidate; recoveryWaypointSeconds = 2.5f;
                 }
             }
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            if (Time.unscaledTime >= nextRouteDiagnosticAt)
+            {
+                nextRouteDiagnosticAt = Time.unscaledTime + 4f;
+                string obstacle = lastRouteObstacle ? lastRouteObstacle.name : "route footprint / no collider hit";
+                Debug.Log($"[SpiritNavigation] {name} retry {RouteRecoveries}: position={transform.position:F2}, goal={routeGoal:F2}, state={State}, lastObstacle={obstacle}, detour={recoveryWaypointSeconds > 0f}", this);
+            }
+#endif
         }
 
         bool FindBuilding()
@@ -952,6 +1012,7 @@ namespace GameJam.FireRescue
                     obstacle.GetComponentInParent<LavaCoolingSurface>()) continue;
                 // Floor contacts are not walls, including the flat test/training floor.
                 if (hits[i].normal.y > .65f) continue;
+                if (hits[i].distance - .07f < result) lastRouteObstacle = obstacle;
                 result = Mathf.Min(result, Mathf.Max(0f, hits[i].distance - .07f));
             }
             return result;

@@ -117,6 +117,8 @@ namespace GameJam.FireRescue
         private readonly float[] visualSpin = new float[4];
         private readonly RaycastHit[] obstacleHits = new RaycastHit[16];
         private float arcadeSteer;
+        private float rolloverSupportSeconds;
+        private BoxCollider chassis;
 
         // Degrees/second at full steering input; useful for tuning and repeatable route checks.
         public float FullSteeringYawRate(float speedKph)
@@ -137,6 +139,7 @@ namespace GameJam.FireRescue
             if (body == null)
                 body = GetComponent<Rigidbody>();
             ConfigureBody();
+            chassis = GetComponent<BoxCollider>();
             CaptureVisualOffsets();
             ApplyParkingBrake();
         }
@@ -297,6 +300,7 @@ namespace GameJam.FireRescue
             ApplyAntiRoll(wheels[2], wheels[3]);
             if (anyGrounded)
             {
+                rolloverSupportSeconds = 0f;
                 if (!braking && groundAccelerationAssist > 0 && Mathf.Abs(throttle) > .05f)
                 {
                     float assist = 1f - Mathf.Clamp01(Mathf.Abs(signedSpeed) * 3.6f / Mathf.Max(1f, accelerationAssistFadeSpeedKph));
@@ -307,6 +311,38 @@ namespace GameJam.FireRescue
                 if (arcadeHandling && IsDriven)
                     ApplyArcadeHandling(signedSpeed, supportNormal.normalized, throttle, braking, holdingHill);
             }
+            else
+                RecoverRollover();
+        }
+
+        private void RecoverRollover()
+        {
+            // Wheel support vanishes after a rollover. The old upright assistance
+            // then stopped entirely, leaving the truck permanently on its roof.
+            if (!arcadeHandling || !IsDriven || IsWrecked || SpeedKph > 20f ||
+                Vector3.Dot(transform.up, Vector3.up) > .5f)
+            { rolloverSupportSeconds = 0f; return; }
+            if (!chassis) chassis = GetComponent<BoxCollider>();
+            if (!chassis) return;
+            Bounds bounds = chassis.bounds;
+            if (!StaticGroundRay(bounds.center, Vector3.down, bounds.extents.y + .8f, out var support) || support.normal.y < .65f)
+            { rolloverSupportSeconds = 0f; return; }
+            rolloverSupportSeconds += Time.fixedDeltaTime;
+            if (rolloverSupportSeconds < .5f) return;
+            ApplyUprightAssist(support.normal);
+        }
+
+        private void ApplyUprightAssist(Vector3 normal)
+        {
+            Vector3 axis = Vector3.Cross(transform.up, normal);
+            float alignment = Vector3.Dot(transform.up, normal);
+            // Cross(up, down) is zero at 180 degrees. Choose a roll axis explicitly
+            // there, while retaining the existing gentle correction near upright.
+            if (alignment < 0f)
+                axis = axis.sqrMagnitude > .001f ? axis.normalized : Vector3.ProjectOnPlane(transform.forward, normal).normalized;
+            if (axis.sqrMagnitude < .001f && alignment < 0f) axis = Vector3.right;
+            Vector3 tiltVelocity = Vector3.ProjectOnPlane(body.angularVelocity, normal);
+            body.AddTorque(axis * arcadeUprightStrength - tiltVelocity * 9f, ForceMode.Acceleration);
         }
 
         private void ApplyArcadeHandling(float signedSpeed, Vector3 groundNormal, float throttle, bool braking, bool holdingHill)
@@ -329,8 +365,7 @@ namespace GameJam.FireRescue
             if (cornerExcess > 0f)
                 body.AddForce(-forward * Mathf.Sign(signedSpeed) * Mathf.Min(cornerExcess * 6f, arcadeBrakeAcceleration), ForceMode.Acceleration);
 
-            Vector3 tiltVelocity = Vector3.ProjectOnPlane(body.angularVelocity, normal);
-            body.AddTorque(Vector3.Cross(transform.up, normal) * arcadeUprightStrength - tiltVelocity * 9f, ForceMode.Acceleration);
+            ApplyUprightAssist(normal);
             if (Mathf.Abs(throttle) > .05f || braking || holdingHill)
                 body.AddForce(-Vector3.ProjectOnPlane(Physics.gravity, normal), ForceMode.Acceleration);
             if (braking || holdingHill)

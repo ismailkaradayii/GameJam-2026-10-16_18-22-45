@@ -28,7 +28,7 @@ namespace GameJam.FireRescue
         public int RequiredFireCount => fireTargets.Count;
         public bool HasFixedFireObjective => fireTargets.Count > 0;
         public bool FireObjectiveComplete => !HasFixedFireObjective || rescued.IsSupersetOf(fireTargets);
-        public bool BlocksGameplay => State != GameState.Playing || returningToMenu;
+        public bool BlocksGameplay => State != GameState.Playing || returningToMenu || Ashfall.MainMenu.AshfallLoadingScreen.IsLoading;
         public bool IsConfigured => targets.Count > 0;
         public bool ReturningToMenu => returningToMenu;
         public bool HasResult => State == GameState.Won || State == GameState.Lost;
@@ -94,6 +94,7 @@ namespace GameJam.FireRescue
         }
         void Update()
         {
+            if (Ashfall.MainMenu.AshfallLoadingScreen.IsLoading) return;
             if (HasResult)
             {
                 if (ResultReady && !resultCursorReleased)

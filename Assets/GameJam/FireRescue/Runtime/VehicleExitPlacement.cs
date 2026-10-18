@@ -36,22 +36,34 @@ namespace GameJam.FireRescue
                 {
                     Vector3 candidate = door + right * (side * distance) + forward * offset;
                     if (!TryGround(player, candidate, height, out Vector3 ground)) continue;
-                    if (InsideBuilding(ground, radius + .08f)) continue;
-                    if (Overlaps(player, ground, bottom, top, radius + .05f, false)) continue;
                     // A door marker can itself extend through a wall when parking tightly.
                     // Sweep from inside the cab, ignoring only the truck, so that wall is still caught.
                     Vector3 cab = truck.TransformPoint(new Vector3(0f, doorLocal.y, doorLocal.z));
-                    Vector3 start = new Vector3(cab.x, ground.y, cab.z);
-                    if (Overlaps(player, start, bottom, top, radius + .05f, true)) continue;
-                    Vector3 travel = ground - start;
-                    bool blocked = false;
-                    foreach (var hit in Physics.CapsuleCastAll(start + bottom, start + top, radius + .05f,
-                        travel.normalized, travel.magnitude, ~0, QueryTriggerInteraction.Ignore))
-                    {
-                        if (Ignore(player, hit.collider, true)) continue;
-                        blocked = true; break;
-                    }
-                    if (blocked) continue;
+                    if (!CanReach(player, cab, ground, bottom, top, radius)) continue;
+                    feet = ground;
+                    return true;
+                }
+            }
+            // On its side/roof the authored doors can be underground, and the pivot
+            // can be several metres above the floor. Search outside the actual chassis
+            // envelope, using its lowest point as the ground reference instead.
+            var chassis = player.drive.GetComponent<BoxCollider>();
+            if (!chassis || Vector3.Dot(truck.up, Vector3.up) >= .65f) return false;
+            Bounds bounds = chassis.bounds;
+            Vector3 rolledDoor = truck.TransformPoint(doorLocal);
+            Vector3 cabCentre = bounds.center + forward * Vector3.Dot(rolledDoor - bounds.center, forward);
+            float halfWidth = Vector3.Dot(new Vector3(Mathf.Abs(right.x), 0, Mathf.Abs(right.z)), bounds.extents);
+            float[] escapeAlong = { 0f, radius, -radius, height * .5f, -height * .5f };
+            for (int sideIndex = 0; sideIndex < 2; sideIndex++)
+            {
+                float side = sideIndex == 0 ? preferredSide : -preferredSide;
+                foreach (float distance in outward)
+                foreach (float offset in escapeAlong)
+                {
+                    Vector3 candidate = cabCentre + right * (side * (halfWidth + distance)) + forward * offset;
+                    candidate.y = bounds.max.y;
+                    if (!TryGround(player, candidate, height, out Vector3 ground, bounds.min.y, bounds.size.y)) continue;
+                    if (!CanReach(player, cabCentre, ground, bottom, top, radius)) continue;
                     feet = ground;
                     return true;
                 }
@@ -59,18 +71,31 @@ namespace GameJam.FireRescue
             return false;
         }
 
-        static bool TryGround(FireRescuePlayer player, Vector3 besideDoor, float height, out Vector3 feet)
+        static bool CanReach(FireRescuePlayer player, Vector3 cab, Vector3 ground, Vector3 bottom, Vector3 top, float radius)
+        {
+            if (InsideBuilding(ground, radius + .08f) || Overlaps(player, ground, bottom, top, radius + .05f, false)) return false;
+            Vector3 start = new Vector3(cab.x, ground.y, cab.z);
+            if (InsideBuilding(start, radius + .08f) || Overlaps(player, start, bottom, top, radius + .05f, true)) return false;
+            Vector3 travel = ground - start;
+            foreach (var hit in Physics.CapsuleCastAll(start + bottom, start + top, radius + .05f,
+                travel.normalized, travel.magnitude, ~0, QueryTriggerInteraction.Ignore))
+                if (!Ignore(player, hit.collider, true)) return false;
+            return true;
+        }
+
+        static bool TryGround(FireRescuePlayer player, Vector3 besideDoor, float height, out Vector3 feet,
+            float? referenceY = null, float extraHeight = 0f)
         {
             feet = default;
             float step = player.playerBody.stepOffset * Mathf.Abs(player.playerBody.transform.lossyScale.y);
             Vector3 origin = besideDoor + Vector3.up * Mathf.Max(1.5f, step);
-            var hits = Physics.RaycastAll(origin, Vector3.down, height + 5f, ~0, QueryTriggerInteraction.Ignore);
+            var hits = Physics.RaycastAll(origin, Vector3.down, height + 5f + extraHeight, ~0, QueryTriggerInteraction.Ignore);
             Array.Sort(hits, (a, b) => a.distance.CompareTo(b.distance));
             foreach (var hit in hits)
             {
                 if (Ignore(player, hit.collider, true)) continue;
                 // A roof, an unsupported ledge or an unwalkable slope cannot become an exit floor.
-                float rise = hit.point.y - player.drive.transform.position.y;
+                float rise = hit.point.y - (referenceY ?? player.drive.transform.position.y);
                 if (rise > Mathf.Max(1f, step) || rise < -Mathf.Max(2.5f, height * .5f) ||
                     hit.normal.y < Mathf.Cos(Mathf.Min(55f, player.playerBody.slopeLimit) * Mathf.Deg2Rad)) return false;
                 feet = hit.point + Vector3.up * .12f;

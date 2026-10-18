@@ -1,30 +1,46 @@
 using System.Collections;
+using GameJam.FireRescue;
 using UnityEngine;
+using UnityEngine.Rendering;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 using UnityEngine.Video;
 
 namespace Ashfall.MainMenu
 {
-    /// <summary>A menu-owned curtain; the mission only starts once scene activation is released.</summary>
+    /// <summary>Keeps the loading animation visible through scene activation and the first rendered gameplay frames.</summary>
     [DisallowMultipleComponent]
     public sealed class AshfallLoadingScreen : MonoBehaviour
     {
         const float MinimumVisibleSeconds = 1.5f;
+        static AshfallLoadingScreen active;
+        public static bool IsLoading => active;
+        public bool SceneReady { get; private set; }
         CanvasGroup curtain;
         RawImage animationImage;
         VideoPlayer video;
         RenderTexture target;
         Text fallback;
         bool videoFailed;
+        Scene departingScene;
+        Camera gameplayCamera;
+        int renderedFrames, lastRenderedFrame = -1;
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        static void ResetStatic() => active = null;
 
         public static IEnumerator Load(string sceneName, VideoClip clip)
         {
+            if (active) yield break;
             var root = new GameObject("Loading screen", typeof(RectTransform), typeof(Canvas),
                 typeof(CanvasScaler), typeof(GraphicRaycaster), typeof(CanvasGroup), typeof(AshfallLoadingScreen));
             var screen = root.GetComponent<AshfallLoadingScreen>();
+            active = screen;
+            screen.departingScene = root.scene;
+            DontDestroyOnLoad(root);
             screen.Build(clip);
-            yield return screen.LoadScene(sceneName);
+            // The departing menu's coroutine is destroyed at activation; this one must outlive it.
+            yield return screen.StartCoroutine(screen.LoadScene(sceneName));
         }
 
         void Build(VideoClip clip)
@@ -53,6 +69,7 @@ namespace Ashfall.MainMenu
             animationImage = imageObject.GetComponent<RawImage>();
             animationImage.raycastTarget = false;
             animationImage.enabled = false;
+            ShowStatus();
             var rect = animationImage.rectTransform;
             rect.anchorMin = rect.anchorMax = rect.pivot = new Vector2(.5f, .5f);
             rect.anchoredPosition = Vector2.zero;
@@ -102,13 +119,13 @@ namespace Ashfall.MainMenu
                 elapsed += Time.unscaledDeltaTime;
                 curtain.alpha = Mathf.SmoothStep(0, 1, elapsed / .25f);
                 for (int i = 0; i < sources.Length; i++)
-                    if (sources[i] && sources[i].gameObject.scene == gameObject.scene)
+                    if (sources[i] && sources[i].gameObject.scene == departingScene)
                         sources[i].volume = volumes[i] * (1 - curtain.alpha);
                 yield return null;
             }
             curtain.alpha = 1;
             foreach (var background in FindObjectsByType<AshfallVideoBackgroundController>(FindObjectsSortMode.None))
-                if (background.gameObject.scene == gameObject.scene) background.enabled = false;
+                if (background.gameObject.scene == departingScene) background.enabled = false;
 
             float deadline = Time.realtimeSinceStartup + 5;
             // Play performs native preparation and starts playback in the same request.
@@ -120,7 +137,11 @@ namespace Ashfall.MainMenu
                 yield return null;
             }
             if (!videoFailed && (!video.isPrepared || !video.isPlaying || video.frame < 2)) ShowFallback();
-            else if (!videoFailed) animationImage.enabled = true;
+            else if (!videoFailed)
+            {
+                animationImage.enabled = true;
+                if (fallback) fallback.gameObject.SetActive(false);
+            }
             // Give the animation real rendered frames before potentially expensive deserialization.
             // A long loading frame must not consume the entire minimum display duration.
             float visibleSeconds = 0;
@@ -129,26 +150,61 @@ namespace Ashfall.MainMenu
                 visibleSeconds += Mathf.Min(Time.unscaledDeltaTime, .05f);
                 yield return null;
             }
-            var operation = SceneManager.LoadSceneAsync(sceneName, LoadSceneMode.Single);
-            if (operation == null) { Debug.LogError("Could not load " + sceneName, this); yield break; }
+            AsyncOperation operation = null;
+            try { operation = SceneManager.LoadSceneAsync(sceneName, LoadSceneMode.Single); }
+            catch (System.Exception exception) { Debug.LogException(exception, this); }
+            if (operation == null)
+            {
+                Debug.LogError("Could not load " + sceneName, this);
+                Destroy(gameObject);
+                yield break;
+            }
             operation.allowSceneActivation = false;
             while (operation.progress < .9f || visibleSeconds < MinimumVisibleSeconds)
             {
                 visibleSeconds += Mathf.Min(Time.unscaledDeltaTime, .05f);
                 yield return null;
             }
-            elapsed = 0;
-            while (elapsed < .18f)
-            {
-                elapsed += Time.unscaledDeltaTime;
-                float alpha = 1 - Mathf.SmoothStep(0, 1, elapsed / .18f);
-                animationImage.color = new Color(1, 1, 1, alpha);
-                if (fallback) fallback.color = new Color(1, 1, 1, alpha);
-                yield return null;
-            }
-            // The menu owns this overlay, so unloading it reveals the mission's existing opening fade.
+            // 90% means assets are loaded, not that Awake/Start or camera rendering has finished.
+            // Keep both the video and its opaque background alive across that remaining work.
+            RenderPipelineManager.endCameraRendering += CameraRendered;
+            Camera.onPostRender += CameraRendered;
             operation.allowSceneActivation = true;
             while (!operation.isDone) yield return null;
+            yield return null;
+            var mission = FindFirstObjectByType<VolcanoMissionDirector>();
+            var sceneFade = FindFirstObjectByType<AshfallSceneFade>();
+            while (true)
+            {
+                bool initialized = !mission || (mission.sequence && mission.sequence.Initialized);
+                var readyCamera = mission && mission.cinematic && mission.cinematic.IsPlaying ? mission.cinematic.ShotCamera :
+                    mission && mission.player ? mission.player.viewCamera : Camera.main;
+                if (gameplayCamera != readyCamera || !initialized)
+                { gameplayCamera = readyCamera; renderedFrames = 0; lastRenderedFrame = -1; }
+                bool visibleCamera = gameplayCamera && gameplayCamera.isActiveAndEnabled && gameplayCamera.targetTexture == null;
+                bool openingFadeFinished = !sceneFade || !sceneFade.curtain || sceneFade.curtain.alpha <= .001f;
+                if (initialized && visibleCamera && renderedFrames >= 2 && openingFadeFinished) break;
+                yield return null;
+            }
+            SceneReady = true;
+            elapsed = 0;
+            while (elapsed < .25f)
+            {
+                elapsed += Mathf.Min(Time.unscaledDeltaTime, .05f);
+                curtain.alpha = 1 - Mathf.SmoothStep(0, 1, elapsed / .25f);
+                yield return null;
+            }
+            curtain.alpha = 0;
+            active = null;
+            Destroy(gameObject);
+        }
+
+        void CameraRendered(ScriptableRenderContext context, Camera camera) => CameraRendered(camera);
+        void CameraRendered(Camera camera)
+        {
+            if (camera != gameplayCamera || lastRenderedFrame == Time.frameCount) return;
+            lastRenderedFrame = Time.frameCount;
+            renderedFrames++;
         }
 
         void VideoError(VideoPlayer source, string message)
@@ -161,7 +217,11 @@ namespace Ashfall.MainMenu
             videoFailed = true;
             animationImage.enabled = false;
             if (video) video.Stop();
-            if (fallback) return;
+            ShowStatus();
+        }
+        void ShowStatus()
+        {
+            if (fallback) { fallback.gameObject.SetActive(true); return; }
             var label = new GameObject("Loading fallback", typeof(RectTransform), typeof(Text));
             label.transform.SetParent(transform, false);
             fallback = label.GetComponent<Text>();
@@ -175,6 +235,9 @@ namespace Ashfall.MainMenu
         }
         void OnDestroy()
         {
+            if (active == this) active = null;
+            RenderPipelineManager.endCameraRendering -= CameraRendered;
+            Camera.onPostRender -= CameraRendered;
             if (video)
             {
                 video.errorReceived -= VideoError;
