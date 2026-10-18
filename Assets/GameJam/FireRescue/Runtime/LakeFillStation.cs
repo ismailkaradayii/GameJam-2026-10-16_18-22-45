@@ -24,6 +24,7 @@ namespace GameJam.FireRescue
             player.hose.Drop(intakePoint.position);
             if (!player.hose.PumpEnabled) player.hose.TogglePump();
             IsFilling = player.hose.IsPumping;
+            if (!IsFilling) player.hose.Retract();
             return IsFilling;
         }
         void Update()

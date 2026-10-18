@@ -40,6 +40,11 @@ namespace GameJam.FireRescue
         private Quaternion deployedRotation;
         private Vector3[] hosePoints;
         private readonly RaycastHit[] groundHits = new RaycastHit[24];
+        Terrain[] hoseTerrains;
+        int groundFrame = -1;
+        readonly Vector3[] intakeGroundOffsets = new Vector3[9];
+        Vector3 lastDrawStart, lastDrawEnd, lastDrawForward;
+        float lastDrawAt = -1;
 
         public bool IsCarried { get; private set; }
         public bool IsDeployed { get; private set; }
@@ -105,9 +110,12 @@ namespace GameJam.FireRescue
                 return;
             deployedPoint = ClampToReach(point);
             Vector3 towardTruck = hoseSocket.position - deployedPoint;
+            towardTruck.y = 0;
             deployedRotation = towardTruck.sqrMagnitude > 0.001f
                 ? Quaternion.LookRotation(towardTruck.normalized, Vector3.up)
                 : hoseSocket.rotation;
+            PrepareIntakeGroundOffsets();
+            deployedPoint = ResolveDeploymentPoint(deployedPoint);
             carryingHand = null;
             IsCarried = false;
             IsDeployed = true;
@@ -290,11 +298,15 @@ namespace GameJam.FireRescue
             if (!hoseLine.enabled)
                 return;
 
-            int count = Mathf.Clamp(hoseSegments, 12, 64) + 1;
-            if (hosePoints == null || hosePoints.Length != count)
-                hosePoints = new Vector3[count];
             Vector3 start = hoseSocket.position;
             Vector3 end = nozzle.position;
+            // Long segments bridge through the steep bank even when their endpoints clear the terrain.
+            int count = Mathf.Clamp(Mathf.Max(hoseSegments, Mathf.CeilToInt(Vector3.Distance(start, end) / .25f)), 12, 256) + 1;
+            if (hosePoints != null && hosePoints.Length == count && Time.time - lastDrawAt < .2f &&
+                (start - lastDrawStart).sqrMagnitude < .000001f && (end - lastDrawEnd).sqrMagnitude < .000001f &&
+                (hoseSocket.forward - lastDrawForward).sqrMagnitude < .000001f) return;
+            if (hosePoints == null || hosePoints.Length != count)
+                hosePoints = new Vector3[count];
             Vector3 delta = end - start;
             float distance = delta.magnitude;
             Vector3 direction = distance > 0.001f ? delta / distance : hoseSocket.forward;
@@ -311,14 +323,94 @@ namespace GameJam.FireRescue
                 Vector3 point = u * u * u * start + 3f * u * u * t * controlA +
                     3f * u * t * t * controlB + t * t * t * end;
                 point.y -= Mathf.Sin(t * Mathf.PI) * sag;
-                if (i > 0 && i < count - 1 && TryGetGroundHeight(point, out float groundY))
-                    point.y = Mathf.Max(point.y, groundY + Mathf.Max(hoseGroundClearance, hoseDiameter * .5f));
+                if (i > 0 && i < count - 1)
+                    point.y = Mathf.Max(point.y, HoseSupportHeight(point, direction));
                 hosePoints[i] = point;
             }
+
+            // Even short chords can cut the top of a sharp terrain ridge. Lift their supporting
+            // vertices, keeping the socket and intake attached, rather than only clamping vertices.
+            for (int i = 0; i < count - 1; i++)
+                for (int j = 1; j < 4; j++)
+                {
+                    float t = j / 4f;
+                    Vector3 point = Vector3.Lerp(hosePoints[i], hosePoints[i + 1], t);
+                    float lift = HoseSupportHeight(point, direction) - point.y;
+                    if (lift <= 0) continue;
+                    lift += .01f;
+                    if (i == 0) hosePoints[i + 1].y += lift / t;
+                    else if (i + 1 == count - 1) hosePoints[i].y += lift / (1f - t);
+                    else { hosePoints[i].y += lift; hosePoints[i + 1].y += lift; }
+                }
 
             hoseLine.useWorldSpace = true;
             hoseLine.positionCount = count;
             hoseLine.SetPositions(hosePoints);
+            lastDrawStart = start; lastDrawEnd = end; lastDrawForward = hoseSocket.forward; lastDrawAt = Time.time;
+        }
+
+        float HoseSupportHeight(Vector3 point, Vector3 direction)
+        {
+            float radius = Mathf.Max(.01f, hoseDiameter * .5f);
+            Vector3 side = Vector3.Cross(Vector3.up, direction).normalized * radius;
+            float height = float.NegativeInfinity;
+            for (int i = -1; i <= 1; i++)
+                if (TryGetGroundHeight(point + side * i, out float groundY)) height = Mathf.Max(height, groundY);
+            return height + radius + hoseGroundClearance;
+        }
+
+        void PrepareIntakeGroundOffsets()
+        {
+            // Measure the actual strainer, including the authored scene scale.
+            Bounds bounds = new Bounds(Vector3.zero, Vector3.one * .02f);
+            foreach (var mesh in nozzle.GetComponentsInChildren<MeshFilter>(true))
+            {
+                if (!mesh.sharedMesh) continue;
+                Bounds local = mesh.sharedMesh.bounds;
+                for (int i = 0; i < 8; i++)
+                {
+                    Vector3 corner = local.center + Vector3.Scale(local.extents,
+                        new Vector3((i & 1) == 0 ? -1 : 1, (i & 2) == 0 ? -1 : 1, (i & 4) == 0 ? -1 : 1));
+                    bounds.Encapsulate(nozzle.InverseTransformPoint(mesh.transform.TransformPoint(corner)));
+                }
+            }
+            for (int i = 0; i < 8; i++)
+            {
+                Vector3 corner = bounds.center + Vector3.Scale(bounds.extents,
+                    new Vector3((i & 1) == 0 ? -1 : 1, (i & 2) == 0 ? -1 : 1, (i & 4) == 0 ? -1 : 1));
+                intakeGroundOffsets[i] = deployedRotation * Vector3.Scale(corner, nozzle.lossyScale);
+            }
+            intakeGroundOffsets[8] = Vector3.zero;
+        }
+
+        Vector3 SupportedIntakePoint(Vector3 point)
+        {
+            float minimumY = point.y;
+            foreach (Vector3 offset in intakeGroundOffsets)
+                if (TryGetGroundHeight(point + offset, out float groundY))
+                    minimumY = Mathf.Max(minimumY, groundY + hoseGroundClearance - offset.y);
+            point.y = minimumY;
+            return point;
+        }
+
+        Vector3 ResolveDeploymentPoint(Vector3 requested)
+        {
+            Vector3 supported = SupportedIntakePoint(requested);
+            if (!WaterSourceVolume.TryFindSource(requested, out var source)) return supported;
+            if (source.ContainsIntake(supported) && CanReach(supported)) return supported;
+            // Grounding a strainer on the shallow marker can lift it out of the water.
+            // Find a nearby deeper placement in the same lake instead of burying the mesh.
+            Vector3 waterCenter = source.volume ? source.volume.bounds.center : source.transform.position;
+            Vector3 intoWater = Vector3.ProjectOnPlane(waterCenter - requested, Vector3.up).normalized;
+            if (intoWater.sqrMagnitude < .01f) intoWater = Vector3.ProjectOnPlane(requested - hoseSocket.position, Vector3.up).normalized;
+            for (int step = 1; step <= 12; step++)
+                for (int fan = 0; fan < 8; fan++)
+                {
+                    float angle = fan == 0 ? 0 : (fan % 2 == 0 ? 1 : -1) * ((fan + 1) / 2) * 45f;
+                    Vector3 candidate = SupportedIntakePoint(requested + Quaternion.AngleAxis(angle, Vector3.up) * intoWater * (step * .35f));
+                    if (source.ContainsIntake(candidate) && CanReach(candidate)) return candidate;
+                }
+            return supported;
         }
 
         void ConfigureHoseWidth()
@@ -332,15 +424,38 @@ namespace GameJam.FireRescue
 
         private bool TryGetGroundHeight(Vector3 point, out float height)
         {
-            int hits = Physics.RaycastNonAlloc(point + Vector3.up * groundProbeHeight, Vector3.down,
-                groundHits, groundProbeHeight + 60f, hoseCollisionMask, QueryTriggerInteraction.Ignore);
+            if (groundFrame != Time.frameCount) { groundFrame = Time.frameCount; hoseTerrains = Terrain.activeTerrains; }
             height = float.NegativeInfinity;
+            foreach (var terrain in hoseTerrains)
+            {
+                if (!terrain || !terrain.terrainData || (hoseCollisionMask.value & (1 << terrain.gameObject.layer)) == 0) continue;
+                var collider = terrain.GetComponent<TerrainCollider>();
+                if (!collider || !collider.enabled) continue;
+                Vector3 relative = point - terrain.transform.position, size = terrain.terrainData.size;
+                if (relative.x < 0 || relative.z < 0 || relative.x > size.x || relative.z > size.z) continue;
+                int res = terrain.terrainData.holesResolution;
+                if (res > 0 && terrain.terrainData.IsHole(Mathf.Clamp((int)(relative.x / size.x * res), 0, res - 1), Mathf.Clamp((int)(relative.z / size.z * res), 0, res - 1))) continue;
+                height = Mathf.Max(height, terrain.SampleHeight(point) + terrain.transform.position.y);
+            }
+            // A sagging candidate may already be below the shore. Probe from above both endpoints and terrain.
+            float ceiling = Mathf.Max(point.y, Mathf.Max(hoseSocket ? hoseSocket.position.y : point.y,
+                nozzle ? nozzle.position.y : point.y));
+            if (!float.IsNegativeInfinity(height)) ceiling = Mathf.Max(ceiling, height);
+            Vector3 origin = new Vector3(point.x, ceiling + groundProbeHeight, point.z);
+            int hits = Physics.RaycastNonAlloc(origin, Vector3.down, groundHits,
+                ceiling + groundProbeHeight - point.y + 60f, hoseCollisionMask, QueryTriggerInteraction.Ignore);
+            RaycastHit[] samples = groundHits;
+            if (hits == groundHits.Length)
+            {
+                samples = Physics.RaycastAll(origin, Vector3.down, ceiling + groundProbeHeight - point.y + 60f, hoseCollisionMask, QueryTriggerInteraction.Ignore);
+                hits = samples.Length;
+            }
             for (int i = 0; i < hits; i++)
             {
-                RaycastHit hit = groundHits[i];
+                RaycastHit hit = samples[i];
                 Transform hitTransform = hit.collider.transform;
                 // The carried hose must not treat the player's capsule as a piece of terrain.
-                if (hit.collider is CharacterController || hit.normal.y < 0.25f ||
+                if (hit.collider is CharacterController || hit.normal.y < .05f || WaterSourceVolume.IsSurfaceCollider(hit.collider) ||
                     (ignoredCollisionRoot != null && hitTransform.IsChildOf(ignoredCollisionRoot)) ||
                     (nozzle != null && hitTransform.IsChildOf(nozzle)))
                     continue;

@@ -20,6 +20,7 @@ namespace GameJam.FireRescue
         [Min(0f)] public float flowLitresPerSecond = 35f;
         [Range(0f, 89f)] public float maximumElevation = 70f;
         [Range(0f, 89f)] public float maximumDepression = 25f;
+        [Min(1f)] public float turretDegreesPerSecond = 180f;
         public LayerMask collisionMask = ~0;
 
         // IsSpraying describes emission. Already emitted water keeps travelling after release/empty.
@@ -97,7 +98,7 @@ namespace GameJam.FireRescue
                 PredictedTarget = null;
                 return;
             }
-            UpdateAim();
+            UpdateAim(deltaTime);
             // Pause must not consume, advance, or erase water already in flight.
             if (!IsFinite(deltaTime) || deltaTime <= 0f || Time.timeScale <= 0f) return;
             simulationRemainder += Mathf.Min(deltaTime, 10f);
@@ -220,14 +221,32 @@ namespace GameJam.FireRescue
             Visuals.Impact(point, normal, litres, simulationTime);
         }
 
-        void UpdateAim()
+        void UpdateAim(float deltaTime)
         {
             if (!vehicleBody) vehicleBody = tank ? tank.GetComponentInParent<Rigidbody>() : GetComponentInParent<Rigidbody>();
             Vector3 requested = CameraTarget(out Collider requestedCollider);
-            bool solved = aimCamera == null;
-            // Pivot movement changes muzzle position. Re-solve after each aim adjustment.
-            for (int i = 0; i < 3; i++)
+            Quaternion previousYaw = yawPivot ? yawPivot.localRotation : Quaternion.identity;
+            Quaternion previousPitch = pitchPivot ? pitchPivot.localRotation : Quaternion.identity;
+            bool tooClose = false;
+            if (pitchPivot)
             {
+                Vector3 fromPivot = requested - pitchPivot.position;
+                Vector3 up = yawPivot && yawPivot.parent ? yawPivot.parent.up : Vector3.up;
+                Vector3 flat = Vector3.ProjectOnPlane(fromPivot, up);
+                float minimumDistance = Vector3.Distance(pitchPivot.position, muzzle.position) * 2f + .5f;
+                tooClose = flat.sqrMagnitude < minimumDistance * minimumDistance;
+            }
+            bool solved = aimCamera == null;
+            if (aimCamera && tooClose)
+            {
+                // Near the barrel, repeated muzzle-based solves amplify each other and alternate
+                // yaw/pitch poses. A single direction from the fixed pivot stays stable, including
+                // targets directly above or below it. Prediction still uses the real muzzle below.
+                AimTurret(requested - pitchPivot.position);
+            }
+            else for (int i = 0; i < 3; i++)
+            {
+                // Pivot movement changes muzzle position. Re-solve distant ballistic aim after each adjustment.
                 Vector3 inherited = vehicleBody ? vehicleBody.GetPointVelocity(muzzle.position) : Vector3.zero;
                 Vector3 launchDirection = muzzle.forward;
                 if (aimCamera)
@@ -238,7 +257,14 @@ namespace GameJam.FireRescue
                 }
                 LaunchVelocity = muzzle.forward * EffectiveMuzzleSpeed + inherited;
             }
-            PredictImpact(requested, requestedCollider, solved);
+            // Iterations only find the desired pose. Present one bounded movement per rendered frame,
+            // then emit and predict from that actual pose so water never detaches from the visible nozzle.
+            float step = Time.timeScale <= 0f ? 0f : deltaTime > 0f && IsFinite(deltaTime)
+                ? Mathf.Max(1f, turretDegreesPerSecond) * deltaTime : 360f;
+            if (yawPivot) yawPivot.localRotation = Quaternion.RotateTowards(previousYaw, yawPivot.localRotation, step);
+            if (pitchPivot) pitchPivot.localRotation = Quaternion.RotateTowards(previousPitch, pitchPivot.localRotation, step);
+            LaunchVelocity = muzzle.forward * EffectiveMuzzleSpeed + (vehicleBody ? vehicleBody.GetPointVelocity(muzzle.position) : Vector3.zero);
+            PredictImpact(requested, requestedCollider, solved && !tooClose);
         }
 
         Vector3 CameraTarget(out Collider requestedCollider)

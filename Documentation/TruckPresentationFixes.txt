@@ -1,0 +1,37 @@
+Truck guidance, lake hose and roof cannon fixes - 18 October 2026
+
+Changes
+- ObjectiveNavigation smooths the moving road target, world-arrow heading and HUD position/angle.
+  HUD movement has a speed limit. Route/parking and road/shortcut transitions have hysteresis,
+  so small position changes cannot repeatedly switch the destination display.
+  Arrow edges are subdivided and lifted above the terrain to avoid disappearing through crests.
+  The Lake distance label measures the actual lake destination, rather than the moving lookahead point.
+- FireHoseSystem samples the terrain from above the whole hose, ignores the water surface as solid
+  ground, accounts for hose thickness and checks the line between vertices at the steep bank.
+  The actual scaled intake strainer is supported above the lakebed. If the authored connection is
+  too shallow for its mesh, a nearby submerged placement is found in the same lake, within reach.
+  The search uses the lake centre and covers all directions, including sideways parking.
+  Stationary geometry is reused briefly to avoid repeating the full collision pass every frame.
+  LakeFillStation retracts a failed connection rather than leaving a non-pumping intake deployed.
+- FireTruckWaterCannon previously alternated nearly 180 degrees between successive frames when
+  aiming near the barrel. Close targets now use one direction from the fixed pivot; distant
+  targets retain the ballistic iteration. The rendered yaw and pitch rotate at up to 180 degrees
+  per second. Prediction, packet emission and damage use the actual final muzzle pose.
+
+Existing assets, terrain, truck scale/colliders, driving controls, pump controls, tank capacity,
+water consumption, water-source validation and automatic retraction have been retained.
+No scene or prefab authoring step is required. Runtime fixes apply when Play Mode starts.
+
+Verification
+- Unity 6000.0.58f2, saved Volcano_Demo scene, real rendered Play Mode frames.
+- GameJam > Final Loop > Check truck presentation runs the focused regression suite.
+  It follows the saved road, tests the lake-transition threshold, parks at four 90-degree angles,
+  samples hose segments between vertices and the real strainer bounds, fills the 2000L tank,
+  checks retraction, and tests close/vertical/distant cannon aim.
+- The same run invokes all 39 existing FireCombatChecks (ballistics, water consumption, impacts,
+  obstruction, cooling and damage). Results: Logs/TruckPresentation/checks.txt and
+  Logs/FireCombatChecks.json. Captures: Logs/TruckPresentation/01-road-hud.png and
+  Logs/TruckPresentation/02-grounded-lake-hose.png.
+- Test scope: a kinematic fixture supplies truck positions along the road and parking poses;
+  intro/deadline/input are disabled only for verification. This is not a manual driving or
+  complete story playthrough, nor a player-build test. The actual pump and water simulation run.

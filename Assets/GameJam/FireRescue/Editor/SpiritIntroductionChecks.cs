@@ -216,7 +216,7 @@ public static class SpiritIntroductionChecks
                 Physics.SyncTransforms(); Next(70); return;
             case 70:
                 if (age < .35f) return;
-                Check("driving route uses an arrow between circular destinations", nav.UsesDirectionalArrow && nav.directionArrow.enabled && !nav.markerGlow.enabled && nav.ring.positionCount == 8,
+                Check("driving route uses an arrow between circular destinations", nav.UsesDirectionalArrow && nav.directionArrow.enabled && !nav.markerGlow.enabled && nav.ring.positionCount > 8,
                     "Only the moving road guide is an arrow. Lake parking, buttons, pickups and entry points remain circles.");
                 capture.Photo("03c-road-arrow"); Next(71); return;
             case 71:
