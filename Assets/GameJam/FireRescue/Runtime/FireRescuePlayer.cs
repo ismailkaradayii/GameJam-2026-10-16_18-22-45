@@ -41,6 +41,7 @@ namespace GameJam.FireRescue
         [Header("First-person character (optional)")]
         public Itfaiye.ItfaiyeFirstPersonController firstPerson;
         public Itfaiye.ItfaiyePistol pistol;
+        public PistolAimAssist pistolAimAssist;
 
         [Header("Player")]
         public bool startDriving = true;
@@ -58,6 +59,7 @@ namespace GameJam.FireRescue
         [Min(1f)] public float minFollowDistance = 5f;
         [Min(1f)] public float maxFollowDistance = 14f;
         [Min(0f)] public float cannonCameraLift = 2.8f;
+        const float CannonMinimumViewPitch = 50f;
 
         public bool IsDriving { get; private set; }
         public bool GameplaySuspended => CinematicLocked || gameplaySuspended || (gameFlow && gameFlow.BlocksGameplay);
@@ -68,6 +70,7 @@ namespace GameJam.FireRescue
         public void SetCinematicLocked(bool locked)
         {
             if (CinematicLocked == locked) return;
+            if (pistolAimAssist) pistolAimAssist.Release();
             if (locked) equippedBeforeCinema = pistol && pistol.Equipped;
             CinematicLocked = locked;
             SetCannonActive(false);
@@ -94,6 +97,8 @@ namespace GameJam.FireRescue
         bool waitForMouseRelease;
         int resumeAfterFrame = -1;
         bool aimingCannon;
+        float cannonViewBlend;
+        float drivingPitchBeforeCannon, drivingOrbitBeforeCannon, cannonAimPitch, cannonAimOrbit;
         Vector2 lookAngularVelocity;
         Renderer[] bodyRenderers;
         bool[] bodyRendererDefaults;
@@ -126,6 +131,9 @@ namespace GameJam.FireRescue
                 }
             }
             if (pistol) pistol.externalControl = true;
+            if (!pistolAimAssist) pistolAimAssist = GetComponent<PistolAimAssist>();
+            if (!pistolAimAssist) pistolAimAssist = gameObject.AddComponent<PistolAimAssist>();
+            pistolAimAssist.player = this;
             if (!playerBody) playerBody = GetComponent<CharacterController>();
             if (!viewCamera) viewCamera = Camera.main;
             if (!cannon && drive) cannon = drive.GetComponent<FireTruckWaterCannon>();
@@ -184,7 +192,7 @@ namespace GameJam.FireRescue
             if (IsDriving)
             {
                 orbitYaw += mouseDelta.x * mouseSensitivity;
-                lookPitch = Mathf.Clamp(lookPitch - mouseDelta.y * mouseSensitivity, -10f, 65f);
+                lookPitch = Mathf.Clamp(lookPitch - mouseDelta.y * mouseSensitivity, aimingCannon ? -65f : -10f, aimingCannon ? 85f : 65f);
                 if (mouse != null)
                     followDistance = Mathf.Clamp(followDistance - mouse.scroll.ReadValue().y * 0.01f,
                         minFollowDistance, Mathf.Max(minFollowDistance, maxFollowDistance));
@@ -195,6 +203,8 @@ namespace GameJam.FireRescue
                 float previousPitch = lookPitch;
                 lookYaw += mouseDelta.x * mouseSensitivity;
                 lookPitch = Mathf.Clamp(lookPitch - mouseDelta.y * mouseSensitivity, -75f, 78f);
+                if (pistolAimAssist) pistolAimAssist.AdjustLook(ref lookYaw, ref lookPitch,
+                    mouse != null && mouse.rightButton.isPressed, new Vector2(mouseDelta.x, -mouseDelta.y) * mouseSensitivity, Time.deltaTime);
                 if (Time.deltaTime > 0f)
                     lookAngularVelocity = new Vector2(lookYaw - previousYaw, lookPitch - previousPitch) / Time.deltaTime;
             }
@@ -336,6 +346,8 @@ namespace GameJam.FireRescue
         /// <summary>Initial setup / test entry point; interactive entry also checks the door and hose.</summary>
         public void SetDriving(bool driving)
         {
+            if (pistolAimAssist) pistolAimAssist.Release();
+            cannonViewBlend = 0;
             if (drivingInitialized && viewCamera)
             {
                 transitionPosition = viewCamera.transform.position; transitionRotation = viewCamera.transform.rotation;
@@ -622,9 +634,20 @@ namespace GameJam.FireRescue
 
         void UpdateDrivingCamera()
         {
-            Vector3 target = drive.transform.position + Vector3.up * (followHeight + (aimingCannon ? cannonCameraLift : 0f));
-            Quaternion rotation = Quaternion.Euler(lookPitch, drive.transform.eulerAngles.y + orbitYaw, 0f);
-            Vector3 desired = target + rotation * Vector3.back * followDistance;
+            cannonViewBlend = Mathf.MoveTowards(cannonViewBlend, aimingCannon ? 1 : 0, Time.deltaTime / .3f);
+            Vector3 target = drive.transform.position + Vector3.up * followHeight;
+            if (aimingCannon) { cannonAimPitch = lookPitch; cannonAimOrbit = orbitYaw; }
+            Quaternion rotation = Quaternion.Euler(aimingCannon ? drivingPitchBeforeCannon : lookPitch,
+                drive.transform.eulerAngles.y + (aimingCannon ? drivingOrbitBeforeCannon : orbitYaw), 0f);
+            Quaternion cannonRotation = Quaternion.Euler(cannonAimPitch, drive.transform.eulerAngles.y + cannonAimOrbit, 0f);
+            var bodyBox = drive.GetComponent<BoxCollider>();
+            float cabForward = bodyBox ? bodyBox.size.z * drive.transform.lossyScale.z * .44f : followDistance * .4f;
+            float extraHeight = bodyBox ? bodyBox.size.y * drive.transform.lossyScale.y * 1.8f : 12f;
+            Vector3 cannonView = drive.transform.position + drive.transform.forward * cabForward +
+                Vector3.up * (followHeight + cannonCameraLift + extraHeight);
+            // The long truck hides enemies just beyond its bumper from a rear chase camera.
+            // RMB blends to an elevated cab view with free mouse aim; ordinary driving retains its orbit.
+            Vector3 desired = Vector3.Lerp(target + rotation * Vector3.back * followDistance, cannonView, cannonViewBlend);
             Vector3 direction = desired - target;
             float distance = direction.magnitude;
             RaycastHit[] hits = Physics.SphereCastAll(target, 0.25f, direction.normalized, distance, ~0, QueryTriggerInteraction.Ignore);
@@ -633,7 +656,8 @@ namespace GameJam.FireRescue
             desired = target + direction.normalized * distance;
             float blend = snapCamera ? 1f : 1f - Mathf.Exp(-12f * Time.deltaTime);
             viewCamera.transform.position = Vector3.Lerp(viewCamera.transform.position, desired, blend);
-            Vector3 lookDirection = target - viewCamera.transform.position;
+            Vector3 focus = Vector3.Lerp(target, cannonView + cannonRotation * Vector3.forward * Mathf.Max(20, followDistance), cannonViewBlend);
+            Vector3 lookDirection = focus - viewCamera.transform.position;
             if (lookDirection.sqrMagnitude > 0.01f)
                 viewCamera.transform.rotation = Quaternion.Slerp(viewCamera.transform.rotation, Quaternion.LookRotation(lookDirection), blend);
             snapCamera = false;
@@ -648,7 +672,14 @@ namespace GameJam.FireRescue
 
         void SetCannonActive(bool active)
         {
-            aimingCannon = active && !GameplaySuspended && IsDriving && cannon;
+            bool aiming = active && !GameplaySuspended && IsDriving && cannon;
+            if (aiming && !aimingCannon)
+            {
+                drivingPitchBeforeCannon = lookPitch; drivingOrbitBeforeCannon = orbitYaw;
+                lookPitch = Mathf.Max(lookPitch, CannonMinimumViewPitch);
+            }
+            else if (!aiming && aimingCannon) { lookPitch = drivingPitchBeforeCannon; orbitYaw = drivingOrbitBeforeCannon; }
+            aimingCannon = aiming;
             if (cannon) cannon.SetSpraying(aimingCannon);
         }
 
@@ -692,6 +723,7 @@ namespace GameJam.FireRescue
 
         void StopGameplayInput()
         {
+            if (pistolAimAssist) pistolAimAssist.Release();
             lookAngularVelocity = Vector2.zero;
             SetCannonActive(false);
             if (drive) drive.SetInput(0f, 0f, true);

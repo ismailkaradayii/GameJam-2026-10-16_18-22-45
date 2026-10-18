@@ -102,7 +102,7 @@ namespace Itfaiye
         [Range(-60f, 60f)] public float slideThumbOpposition = 0f;
 
         // Metres in the weapon's unscaled reference frame. The model points along +Z.
-        public static readonly Vector3 RightGrip = new Vector3(.016f, -.008f, -.121f);
+        public static readonly Vector3 RightGrip = new Vector3(.006f, -.008f, -.124f);
         public static readonly Vector3 LeftGrip = new Vector3(-.029f, -.021f, -.116f);
         public static readonly Quaternion RightGripRotation = Quaternion.Euler(5f, 0f, 0f) * Quaternion.LookRotation(Vector3.down, Vector3.left);
         public static readonly Quaternion LeftGripRotation = Quaternion.Euler(5f, 0f, 0f) * Quaternion.LookRotation(Vector3.up, Vector3.left);

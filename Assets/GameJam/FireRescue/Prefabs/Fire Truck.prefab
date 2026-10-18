@@ -5636,7 +5636,7 @@ MonoBehaviour:
   muzzleSpeed: 35
   flowLitresPerSecond: 35
   maximumElevation: 70
-  maximumDepression: 25
+  maximumDepression: 65
   collisionMask:
     serializedVersion: 2
     m_Bits: 4294967295
@@ -11427,8 +11427,8 @@ Transform:
   m_GameObject: {fileID: 6832016260667325693}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 0.32, y: 0.25, z: 0.32}
+  m_LocalPosition: {x: 0, y: 0.16, z: 0}
+  m_LocalScale: {x: 0.32, y: 0.41, z: 0.32}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 2804797915123354864}
@@ -11511,7 +11511,7 @@ Transform:
   m_GameObject: {fileID: 6991162037319973613}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0.24, z: 0}
+  m_LocalPosition: {x: 0, y: 0.56, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:

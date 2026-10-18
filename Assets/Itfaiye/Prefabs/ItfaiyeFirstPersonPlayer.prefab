@@ -18080,8 +18080,8 @@ MonoBehaviour:
   pistol: {fileID: 715022985661234336}
   unarmedSprintSwing: {x: 0.04, y: 0.09, z: 0.17}
   unarmedSprintBlendSeconds: 0.12
-  pistolHipPosition: {x: 0.085, y: -0.155, z: 0.38}
-  pistolHipEuler: {x: 0, y: 0, z: -6}
+  pistolHipPosition: {x: 0.055, y: -0.155, z: 0.38}
+  pistolHipEuler: {x: 0, y: 0, z: -2}
   pistolAimDistance: 0.35
   pistolSight: {fileID: 7717766100114634616}
   pistolViewZoom: 5

@@ -1,0 +1,40 @@
+Combat view, pistol grip and soft aim - 18 October 2026
+
+Truck monitor
+- Raised the pitch pivot by 0.32 local units (approximately 0.79m in Volcano_Demo).
+  The supporting riser is extended with its base unchanged, so the monitor stays attached.
+- Downward travel is now 65 degrees for nearby creatures.
+- RMB blends the rear driving camera to an elevated view over the cab. The height and forward
+  offset follow the real truck collider dimensions. Mouse aim can look down to 85 degrees.
+  This reveals targets just beyond the bumper instead of putting the long truck between them
+  and the camera. Releasing RMB smoothly restores the previous driving pitch/orbit.
+
+Pistol
+- Hip position moved slightly toward the centre (.085 -> .055); sideways roll reduced (-6 -> -2).
+- The right wrist sits 10mm farther inward and 3mm farther back in the weapon reference frame.
+  The existing hand/weapon pose remains shared during ADS, recoil, locomotion and reload.
+  PistolPolishSetup uses the same settings, so reapplying the presentation preserves this grip.
+- PistolAimAssist is automatically connected by FireRescuePlayer. Holding RMB gently turns the
+  view toward a live visible creature within 16 degrees / 75m. An acquired target is retained
+  within 23 degrees, avoiding target switching in a crowd. Release/repress RMB to reacquire.
+- Fast deliberate mouse movement overrides assistance. Walls, defeated targets, holstering,
+  reloading, swimming, sprinting, vehicles, lost input capture, pause and cinematics suspend it.
+  The component can be disabled to turn assistance off.
+- Assistance adjusts the authoritative look angles before weapon presentation. Bullets still
+  originate from the actual posed muzzle; obstruction, damage, ammo and manual firing remain physical.
+
+Verification (Unity 6000.0.58f2)
+- GameJam > Final Loop > Check combat controls: 23 checks passed. Includes real synthetic RMB/LMB
+  through Input System and FireRescuePlayer, moving-target tracking, real muzzle-based damage,
+  cover/death/manual override, magazine/reserve accounting, camera visibility/return, and defeating
+  a close front creature with the raised water monitor and finite tank water.
+- GameJam > Final Loop > Check pistol presentation: all 30 existing tests passed, including
+  wrist contact, three-shot creature defeat, optic/cover, reload, vehicle/cinematic transitions,
+  pause/resume, recoil and input handling.
+- All 39 existing FireCombatChecks passed in the same final combat-controls run.
+- Reports/captures: Logs/CombatView/, Logs/PistolPolish/checks.txt, Logs/FireCombatChecks.json.
+  Tests use the actual scene/player/truck plus isolated capsule damage targets and temporary
+  input devices. The final village capture uses an authored creature. This is Play Mode verification,
+  not a manual full story playthrough or a player-build test.
+- Any pre-existing unsaved scene state is copied to Library/CombatViewReview/unsaved-preserved.unity
+  before entering the focused check. No gameplay scene file is saved or rewritten by these changes.

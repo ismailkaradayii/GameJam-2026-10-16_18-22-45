@@ -65,8 +65,8 @@ public static class PistolPolishSetup
     static void Configure(ItfaiyePistol p, VolumeProfile shot)
     {
         var h = p.player.handsAnimator.GetComponent<ItfaiyeFirstPersonHands>();
-        h.pistolHipPosition = new Vector3(.085f, -.155f, .38f);
-        h.pistolHipEuler = new Vector3(0, 0, -6f); h.pistolAimDistance = .35f;
+        h.pistolHipPosition = new Vector3(.055f, -.155f, .38f);
+        h.pistolHipEuler = new Vector3(0, 0, -2f); h.pistolAimDistance = .35f;
         h.swayAmount = 1.1f; h.aimSwayMultiplier = .06f; h.swaySmoothTime = .075f;
         h.walkBobAmount = .8f; h.runBobAmount = 1.45f; h.leftGripTightness = .45f;
         p.shotInterval = .14f; p.recoilAngle = 11.2f; p.recoilTravel = .062f; p.aimedRecoil = .42f;
