@@ -12,48 +12,48 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7f4a8655d13113f4982f741e0070c66d, type: 3}
   m_Name: Interaction Texts TR
   m_EditorClassIdentifier: 
-  takePistol: "Take pistol"
-  pistolSlot: "Add to slot 1"
-  openDoor: "Open door"
-  closeDoor: "Close door"
-  blockedDoor: "Door blocked. Step back."
-  leaveHouse: "Leave house"
-  takePistolFirst: "Take the pistol before leaving"
-  walkOutside: "Walk outside through the door"
-  enterTruck: "Enter truck"
-  exitTruck: "Exit truck"
-  stopBeforeExit: "Slow below 20 km/h before exiting"
-  drivingHint: "WASD to drive · {0} to spray water"
-  clearExit: "Exit blocked. Park in an open area."
-  callVillagers: "Call villagers"
-  leadVillager: "Lead villager to shelter"
-  leadToShelter: "Lead to shelter"
-  following: "Following you"
-  callCoolingDown: "Rest your voice. You can call again shortly."
-  shelter: "Shelter"
-  shelterAutomatic: "Villagers are rescued when they enter"
-  fillTank: "Fill water tank"
-  fillingTank: "Filling tank"
-  disconnect: "Disconnect"
-  stopBeforeFill: "Stop in the blue ring to refill"
-  tankFull: "Tank full"
-  returnToVillage: "Return to the village"
-  intakeOutOfWater: "Hose intake is not in water"
-  hoseTooFar: "Move the truck closer to the water"
-  takeHose: "Take intake hose"
-  dropHose: "Drop hose"
-  putIntakeInWater: "Place the intake in water"
-  retractHose: "Retract hose"
-  enablePump: "Start pump"
-  disablePump: "Stop pump"
-  extinguish: "Extinguish fire"
-  useWaterCannon: "Aim at the fire and hold to spray"
-  pistolCollected: "Pistol collected"
-  residentSaved: "+1 villager rescued!"
-  objectiveComplete: "Objective complete!"
-  fireExtinguished: "Fire extinguished!"
-  activateAlarm: "Activate village alarm"
-  alarmNeedsPistol: "Take the pistol first"
-  alarmGetCloser: "Move closer to the button"
-  alarmReloading: "Wait until reloading is complete"
-  alarmActivated: "Village alerted!"
+  takePistol: Take pistol
+  pistolSlot: Add to slot 1
+  openDoor: Open door
+  closeDoor: Close door
+  blockedDoor: Door blocked. Step back.
+  leaveHouse: Leave house
+  takePistolFirst: Take the pistol before leaving
+  walkOutside: Walk outside through the door
+  enterTruck: Enter truck
+  exitTruck: Exit truck
+  stopBeforeExit: Slow below 20 km/h before exiting
+  drivingHint: "WASD to drive \xB7 {0} to spray water"
+  clearExit: Exit blocked. Park in an open area.
+  callVillagers: "Grubu yan\u0131na al"
+  leadVillager: Lead villager to shelter
+  leadToShelter: "Grubu sar\u0131 toplanma alan\u0131na getir"
+  following: Following you
+  callCoolingDown: Rest your voice. You can call again shortly.
+  shelter: Shelter
+  shelterAutomatic: Villagers are rescued when they enter
+  fillTank: Fill water tank
+  fillingTank: Filling tank
+  disconnect: Disconnect
+  stopBeforeFill: Stop in the blue ring to refill
+  tankFull: Tank full
+  returnToVillage: Return to the village
+  intakeOutOfWater: Hose intake is not in water
+  hoseTooFar: Move the truck closer to the water
+  takeHose: Take intake hose
+  dropHose: Drop hose
+  putIntakeInWater: Place the intake in water
+  retractHose: Retract hose
+  enablePump: Start pump
+  disablePump: Stop pump
+  extinguish: Extinguish fire
+  useWaterCannon: Aim at the fire and hold to spray
+  pistolCollected: Pistol collected
+  residentSaved: +1 villager rescued!
+  objectiveComplete: Objective complete!
+  fireExtinguished: Fire extinguished!
+  activateAlarm: Activate village alarm
+  alarmNeedsPistol: Take the pistol first
+  alarmGetCloser: Move closer to the button
+  alarmReloading: Wait until reloading is complete
+  alarmActivated: Village alerted!

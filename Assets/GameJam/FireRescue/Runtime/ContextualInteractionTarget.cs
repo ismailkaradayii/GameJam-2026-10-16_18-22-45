@@ -5,7 +5,7 @@ namespace GameJam.FireRescue
     public enum ContextualInteractionKind
     {
         Pistol, Door, HouseExit, TruckEntry, TruckExit, Resident, CallHouse, Shelter,
-        LakeFill, HosePickup, HoseDrop, HoseSocket, BuildingFire, VillageAlarm
+        LakeFill, HosePickup, HoseDrop, HoseSocket, BuildingFire, VillageAlarm, AssemblyPoint
     }
     public enum InteractionInput { None, Interact, ExitVehicle, CallVillagers, RetractHose, Pump, Spray }
 

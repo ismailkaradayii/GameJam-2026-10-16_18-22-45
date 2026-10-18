@@ -20,7 +20,7 @@ public static class SpiritPlayerPounceChecks
     static readonly string[] Cases = { "direct hit", "sidestep", "bullet during charge", "water in flight", "wall shields player",
         "two spirits", "coarse frame steps", "tall player", "lethal explosion", "nonlethal charge interruption", "nearby house raider",
         "long range leap", "pistol kill in flight", "faster long approach", "near miss", "coarse near miss",
-        "target disabled in flight", "retry after dodge" };
+        "target disabled in flight", "retry after dodge", "heat during pounce", "move during charge" };
     [Serializable] class Result { public string name, evidence; public bool passed; }
     [Serializable] class Report { public string status = "RUNNING"; public List<Result> checks = new List<Result>(); public List<string> errors = new List<string>(); }
     static Report report;
@@ -197,6 +197,8 @@ public static class SpiritPlayerPounceChecks
     {
         if (Time.time - started > 7)
         { Check("Attack completes", false, "state=" + combat.State + ", health=" + victim.Health + ", position=" + actor.transform.position); BeginCase(scenario + 1); return; }
+        if (scenario == 18 && !actor.SelfDetonated)
+        { victim.TakeHeatDamage(.02f); before = victim.Health; }
         if (victim.Health < before && !actor.SelfDetonated && !(second && second.SelfDetonated)) earlyDamage = true;
         maxCoreHeight = Mathf.Max(maxCoreHeight, actor.GetComponent<LavaSpiritVisual>().VisualRoot.TransformPoint(Vector3.up * .65f).y);
         if (scenario == 13 && combat.State == LavaCreatureCombat.Motion.Leaping && !combat.IsPlayerPouncing && firstHopAt < 0f)
@@ -211,6 +213,13 @@ public static class SpiritPlayerPounceChecks
         if (combat.IsAttacking && combat.State == LavaCreatureCombat.Motion.Windup)
         {
             sawCharge = true;
+            if (scenario == 19 && combat.AttackCharge > .45f && !acted)
+            {
+                acted = true;
+                var body = victim.GetComponent<CharacterController>(); body.enabled = false;
+                victim.transform.position += Vector3.right * 2.5f;
+                body.enabled = true; Physics.SyncTransforms();
+            }
             if (scenario == 0 && combat.AttackCharge > .65f && !capturedCharge)
             { Capture("01-angry-ground-charge"); capturedCharge = true; }
             if ((scenario == 2 || scenario == 9) && combat.AttackCharge > .5f && !acted)
@@ -237,7 +246,7 @@ public static class SpiritPlayerPounceChecks
             sawFlight = true;
             if (scenario == 0 && !capturedFlight && actor.GetComponent<LavaSpiritVisual>().VisualRoot.position.z > 1.1f)
             { Capture("02-player-pounce"); capturedFlight = true; }
-            if ((scenario == 1 || scenario == 3 || scenario >= 14) && !acted)
+            if ((scenario == 1 || scenario == 3 || scenario >= 14 && scenario <= 17) && !acted)
             {
                 acted = true; actionAt = Time.time;
                 if (scenario == 1 || scenario == 14 || scenario == 15 || scenario == 17)
@@ -323,8 +332,8 @@ public static class SpiritPlayerPounceChecks
                 Capture("03a-red-impact-flash");
             }
             if (scenario == 11)
-                Check("Leap starts beyond ten metres with a readable high arc and airtime", launchDistance > 10f && Time.time - launchedAt > .65f &&
-                    maxCoreHeight > 2.7f && combat.Leaps == 1, "reach=" + launchDistance + ", flight=" + (Time.time - launchedAt) + ", peak=" + maxCoreHeight);
+                Check("Leap starts beyond ten metres with a readable high arc and faster airtime", launchDistance > 10f && Time.time - launchedAt > .5f &&
+                    maxCoreHeight > 2.3f && combat.Leaps == 1, "reach=" + launchDistance + ", flight=" + (Time.time - launchedAt) + ", peak=" + maxCoreHeight);
             if (scenario == 8) Check("Lethal explosion triggers player defeat once", victim.Health == 0 && defeated == 1);
             else if (scenario == 5) Check("Each spirit can deal damage once, with the shared damage gate", victim.HitsReceived >= 1 && victim.HitsReceived <= 2 &&
                 Mathf.Approximately(victim.Health, before - victim.HitsReceived * combat.attackDamage) &&

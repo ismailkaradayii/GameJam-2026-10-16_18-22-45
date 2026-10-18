@@ -5,7 +5,7 @@ using UnityEngine.InputSystem;
 namespace GameJam.FireRescue
 {
     [DisallowMultipleComponent, DefaultExecutionOrder(-70)]
-    public sealed class EvacuationMission : MonoBehaviour
+    public sealed partial class EvacuationMission : MonoBehaviour
     {
         readonly List<Rect> placedMarkerRects = new List<Rect>();
         public FireRescuePlayer player;
@@ -28,7 +28,7 @@ namespace GameJam.FireRescue
         public bool villageWideCall;
         public float shoutCooldown = 5f;
         public bool alarmTriggersPanic = true;
-        public bool callAllAlarmedVillagers = true;
+        public bool callAllAlarmedVillagers;
         public Key callKey = Key.Q;
         public event System.Action<EvacuationResident> ResidentRescued;
         public event System.Action<EvacuationResident> ResidentLost;
@@ -62,6 +62,7 @@ namespace GameJam.FireRescue
             if (!player) player = FindFirstObjectByType<FireRescuePlayer>();
             if (!eruption) eruption = FindFirstObjectByType<VolcanoEruptionSequence>();
             if (eruption) eruption.evacuation = this;
+            InitializeGroups();
             if (crowdPanicLoop)
             {
                 Transform emitter = transform.Find("Crowd Panic Ambience");
@@ -85,8 +86,9 @@ namespace GameJam.FireRescue
             UpdateCrowdPanicAudio();
             if (Time.timeScale <= 0f || (player && player.GameplaySuspended)) return;
             if (startAutomatically && !IsActive && !IsComplete && !IsResolved && Time.time - started >= dispatchDelay) BeginMission();
+            if (groupRescue && IsActive) TickGroups();
             var t = PlayerTransform;
-            if (IsActive && t && shelterApproach && Mathf.Abs(t.position.y - shelterApproach.position.y) < 5f &&
+            if (IsActive && (!groupRescue || EscortStarted) && t && shelterApproach && Mathf.Abs(t.position.y - shelterApproach.position.y) < 5f &&
                 (EvacuationResident.FlatDistance(t.position, shelterApproach.position) < 14f || IsInsideShelter(t.position)))
                 ShelterOpened = true;
             if (t && (trail.Count == 0 || Vector3.Distance(trail[trail.Count - 1], t.position) > .8f))
@@ -95,7 +97,7 @@ namespace GameJam.FireRescue
                 if (trail.Count > 160) trail.RemoveAt(0);
             }
             if (!IsActive || !Application.isFocused || Time.timeScale <= 0f || Cursor.lockState != CursorLockMode.Locked) return;
-            if (Keyboard.current != null && callKey != Key.None && Keyboard.current[callKey].wasPressedThisFrame) Shout();
+            if (!groupRescue && Keyboard.current != null && callKey != Key.None && Keyboard.current[callKey].wasPressedThisFrame) Shout();
         }
         void UpdateCrowdPanicAudio()
         {
@@ -111,7 +113,7 @@ namespace GameJam.FireRescue
             Vector3 center = Vector3.zero;
             if (IsActive && residents != null)
                 foreach (var resident in residents)
-                    if (resident && resident.isActiveAndEnabled && resident.HasHeardAlarm && !resident.IsSafe && !resident.IsDead)
+                    if (resident && resident.isActiveAndEnabled && resident.HasHeardAlarm && !resident.IsCalled && !resident.IsSafe && !resident.IsDead)
                     { center += resident.transform.position; activeCount++; }
             bool shouldPlay = IsActive && activeCount > 0;
             if (shouldPlay)
@@ -128,11 +130,12 @@ namespace GameJam.FireRescue
             if (IsActive || IsComplete || IsResolved) return;
             IsActive = true;
             if (alarmTriggersPanic) foreach (var resident in residents) if (resident) resident.HearAlarm();
+            if (groupRescue) { Speak("dispatch"); return; }
             Say("ALARM! Villagers are leaving their houses.\nPress Q to call them to follow you.", 7f);
         }
         public bool Shout()
         {
-            if (!IsActive || IsComplete || !PlayerTransform || Time.timeScale <= 0f || (player && player.GameplaySuspended) || Time.time < nextShout) return false;
+            if (groupRescue || !IsActive || IsComplete || !PlayerTransform || Time.timeScale <= 0f || (player && player.GameplaySuspended) || Time.time < nextShout) return false;
             if (player.IsDriving) { Say("Press E below 20 km/h to leave the vehicle before calling out.", 3f); return false; }
             nextShout = Time.time + Mathf.Max(1f, shoutCooldown);
             int count = 0;
@@ -160,6 +163,7 @@ namespace GameJam.FireRescue
         }
         public bool CanEnterShelter(EvacuationResident resident)
         {
+            if (groupRescue && !EscortStarted) return false;
             if (!ShelterOpened || !shelterEntrance || !shelterApproach || !resident || resident.IsDead || resident.IsBurning ||
                 EvacuationResident.FlatDistance(resident.transform.position, shelterApproach.position) >= 30f) return false;
             // Larger bodies file in one at a time, filling the deepest available places first.
@@ -181,6 +185,7 @@ namespace GameJam.FireRescue
         }
         public void ResidentArrived(EvacuationResident resident)
         {
+            if (groupRescue && !EscortStarted) return;
             if (!IsActive || !resident || !resident.IsSafe || !IsInsideShelter(resident.transform.position) ||
                 !System.Array.Exists(residents, r => r == resident) || !safeResidents.Add(resident)) return;
             RescuedCount = safeResidents.Count;
@@ -188,9 +193,10 @@ namespace GameJam.FireRescue
             if (RescuedCount == TotalCount && TotalCount > 0)
             {
                 IsComplete = true; IsActive = false;
-                Say("DISPATCH: All " + TotalCount + " villagers are safe!\nNow fill the truck's tank at the lake.", 8f);
+                if (groupRescue) Speak("safe", null, true);
+                else Say("DISPATCH: All " + TotalCount + " villagers are safe!\nNow fill the truck's tank at the lake.", 8f);
             }
-            else Say("Reached shelter: " + RescuedCount + " / " + TotalCount + (DeadCount > 0 ? " | Lost: " + DeadCount : ""), 3f);
+            else if (!groupRescue) Say("Reached shelter: " + RescuedCount + " / " + TotalCount + (DeadCount > 0 ? " | Lost: " + DeadCount : ""), 3f);
             if (IsResolved) IsActive = false;
         }
         public void ResidentDied(EvacuationResident resident)
@@ -225,12 +231,12 @@ namespace GameJam.FireRescue
                 GUI.color = IsComplete ? new Color(.3f,1f,.65f) : new Color(1f,.75f,.3f);
                 GUI.Label(new Rect(x+12,y+8,292,24),IsComplete ? "EVACUATION COMPLETE" : "OBJECTIVE · EVACUATE",titleStyle);
                 GUI.color=Color.white;
-                GUI.Label(new Rect(x+12,y+38,292,44),"Sheltered: "+RescuedCount+" / "+TotalCount+"    Called: "+CalledCount+" / "+TotalCount+"\n"+
+                GUI.Label(new Rect(x+12,y+38,292,44),groupRescue ? GroupStatus + "\n" + GroupObjective : "Sheltered: "+RescuedCount+" / "+TotalCount+"    Called: "+CalledCount+" / "+TotalCount+"\n"+
                     (IsComplete ? "Everyone is safe. Fill the water tank." : CalledCount<TotalCount ? "Q: Call the villagers together." : "Lead the group to the shelter."),bodyStyle);
                 GUI.color=new Color(.15f,.23f,.24f);GUI.DrawTexture(new Rect(x+12,y+87,292,6),Texture2D.whiteTexture);
                 GUI.color=new Color(.2f,.85f,.6f);GUI.DrawTexture(new Rect(x+12,y+87,292*RescuedCount/Mathf.Max(1,TotalCount),6),Texture2D.whiteTexture);
                 GUI.color=Color.white;
-                string action = IsComplete ? "Watch for the volcano warning." : player && player.IsDriving ? "E: Exit and call villagers" : CooldownRemaining>0 ? "Call again in: "+Mathf.CeilToInt(CooldownRemaining)+" sec" : "Q: Call villagers";
+                string action = groupRescue ? GroupHint : IsComplete ? "Watch for the volcano warning." : player && player.IsDriving ? "E: Exit and call villagers" : CooldownRemaining>0 ? "Call again in: "+Mathf.CeilToInt(CooldownRemaining)+" sec" : "Q: Call villagers";
                 GUI.Label(new Rect(x+12,y+102,292,40),action+(IsComplete?"":"\n"+DestinationHint()),bodyStyle);
                 if(Time.time<subtitleUntil)
                 {
@@ -242,6 +248,7 @@ namespace GameJam.FireRescue
             if(IsActive && player && player.viewCamera)
             {
                 placedMarkerRects.Clear();
+                if (groupRescue) { DrawGroupMarkers(scale, w, h); GUI.matrix=oldMatrix; GUI.color=oldColor; return; }
                 if(shelterApproach) Marker(shelterApproach.position+Vector3.up*3,"SHELTER",new Color(.35f,1,.7f),scale,w,h);
                 var seen=new HashSet<Transform>();
                 foreach(var r in residents) if(r && !r.IsDead && !r.IsCalled && seen.Add(r.transform))
@@ -280,6 +287,7 @@ namespace GameJam.FireRescue
         }
         string DestinationHint()
         {
+            if (groupRescue) return GroupHint;
             if(!PlayerTransform)return "";
             Transform target=shelterApproach;float nearest=float.PositiveInfinity;bool house=false;
             foreach(var r in residents)if(r&&!r.IsDead&&!r.IsCalled&&r.houseExit)

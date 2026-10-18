@@ -172,7 +172,7 @@ public static class AshfallSettingsSceneBuilder
 
         ScrollRect scroll = CreateScrollView("HowToScrollView", panel, new Vector2(44f, 100f), new Vector2(-44f, -164f));
         Transform content = scroll.content;
-        Text status = MakeInfoCard(content, "VOLCANO DEMO — DEFEND THE TOWN", "Take the pistol from your bedroom with E and leave the house. Call villagers with Q and lead them to the GREEN shelter ring. Enter the fire truck behind the house and fill its tank with E at the BLUE lake marker. The volcano erupts after 120 seconds, even if preparations are incomplete. Stop three waves of fire spirits and extinguish burning houses. You win if at least one house survives; you lose if all are destroyed. Stay away from hot lava.");
+        Text status = MakeInfoCard(content, "VOLCANO DEMO — DEFEND THE TOWN", "Take the pistol and activate the village alarm with E. Follow the ! marker to collect groups of 2, 2 and 3 with E. Bring each group to the AMBER assembly area and press E to leave them there. The ! then moves to the next group. Once all seven are assembled, press E at the assembly area and lead everyone to the GREEN shelter. Enter the fire truck and fill its tank with P at the BLUE lake marker. You have 240 seconds to prepare. Stop the fire spirits and extinguish burning houses. Stay away from hot lava.");
         status.fontSize = 17;
         var missionCardLayout = status.transform.parent.GetComponent<LayoutElement>();
         missionCardLayout.preferredHeight = -1f; missionCardLayout.minHeight = 138f;
@@ -193,7 +193,7 @@ public static class AshfallSettingsSceneBuilder
         AddControlRow(content, "CROUCH", "C", "Crouch or stand with the weapon drawn.", false);
         AddSectionTitle(content, "OTHER");
         AddControlRow(content, "PAUSE", "ESC", "Pause the game; resume or return to the main menu.", false);
-        AddControlRow(content, "EVACUATE", "Q", "Call out near the houses and lead the villagers to shelter.", false);
+        AddControlRow(content, "EVACUATE", "E", "Follow ! and press E to collect the next group. E at the amber assembly area leaves them there. All seven assembled: E to lead everyone to shelter.", false);
 
         Button back = MakeButton("HowToBackButton", panel, "BACK", Card, MainText, 58f);
         StylePanelButton(back, true);

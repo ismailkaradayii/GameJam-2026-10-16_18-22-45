@@ -161,12 +161,21 @@ namespace GameJam.FireRescue
             { CurrentLabel = "VILLAGE ALARM | " + (player.contextualInteractions ? player.contextualInteractions.Label(InteractionInput.Interact) : "E"); radius = .45f; return mission.villageAlarm.contactPoint; }
             if (!mission.EruptionTriggered && mission.Phase == VolcanoMissionDirector.MissionPhase.Weapon)
             { CurrentLabel = "LEAVE THE HOUSE | " + InputLabel(InteractionInput.Interact, "E") + ": OPEN DOOR"; return mission.houseExit; }
-            if (!mission.EruptionTriggered && mission.Phase == VolcanoMissionDirector.MissionPhase.Evacuate)
+            if (!mission.EruptionTriggered && mission.Phase == VolcanoMissionDirector.MissionPhase.Evacuate ||
+                mission.EruptionTriggered && mission.evacuation && mission.evacuation.groupRescue && mission.evacuation.IsActive && !player.IsDriving)
             {
+                if (mission.evacuation.groupRescue)
+                {
+                    var target = mission.evacuation.GroupNavigationTarget(out var text);
+                    CurrentLabel = text;
+                    color = mission.evacuation.EscortStarted ? shelterColor : new Color(1f, .74f, .2f);
+                    radius = mission.evacuation.ActiveGroup >= 0 || mission.evacuation.AllAtAssembly ? 8f : 3.5f;
+                    return target;
+                }
                 Transform next = null; float distance = float.PositiveInfinity;
                 foreach (var resident in mission.evacuation.residents)
                 {
-                    if (!resident || resident.IsCalled || !resident.houseExit) continue;
+                    if (!resident || resident.IsDead || resident.IsCalled || !resident.houseExit) continue;
                     float d = (resident.transform.position - player.transform.position).sqrMagnitude;
                     if (d < distance) { distance = d; next = resident.transform; }
                 }

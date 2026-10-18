@@ -25,7 +25,9 @@ public static class OpeningCinematicSetup
         if (!mission || !mission.story) throw new InvalidOperationException("Existing volcano story not found.");
         player = mission.player;
         var body = player.playerBody;
-        radius = body.radius * Mathf.Max(body.transform.lossyScale.x, body.transform.lossyScale.z) + .06f;
+        float scale = Mathf.Max(body.transform.lossyScale.x, body.transform.lossyScale.z);
+        // Skin width permits penetration; it does not enlarge the physical capsule.
+        radius = body.radius * scale + .08f;
         height = body.height * body.transform.lossyScale.y;
         Physics.SyncTransforms(); Directory.CreateDirectory(Folder);
         return mission.story;
@@ -63,10 +65,25 @@ public static class OpeningCinematicSetup
             Undo.RecordObject(point, "Clear cinematic route"); point.position = route[i]; waypoints.Add(point);
         }
         story.windowRoute = waypoints.ToArray();
-        story.approachSpeed = 2.1f; story.approachTimeout = 16f; story.arrivalRadius = .24f;
-        story.windowFieldOfView = 46f;
-        // The existing lean reaches the lower pane. Its timing is now isolated from walking.
-        story.windowEyeOffset = new Vector3(-1.8f, -2.2f, 0);
+        story.approachSpeed = 2.6f; story.approachTimeout = 16f; story.arrivalRadius = .08f;
+        story.windowFieldOfView = 50f;
+        var lens = story.windowViewPose ? story.windowViewPose : parent.Find("Clear window observation camera");
+        if (!lens) { lens = new GameObject("Clear window observation camera").transform; lens.SetParent(parent, false); Undo.RegisterCreatedObjectUndo(lens.gameObject, "Clear window framing"); }
+        Undo.RecordObject(lens, "Clear window framing");
+        Vector3 localEye = player.transform.InverseTransformPoint(player.viewCamera.transform.position);
+        Vector3 eye = story.windowStop.position + story.windowStop.rotation * Vector3.Scale(localEye, player.transform.lossyScale);
+        lens.position = eye + new Vector3(-3.2f, -1.4f, 1.1f);
+        lens.rotation = Quaternion.LookRotation(story.volcanoLookTarget.position + Vector3.down * 60 - lens.position);
+        story.windowViewPose = lens;
+        story.windowEyeOffset = Vector3.zero;
+        // Wake vertically in the same clear capsule footprint. The old sideways move
+        // crossed bedroom furniture while rolling the view by sixty-five degrees.
+        var standing = story.mission.standingSpawn; var wake = story.mission.wakePose;
+        Undo.RecordObject(standing, "Face the clear bedroom aisle"); Undo.RecordObject(wake, "Stable wake camera");
+        Vector3 heading = Vector3.ProjectOnPlane(route[1] - route[0], Vector3.up).normalized;
+        standing.rotation = Quaternion.LookRotation(heading);
+        wake.position = standing.position + standing.rotation * Vector3.Scale(localEye, player.transform.lossyScale) - Vector3.up * 1.15f;
+        wake.rotation = Quaternion.Euler(-10f, standing.eulerAngles.y + 5f, 7f);
         if (story.omenSmoke)
         {
             Undo.RecordObject(story.omenSmoke, "Visible first crater smoke");
@@ -75,7 +92,7 @@ public static class OpeningCinematicSetup
             main.startColor = new Color(.28f, .3f, .31f, .88f);
             main.startLifetime = new ParticleSystem.MinMaxCurve(6f, 8f);
             var emission = story.omenSmoke.emission;
-            emission.SetBursts(new[] { new ParticleSystem.Burst(0, (short)9) });
+            emission.SetBursts(new[] { new ParticleSystem.Burst(0, (short)9) { repeatInterval = .01f } });
             EditorUtility.SetDirty(story.omenSmoke);
         }
         if (story.omenSparks)
@@ -88,7 +105,7 @@ public static class OpeningCinematicSetup
         EditorSceneManager.MarkSceneDirty(story.gameObject.scene);
         EditorSceneManager.SaveScene(story.gameObject.scene);
         File.WriteAllLines(Folder + "/applied-route.txt", route.Select(p => p.ToString("F3")));
-        Previews();
+        OpeningCoolingPounceChecks.Audit();
     }
     static void Capsule(Vector3 feet, out Vector3 lower, out Vector3 upper)
     {
@@ -168,7 +185,9 @@ public static class OpeningCinematicSetup
         camera.GetUniversalAdditionalCameraData().volumeLayerMask = view.GetUniversalAdditionalCameraData().volumeLayerMask;
         var localEye = player.transform.InverseTransformPoint(view.transform.position);
         Vector3 eye = story.windowStop.position + story.windowStop.rotation * Vector3.Scale(localEye, player.transform.lossyScale) + story.windowEyeOffset;
+        if (story.windowViewPose) eye = story.windowViewPose.position;
         camera.transform.SetPositionAndRotation(eye, Quaternion.LookRotation(story.volcanoLookTarget.position - eye));
+        if (story.windowViewPose) camera.transform.rotation = story.windowViewPose.rotation;
         var target = new RenderTexture(1280, 720, 24, RenderTextureFormat.ARGB32);
         var pixels = new Texture2D(1280, 720, TextureFormat.RGB24, false); var active = RenderTexture.active;
         try

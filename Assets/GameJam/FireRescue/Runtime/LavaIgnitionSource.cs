@@ -47,7 +47,7 @@ namespace GameJam.FireRescue
         public bool IsHotAt(Vector3 point)
         {
             if (!cooling) cooling = GetComponent<LavaCoolingSurface>();
-            return CanHeat && (!cooling || cooling.IsHotAt(point));
+            return CanHeat && (!cooling || cooling.IsHotAt(point)) && !LavaCoolingSurface.IsSolidCrustAt(point);
         }
 
         public bool TouchesHotCollider(Collider contact)
@@ -57,8 +57,34 @@ namespace GameJam.FireRescue
                 !heatCollider.bounds.Intersects(contact.bounds)) return false;
             if (!Physics.ComputePenetration(contact, contact.transform.position, contact.transform.rotation,
                 heatCollider, heatCollider.transform.position, heatCollider.transform.rotation, out _, out _)) return false;
-            if (!cooling) cooling = GetComponent<LavaCoolingSurface>();
-            return !cooling || cooling.HasHotContact(contact.bounds);
+            return HasHotContact(contact);
+        }
+
+        bool HasHotContact(Collider contact)
+        {
+            Bounds body = contact.bounds, lava = heatCollider.bounds;
+            float lowX = Mathf.Max(body.min.x, lava.min.x), highX = Mathf.Min(body.max.x, lava.max.x);
+            float lowZ = Mathf.Max(body.min.z, lava.min.z), highZ = Mathf.Min(body.max.z, lava.max.z);
+            if (!(heatCollider is MeshCollider mesh) || mesh.convex)
+            {
+                // Box/convex sources represent a volume, including victims fully submerged
+                // below its top face. Surface meshes instead use the precise ray probes below.
+                float lowY = Mathf.Max(body.min.y, lava.min.y), highY = Mathf.Min(body.max.y, lava.max.y);
+                for (int x = 0; x <= 4; x++) for (int y = 0; y <= 2; y++) for (int z = 0; z <= 4; z++)
+                {
+                    Vector3 point = new Vector3(Mathf.Lerp(lowX, highX, x / 4f), Mathf.Lerp(lowY, highY, y / 2f), Mathf.Lerp(lowZ, highZ, z / 4f));
+                    if ((heatCollider.ClosestPoint(point) - point).sqrMagnitude <= .0025f &&
+                        (contact.ClosestPoint(point) - point).sqrMagnitude <= .0025f && IsHotAt(point)) return true;
+                }
+                return false;
+            }
+            for (int x = 0; x <= 8; x++) for (int z = 0; z <= 8; z++)
+            {
+                Vector3 probe = new Vector3(Mathf.Lerp(lowX, highX, x / 8f), lava.max.y + 1f, Mathf.Lerp(lowZ, highZ, z / 8f));
+                if (heatCollider.Raycast(new Ray(probe, Vector3.down), out var hit, lava.size.y + 2f) &&
+                    (contact.ClosestPoint(hit.point) - hit.point).sqrMagnitude <= .0025f && IsHotAt(hit.point)) return true;
+            }
+            return false;
         }
 
         private void Update()
@@ -116,8 +142,7 @@ namespace GameJam.FireRescue
                     out _, out _))
                 return false;
 
-            if (!cooling) cooling = GetComponent<LavaCoolingSurface>();
-            if (cooling && !cooling.HasHotContact(contact.bounds)) return false;
+            if (!HasHotContact(contact)) return false;
             building.Ignite();
             return building.IsBurning;
         }

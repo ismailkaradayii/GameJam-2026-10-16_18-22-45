@@ -21,16 +21,17 @@ namespace GameJam.FireRescue
         public bool CanBeTargeted => CanBeAttacked || (isActiveAndEnabled && Time.timeScale > 0f && coordinator &&
             !coordinator.GameplaySuspended && VehicleTarget && VehicleTarget.CanIgnite);
         public Vector3 ClosestThreatPoint(Vector3 from) => VehicleTarget ? VehicleTarget.ClosestPoint(from) : ClosestAttackPoint(from);
-        public Vector3 AttackPoint => body ? body.bounds.center : transform.position + Vector3.up * .9f;
+        public CharacterController ContactBody => coordinator && coordinator.playerBody ? coordinator.playerBody : body;
+        public Vector3 AttackPoint => ContactBody ? ContactBody.bounds.center : transform.position + Vector3.up * .9f;
         // Use the actual capsule surface: tall characters can be struck at the legs too.
-        public Vector3 ClosestAttackPoint(Vector3 from) => body && body.enabled ? body.ClosestPoint(from) : AttackPoint;
+        public Vector3 ClosestAttackPoint(Vector3 from) => ContactBody && ContactBody.enabled ? ContactBody.ClosestPoint(from) : AttackPoint;
         public int HitsReceived { get; private set; }
         Itfaiye.ItfaiyeFirstPersonController player;
         FireRescuePlayer coordinator;
         CharacterController body;
         PlayerDamageFeedback feedback;
         Vector3 knockback, safePosition;
-        float lastHit = -100f, recoverAt, nextHeatFeedback;
+        float lastHit = -100f, lastSpiritHit = -100f, recoverAt, nextHeatFeedback;
 
         public static CreatureCombatPlayer Ensure(Itfaiye.ItfaiyeFirstPersonController controller)
             => controller.GetComponent<CreatureCombatPlayer>() ?? controller.gameObject.AddComponent<CreatureCombatPlayer>();
@@ -44,10 +45,53 @@ namespace GameJam.FireRescue
             Health = maximumHealth;
         }
 
+        /// <summary>Sweep against the live controller geometry, including between physics updates.</summary>
+        public bool SweepBodyContact(Vector3 from, Vector3 to, float spiritRadius, out float fraction)
+        {
+            fraction = 1f;
+            var capsule = ContactBody;
+            if (!CanBeAttacked || !capsule || !capsule.enabled || !float.IsFinite(spiritRadius) || spiritRadius <= 0f) return false;
+            Vector3 scale = capsule.transform.lossyScale, axis = capsule.transform.up;
+            float radius = capsule.radius * Mathf.Max(Mathf.Abs(scale.x), Mathf.Abs(scale.z));
+            float halfLine = Mathf.Max(0f, capsule.height * Mathf.Abs(scale.y) * .5f - radius);
+            Vector3 center = capsule.transform.TransformPoint(capsule.center);
+            float combined = radius + spiritRadius;
+            Vector3 offset = from - center, travel = to - from;
+            float along = Vector3.Dot(offset, axis);
+            if ((offset - axis * Mathf.Clamp(along, -halfLine, halfLine)).sqrMagnitude <= combined * combined)
+            { fraction = 0f; return true; }
+            bool hit = false;
+            Vector3 radial = offset - axis * along, across = travel - axis * Vector3.Dot(travel, axis);
+            float a = across.sqrMagnitude, b = Vector3.Dot(radial, across), c = radial.sqrMagnitude - combined * combined;
+            float discriminant = b * b - a * c;
+            if (a > .0000001f && discriminant >= 0f)
+            {
+                float enter = (-b - Mathf.Sqrt(discriminant)) / a;
+                float height = along + Vector3.Dot(travel, axis) * enter;
+                if (enter >= 0f && enter <= fraction && Mathf.Abs(height) <= halfLine)
+                { fraction = enter; hit = true; }
+            }
+            hit |= SweepSphere(offset - axis * halfLine, travel, combined, ref fraction);
+            hit |= SweepSphere(offset + axis * halfLine, travel, combined, ref fraction);
+            return hit;
+        }
+
+        static bool SweepSphere(Vector3 offset, Vector3 travel, float radius, ref float fraction)
+        {
+            float a = travel.sqrMagnitude;
+            if (a <= .0000001f) return false;
+            float b = Vector3.Dot(offset, travel), c = offset.sqrMagnitude - radius * radius;
+            float discriminant = b * b - a * c;
+            if (discriminant < 0f) return false;
+            float enter = (-b - Mathf.Sqrt(discriminant)) / a;
+            if (enter < 0f || enter > fraction) return false;
+            fraction = enter; return true;
+        }
+
         public bool TryTakeDamage(float damage, Vector3 source)
         {
-            if (!CanBeAttacked || !float.IsFinite(damage) || damage <= 0f || Time.time - lastHit < .7f) return false;
-            lastHit = Time.time;
+            if (!CanBeAttacked || !float.IsFinite(damage) || damage <= 0f || Time.time - lastSpiritHit < .7f) return false;
+            lastHit = lastSpiritHit = Time.time;
             Health = Mathf.Max(0f, Health - damage);
             HitsReceived++;
             Vector3 away = transform.position - source; away.y = 0f;
@@ -92,7 +136,7 @@ namespace GameJam.FireRescue
                 transform.position = safePosition;
                 if (body) body.enabled = wasEnabled;
                 Health = maximumHealth;
-                lastHit = Time.time + 1f;
+                lastHit = lastSpiritHit = Time.time + 1f;
             }
             else if (Health > 0f && Time.time - lastHit > 6f)
                 Health = Mathf.MoveTowards(Health, maximumHealth, 6f * Time.deltaTime);

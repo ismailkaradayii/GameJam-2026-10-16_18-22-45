@@ -22,7 +22,7 @@ namespace GameJam.FireRescue
             goal = Outside(goal, from, clearance + .15f);
             if (route.Count == 0 || Time.time >= refreshAt || Flat(goal, destination) > 2.5f)
                 Build(from, goal, clearance);
-            while (corner < route.Count - 1 && Flat(from, route[corner]) < 1.25f) corner++;
+            while (corner < route.Count - 1 && Flat(from, route[corner]) < .4f) corner++;
             // Skip already passed corners only when the shortcut cannot cross a house.
             while (corner + 1 < route.Count && !Blocked(from, route[corner + 1], clearance)) corner++;
             return corner < route.Count ? route[corner] : goal;
@@ -150,6 +150,17 @@ namespace GameJam.FireRescue
                 Vector3 a = box.transform.InverseTransformPoint(from) - box.center;
                 Vector3 b = box.transform.InverseTransformPoint(to) - box.center;
                 Vector3 half = ExpandedHalf(box, gap);
+                bool insideMargin = Mathf.Abs(a.x) < half.x && Mathf.Abs(a.z) < half.z;
+                Vector3 solid = box.size * .5f;
+                bool outsideSolid = Mathf.Abs(a.x) >= solid.x || Mathf.Abs(a.z) >= solid.z;
+                // A spawn or separation step can start inside the clearance margin. Let it
+                // escape outwards; rejecting every direction traps it against an invisible wall.
+                if (insideMargin && outsideSolid)
+                {
+                    float before = Mathf.Min(half.x - Mathf.Abs(a.x), half.z - Mathf.Abs(a.z));
+                    float after = Mathf.Min(half.x - Mathf.Abs(b.x), half.z - Mathf.Abs(b.z));
+                    if (after < before - .0001f && a.x * (b.x - a.x) + a.z * (b.z - a.z) > 0f) continue;
+                }
                 float enter = 0, exit = 1;
                 if (Slab(a.x, b.x - a.x, half.x, ref enter, ref exit) &&
                     Slab(a.z, b.z - a.z, half.z, ref enter, ref exit)) return true;

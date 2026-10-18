@@ -570,9 +570,12 @@ MonoBehaviour:
   acceleration: 14
   braking: 20
   gravity: -25
-  jumpHeight: 0.9
+  jumpHeight: 2.4
   mouseSensitivity: 0.09
   fieldOfView: 80
+  sprintFovBoost: 16
+  sprintFovInSeconds: 0.24
+  sprintFovOutSeconds: 0.2
   maximumPitch: 80
   recoverFromFall: 1
 --- !u!114 &715022985661234336
@@ -18078,6 +18081,7 @@ MonoBehaviour:
   leftRestPosition: {x: -0.28, y: -0.26, z: 0.43}
   rightRestPosition: {x: 0.28, y: -0.26, z: 0.43}
   pistol: {fileID: 715022985661234336}
+  buttonLeanInViewMetres: 0.4
   unarmedSprintSwing: {x: 0.04, y: 0.09, z: 0.17}
   unarmedSprintBlendSeconds: 0.12
   pistolHipPosition: {x: 0.085, y: -0.155, z: 0.38}

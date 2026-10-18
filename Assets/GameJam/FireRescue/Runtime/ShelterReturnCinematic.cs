@@ -14,7 +14,7 @@ namespace GameJam.FireRescue
             [TextArea(1, 3)] public string text;
             [Min(1f)] public float seconds = 6f;
             public AudioClip voice;
-            public float Duration => Mathf.Max(seconds, voice ? voice.length : 0);
+            public float Duration => seconds;
             public Thought(string text, float seconds) { this.text = text; this.seconds = seconds; }
         }
         public VolcanoCinematic cinematic;
@@ -57,7 +57,6 @@ namespace GameJam.FireRescue
         Quaternion entryRotation;
         float entryFov, thoughtTime, thoughtGap;
         bool bodyWasEnabled, wasDriving;
-        AudioSource voice;
 
         public bool Begin(RescueGameFlow owner)
         {
@@ -84,7 +83,6 @@ namespace GameJam.FireRescue
                 if (source && source.gameObject.scene == gameObject.scene) { heat[source] = source.heatEnabled; source.heatEnabled = false; }
             float speechSeconds = 0; foreach (var thought in thoughts) speechSeconds += thought.Duration;
             thoughtGap = Mathf.Max(0, RouteLength / walkingSpeed + blendInSeconds - speechSeconds) / Mathf.Max(1, thoughts.Length);
-            if (!voice) { voice = gameObject.AddComponent<AudioSource>(); voice.playOnAwake = false; voice.spatialBlend = 0; }
             SetThought(0);
             return true;
         }
@@ -137,13 +135,13 @@ namespace GameJam.FireRescue
                 thoughtTime += dt;
                 float duration = thoughts[ThoughtIndex].Duration;
                 if (thoughtTime >= duration + thoughtGap) SetThought(ThoughtIndex + 1);
-                else if (thoughtTime > duration && !voice.isPlaying) CurrentLine = "";
+                else if (thoughtTime > duration) CurrentLine = "";
             }
             if (AtShelter && ThoughtIndex >= thoughts.Length)
             {
                 if (ObservedSeconds == 0) Speak(arrivalThought);
                 ObservedSeconds += dt;
-                if (ObservedSeconds >= Mathf.Max(observeSeconds, arrivalThought.Duration) && !voice.isPlaying) Complete();
+                if (ObservedSeconds >= Mathf.Max(observeSeconds, arrivalThought.Duration)) Complete();
             }
             if (IsPlaying) cinematic.ReturnNarration = CurrentLine;
         }
@@ -192,7 +190,6 @@ namespace GameJam.FireRescue
         void Speak(Thought thought)
         {
             CurrentLine = thought.text;
-            if (thought.voice) { voice.clip = thought.voice; voice.volume = Mathf.Clamp01(PlayerPrefs.GetFloat("Ashfall.SfxVolume", 1f)); voice.Play(); }
         }
         void Complete()
         {
@@ -211,7 +208,6 @@ namespace GameJam.FireRescue
         }
         public void Cancel()
         {
-            if (voice) voice.Stop();
             if (IsPlaying)
             {
                 IsPlaying = false; CurrentLine = "";
