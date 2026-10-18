@@ -102,9 +102,11 @@ namespace Itfaiye
         [Range(-60f, 60f)] public float slideThumbOpposition = 0f;
 
         // Metres in the weapon's unscaled reference frame. The model points along +Z.
-        public static readonly Vector3 RightGrip = new Vector3(.006f, -.008f, -.124f);
+        // Rake the palm down the frontstrap around the thumb web, then seat it
+        // 3mm farther back. Moving the wrist sideways leaves the knuckles off the grip.
+        public static readonly Vector3 RightGrip = new Vector3(.006f, -.004f, -.132f);
         public static readonly Vector3 LeftGrip = new Vector3(-.029f, -.021f, -.116f);
-        public static readonly Quaternion RightGripRotation = Quaternion.Euler(5f, 0f, 0f) * Quaternion.LookRotation(Vector3.down, Vector3.left);
+        public static readonly Quaternion RightGripRotation = Quaternion.Euler(19f, 0f, 0f) * Quaternion.LookRotation(Vector3.down, Vector3.left);
         public static readonly Quaternion LeftGripRotation = Quaternion.Euler(5f, 0f, 0f) * Quaternion.LookRotation(Vector3.up, Vector3.left);
         public static readonly Vector3 RearSight = new Vector3(0f, 1.53f, -1.55f);
         public static readonly Vector3 FrontSight = new Vector3(0f, 1.53f, 1.91f);
@@ -184,6 +186,14 @@ namespace Itfaiye
                 pose.muscles[i] = value;
             }
             handler.SetHumanPose(ref pose);
+            if (poseIndex == 0 || poseIndex == 4)
+            {
+                // Keep the thumb along the frame while the palm follows the grip's rake.
+                // Its small inward turn also removes the crossed, floating thumb silhouette.
+                var thumb = animator.GetBoneTransform(HumanBodyBones.RightThumbProximal);
+                var frameRotation = Quaternion.Euler(5f, 15f, 0f) * Quaternion.LookRotation(Vector3.down, Vector3.left);
+                thumb.localRotation = Quaternion.Inverse(RightGripRotation) * frameRotation * thumb.localRotation;
+            }
             if (poseIndex == 3)
             {
                 var thumb = animator.GetBoneTransform(HumanBodyBones.LeftThumbProximal);
@@ -206,11 +216,11 @@ namespace Itfaiye
             else if (name.Contains("Index"))
                 value = name.Contains("Spread") ? (left ? 0f : 1f) : first ? (left ? -.8f : -.25f) : second ? (left ? -.15f : -.35f) : (left ? -.1f : .25f);
             else if (name.Contains("Middle"))
-                value = name.Contains("Spread") ? 0f : first ? -.85f : second ? (left ? 0f : -.12f) : (left ? -.15f : -.05f);
+                value = name.Contains("Spread") ? 0f : first ? -.85f : second ? (left ? 0f : -.35f) : (left ? -.15f : -.45f);
             else if (name.Contains("Ring"))
-                value = name.Contains("Spread") ? -.2f : first ? -.9f : second ? (left ? -.05f : -.16f) : (left ? -.2f : -.1f);
+                value = name.Contains("Spread") ? -.2f : first ? -.9f : second ? (left ? -.05f : -.35f) : (left ? -.2f : -.45f);
             else if (name.Contains("Little"))
-                value = name.Contains("Spread") ? -.4f : first ? -.9f : second ? (left ? -.15f : -.25f) : (left ? -.3f : -.16f);
+                value = name.Contains("Spread") ? -.4f : first ? -.9f : second ? (left ? -.15f : -.40f) : (left ? -.3f : -.45f);
             else return false;
             return true;
         }

@@ -55,6 +55,8 @@ public static class CombatViewChecks
     public static void Before() => Begin(true);
     [MenuItem("GameJam/Final Loop/Check combat controls")]
     public static void After() => Begin(false);
+    [MenuItem("GameJam/Final Loop/Check pistol grip")]
+    public static void Grip() => Begin(true);
     static void Begin(bool baseline)
     {
         if (EditorApplication.isPlayingOrWillChangePlaymode || EditorApplication.isCompiling)
@@ -106,11 +108,12 @@ public static class CombatViewChecks
             else if (phase == 10 && age > .4f) { driver.aim = true; Next(1); }
             else if (phase == 1 && age > .8f)
             {
+                CaptureGrip((before ? "before" : "after") + "-ads");
                 FramePhoto((before ? "before" : "after") + "-aim"); Next(2);
             }
             else if (phase == 2 && age > .4f)
             {
-                if (before) { Finish(null); return; }
+                if (before) { CheckGrip(); Finish(null); return; }
                 CheckGrip(); CheckAimRules(); StartInputFixture(); Next(3);
             }
             else if (phase == 3)
@@ -218,6 +221,14 @@ public static class CombatViewChecks
         Vector3 right = a.GetBoneTransform(HumanBodyBones.RightHand).position;
         Vector3 expected = p.weapon.transform.position + p.weapon.transform.rotation * ItfaiyeFirstPersonHands.RightGrip * player.viewCamera.transform.lossyScale.x;
         Check("Right wrist remains seated during ADS", Vector3.Distance(right,expected) < .008f, "error=" + Vector3.Distance(right,expected));
+        Vector3 Reference(HumanBodyBones bone) => Quaternion.Inverse(p.weapon.transform.rotation) *
+            (a.GetBoneTransform(bone).position-p.weapon.transform.position)/player.viewCamera.transform.lossyScale.x;
+        var middle=Reference(HumanBodyBones.RightMiddleProximal);
+        // Measured frontstrap below the trigger guard: knuckles must sit below it,
+        // rather than checking only that the wrist matches its own authored constant.
+        Check("Right palm follows the grip below the trigger guard",middle.y<-.025f && middle.y>-.055f && middle.z<-.04f && middle.z>-.075f && middle.x>.008f && middle.x<.03f,middle.ToString("F4"));
+        var thumb=Reference(HumanBodyBones.RightThumbDistal);
+        Check("Right thumb stays alongside the frame",thumb.x>-.035f && thumb.x<-.005f && thumb.y>.015f,thumb.ToString("F4"));
         var hands = a.GetComponent<ItfaiyeFirstPersonHands>();
         Check("Authored hip position is closer to centre and less tilted", hands.pistolHipPosition.x <= .06f && Mathf.Abs(hands.pistolHipEuler.z) <= 2.1f, $"hip={hands.pistolHipPosition} roll={hands.pistolHipEuler.z}");
     }
@@ -287,7 +298,7 @@ public static class CombatViewChecks
     {
         var p = player.pistol; var w = p.weapon.transform; float scale = player.viewCamera.transform.lossyScale.x;
         var animator = player.firstPerson.handsAnimator;
-        foreach (var bone in new[] { HumanBodyBones.RightHand, HumanBodyBones.RightThumbProximal, HumanBodyBones.RightIndexProximal, HumanBodyBones.RightMiddleProximal, HumanBodyBones.LeftHand })
+        foreach (var bone in new[] { HumanBodyBones.RightHand, HumanBodyBones.RightThumbProximal, HumanBodyBones.RightThumbDistal, HumanBodyBones.RightIndexProximal, HumanBodyBones.RightIndexIntermediate, HumanBodyBones.RightIndexDistal, HumanBodyBones.RightMiddleProximal, HumanBodyBones.RightMiddleIntermediate, HumanBodyBones.RightMiddleDistal, HumanBodyBones.RightLittleProximal, HumanBodyBones.RightLittleDistal, HumanBodyBones.LeftHand })
             lines.Add(bone + " weapon-reference=" + (Quaternion.Inverse(w.rotation) * (animator.GetBoneTransform(bone).position - w.position) / scale).ToString("F4"));
         var go = new GameObject("Combat grip review camera"); var camera = go.AddComponent<Camera>(); camera.enabled = false;
         camera.clearFlags = CameraClearFlags.SolidColor; camera.backgroundColor = new Color(.16f,.19f,.22f);
@@ -305,6 +316,11 @@ public static class CombatViewChecks
                 light.transform.position = camera.transform.position; camera.targetTexture = rt; camera.Render(); RenderTexture.active = rt;
                 texture.ReadPixels(new Rect(0,0,1000,900),0,0); texture.Apply(); File.WriteAllBytes(Folder + "/" + name + "-grip-" + i + ".png", texture.EncodeToPNG());
             }
+            camera.orthographic = false;
+            camera.transform.SetPositionAndRotation(player.viewCamera.transform.position,player.viewCamera.transform.rotation);
+            camera.fieldOfView=player.firstPerson.handsCamera.fieldOfView;camera.aspect=1000f/900f;
+            light.transform.position=camera.transform.position;camera.Render();RenderTexture.active=rt;
+            texture.ReadPixels(new Rect(0,0,1000,900),0,0);texture.Apply();File.WriteAllBytes(Folder+"/"+name+"-grip-fps.png",texture.EncodeToPNG());
         }
         finally { RenderTexture.active = old; Object.DestroyImmediate(go); Object.DestroyImmediate(light.gameObject); Object.DestroyImmediate(texture); rt.Release(); Object.DestroyImmediate(rt); }
         Save();

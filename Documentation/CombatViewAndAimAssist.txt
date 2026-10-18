@@ -11,8 +11,11 @@ Truck monitor
 
 Pistol
 - Hip position moved slightly toward the centre (.085 -> .055); sideways roll reduced (-6 -> -2).
-- The right wrist sits 10mm farther inward and 3mm farther back in the weapon reference frame.
-  The existing hand/weapon pose remains shared during ADS, recoil, locomotion and reload.
+- The right palm now follows the grip's rake (14 degrees more pitch around the thumb web),
+  with the knuckles below the trigger guard. Its thumb stays along the frame and the lower
+  three fingers curl around the grip instead of extending past it. Wrist-only lateral
+  adjustment did not correct the previous floating-hand appearance.
+  The same hand/weapon pose remains shared during ADS, recoil, locomotion and reload.
   PistolPolishSetup uses the same settings, so reapplying the presentation preserves this grip.
 - PistolAimAssist is automatically connected by FireRescuePlayer. Holding RMB gently turns the
   view toward a live visible creature within 16 degrees / 75m. An acquired target is retained
@@ -24,6 +27,10 @@ Pistol
   originate from the actual posed muzzle; obstruction, damage, ammo and manual firing remain physical.
 
 Verification (Unity 6000.0.58f2)
+- GameJam > Final Loop > Check pistol grip: four focused checks passed on the recalibrated grip,
+  including palm/frontstrap and thumb/frame landmarks independent of the wrist target.
+  Hip and ADS were visually inspected from both sides, above, and in first person.
+  Captures and report: Logs/CombatView/before-grip-*, before-ads-grip-*, before-checks.txt.
 - GameJam > Final Loop > Check combat controls: 23 checks passed. Includes real synthetic RMB/LMB
   through Input System and FireRescuePlayer, moving-target tracking, real muzzle-based damage,
   cover/death/manual override, magazine/reserve accounting, camera visibility/return, and defeating
