@@ -27,6 +27,8 @@ namespace GameJam.FireRescue
         public float CoolingBarrierDistance { get; private set; } = float.PositiveInfinity;
         public float DownstreamCooling01 { get; private set; }
         public float FlowPhase { get; private set; }
+        public int HydraulicSectionEvaluationCount { get; private set; }
+        public int HydraulicSampleEvaluationCount { get; private set; }
         [Header("Flow ambience")]
         [SerializeField] private AudioSource flowAudioSource;
         [SerializeField] private AudioClip bubblingClip;
@@ -70,8 +72,17 @@ namespace GameJam.FireRescue
         private float rateStart = 1f, rateTarget = 1f, rateElapsed = FlowResponseSeconds;
         private sealed class CoolingReach { public float from, to, progress; }
         private readonly List<CoolingReach> coolingReaches = new List<CoolingReach>();
-        private bool coolingDirty = true;
+        private bool coolingDirty = true, allSectionsDirty;
         private float[] sectionCapacity, prefixCapacity;
+        private bool[] dirtySections, blockedSections;
+        private Bounds[] sectionBounds;
+        private struct HydraulicSegment { public int start, samples; public float width; }
+        private HydraulicSegment[] hydraulicSegments;
+        private readonly List<Vector3> hydraulicSamplePoints = new List<Vector3>();
+        private bool hydraulicGeometryDirty = true, hydraulicReverse;
+        private Vector3[] worldRowCentres;
+        private Matrix4x4 worldGeometryMatrix;
+        private bool hasWorldGeometry;
         private const float CoolingScanSpacing = .5f, CoolingWidthSpacing = .25f;
         private const float FlowResponseSeconds = .6f, ResidualCoolingSeconds = 6f;
         private Material[] originalMaterials, controlledMaterials;
@@ -239,9 +250,14 @@ namespace GameJam.FireRescue
             FlowRate01 = incomingSupply = 1f;
             rateStart = rateTarget = 1f;
             rateElapsed = FlowResponseSeconds;
-            coolingDirty = true;
+            NotifyCoolingChanged();
+            HydraulicSectionEvaluationCount = HydraulicSampleEvaluationCount = 0;
             if (sectionCapacity != null)
-                for (int i = 0; i < sectionCapacity.Length; i++) sectionCapacity[i] = prefixCapacity[i] = 1f;
+                for (int i = 0; i < sectionCapacity.Length; i++)
+                {
+                    sectionCapacity[i] = prefixCapacity[i] = 1f;
+                    blockedSections[i] = false;
+                }
             ApplyFlowPhase();
             SetAudioFlowActive(false, true);
             if (!IsInitialized)
@@ -256,43 +272,86 @@ namespace GameJam.FireRescue
         }
 
         /// <summary>Water/foundation edits invalidate the cached hydraulic cross-sections.</summary>
-        public void NotifyCoolingChanged() => coolingDirty = true;
+        public void NotifyCoolingChanged()
+        {
+            coolingDirty = true;
+            // Mountain routes cannot be dammed. Their water patches still cool visually,
+            // but they need no hydraulic bookkeeping until that capability is enabled.
+            if (!canBeStoppedByWater) { hydraulicGeometryDirty = true; return; }
+            if (allSectionsDirty || dirtySections == null) return;
+            for (int i = 0; i < dirtySections.Length; i++) dirtySections[i] = true;
+            allSectionsDirty = true;
+        }
+
+        /// <summary>Only cross-sections inside a changed water/foundation footprint need resampling.</summary>
+        public void NotifyCoolingChanged(Bounds changedBounds)
+        {
+            if (!canBeStoppedByWater) { coolingDirty = true; hydraulicGeometryDirty = true; return; }
+            if (allSectionsDirty) { coolingDirty = true; return; }
+            if (hydraulicGeometryDirty || sectionBounds == null || dirtySections == null)
+            {
+                NotifyCoolingChanged();
+                return;
+            }
+            // Water patches are defined in XZ. Ignoring height is also conservative for tilted
+            // foundations and overlapping surfaces; the exact thermal query still tests height.
+            Vector3 low = changedBounds.min, high = changedBounds.max;
+            for (int i = 0; i < sectionBounds.Length; i++)
+            {
+                Vector3 sectionLow = sectionBounds[i].min, sectionHigh = sectionBounds[i].max;
+                if (sectionLow.x > high.x || sectionHigh.x < low.x ||
+                    sectionLow.z > high.z || sectionHigh.z < low.z) continue;
+                dirtySections[i] = true;
+                coolingDirty = true;
+            }
+        }
 
         /// <summary>Completing obsidian forces an immediate supply cut, independent of the mesh cadence.</summary>
         public void RefreshCoolingBarrier()
         {
             if (!canBeStoppedByWater || !IsInitialized || Length <= Epsilon) return;
             if (!cooling) cooling = GetComponent<LavaCoolingSurface>();
+            EnsureHydraulicGeometry();
             coolingDirty = false;
+            allSectionsDirty = false;
             untilCoolingScan = .12f;
-            if (!cooling || !cooling.HasDirectCooling) return;
+            if (!cooling || !cooling.HasDirectCooling)
+            {
+                // The initially hot capacities already equal one. Do not make the first
+                // small water dose scan every untouched section of an otherwise hot river.
+                Array.Clear(dirtySections, 0, dirtySections.Length);
+                return;
+            }
             float prefix = 1f;
             for (int i = 0; i < sectionCapacity.Length; i++)
             {
-                float distance = Mathf.Min(i * CoolingScanSpacing, Length);
-                bool blocked = true;
-                float totalHot = 0f, totalWidth = 0f;
-                // Sample each real mesh segment, not only its authored columns: a narrow
-                // uncooled opening between sparse BK columns must keep the route connected.
-                for (int column = 0; column < columnCount - 1; column++)
+                if (dirtySections[i])
                 {
-                    Vector3 left = PositionAtDistance(distance, column / (columnCount - 1f));
-                    Vector3 right = PositionAtDistance(distance, (column + 1f) / (columnCount - 1f));
-                    float width = Vector3.Distance(left, right);
-                    int samples = Mathf.Max(1, Mathf.CeilToInt(width / CoolingWidthSpacing));
-                    float segmentHot = 0f;
-                    for (int sample = 0; sample <= samples; sample++)
+                    dirtySections[i] = false;
+                    HydraulicSectionEvaluationCount++;
+                    bool blocked = true;
+                    float totalHot = 0f, totalWidth = 0f;
+                    // Keep the original bank-to-bank sample density and weighted arithmetic:
+                    // even a narrow opening between authored columns must carry live supply.
+                    for (int column = 0; column < columnCount - 1; column++)
                     {
-                        float hot = 1f - cooling.DirectCoolingAt(Vector3.Lerp(left, right, sample / (float)samples));
-                        if (hot > 0f) blocked = false;
-                        segmentHot += hot * (sample == 0 || sample == samples ? .5f : 1f);
+                        HydraulicSegment segment = hydraulicSegments[i * (columnCount - 1) + column];
+                        float segmentHot = 0f;
+                        for (int sample = 0; sample <= segment.samples; sample++)
+                        {
+                            float hot = 1f - cooling.DirectCoolingAt(hydraulicSamplePoints[segment.start + sample]);
+                            if (hot > 0f) blocked = false;
+                            segmentHot += hot * (sample == 0 || sample == segment.samples ? .5f : 1f);
+                        }
+                        HydraulicSampleEvaluationCount += segment.samples + 1;
+                        totalHot += segmentHot / segment.samples * segment.width;
+                        totalWidth += segment.width;
                     }
-                    totalHot += segmentHot / samples * width;
-                    totalWidth += width;
+                    sectionCapacity[i] = totalWidth > Epsilon ? Mathf.Clamp01(totalHot / totalWidth) : 1f;
+                    blockedSections[i] = blocked;
                 }
-                sectionCapacity[i] = totalWidth > Epsilon ? Mathf.Clamp01(totalHot / totalWidth) : 1f;
                 prefixCapacity[i] = prefix = Mathf.Min(prefix, sectionCapacity[i]);
-                if (blocked) CoolingBarrierDistance = Mathf.Min(CoolingBarrierDistance, distance);
+                if (blockedSections[i]) CoolingBarrierDistance = Mathf.Min(CoolingBarrierDistance, Mathf.Min(i * CoolingScanSpacing, Length));
             }
             StoppedByCooling = DistanceTravelled + Epsilon >= CoolingBarrierDistance;
             if (StoppedByCooling) DistanceTravelled = Mathf.Max(VisibleDistance, Mathf.Min(DistanceTravelled, CoolingBarrierDistance));
@@ -309,6 +368,7 @@ namespace GameJam.FireRescue
                 Initialize();
             if (!IsFinite(deltaTime) || deltaTime <= 0f || Time.timeScale <= 0f)
                 return;
+            if (canBeStoppedByWater) EnsureWorldGeometry();
             incomingSupply = IsFinite(supply01) ? Mathf.Clamp01(supply01) : 0f;
             untilCoolingScan -= deltaTime;
             if (coolingDirty && untilCoolingScan <= 0f) RefreshCoolingBarrier();
@@ -566,6 +626,59 @@ namespace GameJam.FireRescue
             }
             sectionCapacity = new float[Mathf.CeilToInt(Length / CoolingScanSpacing) + 1];
             prefixCapacity = new float[sectionCapacity.Length];
+            dirtySections = new bool[sectionCapacity.Length];
+            allSectionsDirty = false;
+            blockedSections = new bool[sectionCapacity.Length];
+            sectionBounds = new Bounds[sectionCapacity.Length];
+            worldRowCentres = new Vector3[rowCentres.Length];
+            hasWorldGeometry = false;
+            hydraulicGeometryDirty = true;
+        }
+
+        void EnsureWorldGeometry()
+        {
+            if (!source || rowCentres == null) return;
+            Matrix4x4 matrix = source.transform.localToWorldMatrix;
+            if (hasWorldGeometry && matrix.Equals(worldGeometryMatrix)) return;
+            worldGeometryMatrix = matrix;
+            hasWorldGeometry = true;
+            if (worldRowCentres == null || worldRowCentres.Length != rowCentres.Length)
+                worldRowCentres = new Vector3[rowCentres.Length];
+            for (int row = 0; row < rowCentres.Length; row++)
+                worldRowCentres[row] = matrix.MultiplyPoint3x4(rowCentres[row]);
+            hydraulicGeometryDirty = true;
+            NotifyCoolingChanged();
+        }
+
+        void EnsureHydraulicGeometry()
+        {
+            EnsureWorldGeometry();
+            if (!hydraulicGeometryDirty && hydraulicReverse == capturedReverse) return;
+            hydraulicSamplePoints.Clear();
+            int segmentCount = sectionCapacity.Length * (columnCount - 1);
+            if (hydraulicSegments == null || hydraulicSegments.Length != segmentCount)
+                hydraulicSegments = new HydraulicSegment[segmentCount];
+            for (int i = 0; i < sectionCapacity.Length; i++)
+            {
+                float distance = Mathf.Min(i * CoolingScanSpacing, Length);
+                Bounds bounds = new Bounds(PositionAtDistance(distance, 0f), Vector3.zero);
+                for (int column = 0; column < columnCount - 1; column++)
+                {
+                    Vector3 left = PositionAtDistance(distance, column / (columnCount - 1f));
+                    Vector3 right = PositionAtDistance(distance, (column + 1f) / (columnCount - 1f));
+                    float width = Vector3.Distance(left, right);
+                    int samples = Mathf.Max(1, Mathf.CeilToInt(width / CoolingWidthSpacing));
+                    hydraulicSegments[i * (columnCount - 1) + column] = new HydraulicSegment
+                    { start = hydraulicSamplePoints.Count, samples = samples, width = width };
+                    for (int sample = 0; sample <= samples; sample++)
+                        hydraulicSamplePoints.Add(Vector3.Lerp(left, right, sample / (float)samples));
+                    bounds.Encapsulate(left); bounds.Encapsulate(right);
+                }
+                sectionBounds[i] = bounds;
+            }
+            hydraulicReverse = capturedReverse;
+            hydraulicGeometryDirty = false;
+            NotifyCoolingChanged();
         }
 
         private void ApplyDistance(float distance)
@@ -739,11 +852,12 @@ namespace GameJam.FireRescue
         public float DistanceAtPoint(Vector3 point)
         {
             if (!IsInitialized || rowCount < 2 || !source) return 0f;
+            EnsureWorldGeometry();
             float best = float.PositiveInfinity, arc = 0f;
             for (int row = 0; row < rowCount - 1; row++)
             {
-                Vector3 a = source.transform.TransformPoint(rowCentres[row]);
-                Vector3 b = source.transform.TransformPoint(rowCentres[row + 1]);
+                Vector3 a = worldRowCentres[row];
+                Vector3 b = worldRowCentres[row + 1];
                 Vector3 segment = b - a;
                 float fraction = segment.sqrMagnitude > Epsilon ? Mathf.Clamp01(Vector3.Dot(point - a, segment) / segment.sqrMagnitude) : 0f;
                 float distance = (point - Vector3.Lerp(a, b, fraction)).sqrMagnitude;

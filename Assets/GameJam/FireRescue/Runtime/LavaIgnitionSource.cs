@@ -113,7 +113,10 @@ namespace GameJam.FireRescue
             // inside a winding lava mesh's bounding box, which can overflow a physics hit buffer.
             foreach (BurnableBuilding building in BurnableBuilding.ActiveBuildings)
             {
-                if (building == null || !building.isActiveAndEnabled)
+                // A scan can only start a new fire. In particular, rescued foundations
+                // otherwise exhaust every cold-surface ray probe on every lava branch.
+                if (building == null || !building.isActiveAndEnabled || building.IsBurning ||
+                    building.IsBurnedOut || building.IgnitionBlocked)
                     continue;
                 Collider candidate = GetContactCollider(building);
                 if (candidate != null && heatCollider.bounds.Intersects(candidate.bounds))
@@ -129,6 +132,10 @@ namespace GameJam.FireRescue
                 return false;
             BurnableBuilding building = other.GetComponentInParent<BurnableBuilding>();
             if (building == null || !building.isActiveAndEnabled)
+                return false;
+            // Keep the explicit contact query's existing result for a burning house,
+            // but reject houses that Ignite cannot affect before any contact physics.
+            if (building.IsBurnedOut || (!building.IsBurning && building.IgnitionBlocked))
                 return false;
 
             Collider contact = GetContactCollider(building);
