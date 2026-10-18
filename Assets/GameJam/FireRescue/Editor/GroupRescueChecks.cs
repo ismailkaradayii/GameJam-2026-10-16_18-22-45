@@ -45,7 +45,7 @@ public sealed class GroupRescueProbe : MonoBehaviour
     [Serializable] public sealed class Report
     {
         public string status = "RUNNING";
-        public string method = "Saved-scene NPCs use their real agents, doors, animations, next-group exclamation marker, contextual E coordinator and shelter volume. The player is guided by a temporary NavMesh fixture. Opening cinematic and preparation deadline are suspended only in this test. Q is injected through the Input System. No manual playthrough is claimed.";
+        public string method = "Saved-scene NPCs use their real agents, doors, animations, next-group exclamation marker, contextual E coordinator and shelter volume. The player is guided by a temporary NavMesh fixture. Boundary probes measure clearance from the actual controller bounds and both feet outside the authored yellow markings; E and Q are injected through the Input System. Opening cinematic and preparation deadline are suspended only in this test. No manual playthrough is claimed.";
         public List<Check> checks = new List<Check>();
         public List<string> errors = new List<string>();
         public int wallCrossings, rescued;
@@ -69,6 +69,10 @@ public sealed class GroupRescueProbe : MonoBehaviour
     int observedVoiceLines, pausedVoiceSample = -1;
     float phaseAt, began, nextSave;
     string pausedSubtitle;
+    EvacuationResident[] depositingResidents;
+    Vector3[] handoffPositions;
+    float playerBodyRadius;
+    Transform[] playerFeet;
     double deadline;
 
     public void Begin()
@@ -91,6 +95,14 @@ public sealed class GroupRescueProbe : MonoBehaviour
             player.SetCinematicLocked(false); player.SetGameplaySuspended(false); player.SetDriving(false);
             typeof(FireRescuePlayer).GetField("waitForMouseRelease", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(player, false);
             player.PlaceOnFoot(OnMesh(new Vector3(-14, 1, -554)), 90f);
+            Physics.SyncTransforms();
+            Bounds bodyBounds = player.playerBody.bounds;
+            playerBodyRadius = Mathf.Max(bodyBounds.extents.x, bodyBounds.extents.z);
+            Require(playerBodyRadius > 0f && EvacuationResident.FlatDistance(bodyBounds.center, player.transform.position) < .001f,
+                "measure the saved player's actual centred physics footprint before disabling movement");
+            playerFeet = new[] { HumanBodyBones.LeftFoot, HumanBodyBones.RightFoot, HumanBodyBones.LeftToes, HumanBodyBones.RightToes }
+                .Select(b => player.firstPerson.bodyAnimator.GetBoneTransform(b)).ToArray();
+            Require(playerFeet.All(t => t), "both foot and toe bones are available for outside-clearance checks");
             player.playerBody.enabled = false; player.enabled = false; player.firstPerson.enabled = false;
             leader = player.PlayerBodyObject().AddComponent<NavMeshAgent>();
             leader.radius = .7f; leader.height = 5.5f; leader.acceleration = 35; leader.angularSpeed = 540;
@@ -106,6 +118,12 @@ public sealed class GroupRescueProbe : MonoBehaviour
             CheckThat("both downloaded recordings decode to non-silent audio", HasDecodedAudio(mission.dialogue.recruitVoice) && HasDecodedAudio(mission.dialogue.shelterVoice),
                 "comehere=" + mission.dialogue.recruitVoice.length + "s shelter=" + mission.dialogue.shelterVoice.length + "s");
             CheckThat("one exclamation marker is configured", marker && marker.symbol && marker.symbol.text == "!" && Object.FindObjectsByType<RescueGroupMarker>(FindObjectsSortMode.None).Length == 1);
+            CheckThat("exclamation has an open outline and no opaque background card", !marker.backdrop && marker.accents.Length >= 3 &&
+                !marker.transform.Find("Marker background"));
+            var assemblySign = Object.FindFirstObjectByType<AssemblyPointMarker>();
+            CheckThat("assembly lettering is fixed on a two-sided ground sign", assemblySign && assemblySign.label && assemblySign.reverseLabel &&
+                assemblySign.label.transform.IsChildOf(assemblySign.transform.Find("Freestanding assembly sign")) &&
+                assemblySign.label.transform.position.y - mission.assemblyPoint.position.y < 5f && assemblySign.slotMarkers.Length == 7);
             CheckThat("Q and global alarm recruitment are disabled", mission.callKey == Key.None && !mission.villageWideCall && !mission.callAllAlarmedVillagers && !mission.Shout());
             CheckThat("inactive mission rejects recruitment", !mission.TryRecruitGroup(mission.residents[0]));
             mission.BeginMission();
@@ -194,24 +212,89 @@ public sealed class GroupRescueProbe : MonoBehaviour
                     CheckThat("group " + (groupIndex + 1) + " hears exactly the short recruitment cue without a villager reply", mission.dialogue.CurrentId == "recruit_" + groupIndex &&
                         mission.CurrentMessage == "Come here, follow me." && PendingLines().Length == 0 && CanonicalDialogue() &&
                         Voice() && Voice().isPlaying && Voice().clip == mission.dialogue.recruitVoice);
-                    leader.SetDestination(mission.assemblyPoint.position + new Vector3(0, 0, -6));
+                    if (groupIndex == 0)
+                    {
+                        foreach (var lagging in mission.residents.Where(r => r.rescueGroup == 0))
+                        { lagging.enabled = false; lagging.Agent.isStopped = true; }
+                        leader.SetDestination(mission.assemblyPoint.position + Vector3.back * (mission.AssemblyBoundaryRadius + playerBodyRadius + 3.4f));
+                        Next(32);
+                    }
+                    else
+                    {
+                        leader.SetDestination(mission.assemblyPoint.position + Vector3.back * (mission.AssemblyBoundaryRadius + playerBodyRadius + 2.9f));
+                        Next(3);
+                    }
+                    break;
+                case 32:
+                    if (!NearLeader(mission.assemblyPoint.position + Vector3.back * (mission.AssemblyBoundaryRadius + playerBodyRadius + 3.4f), .8f)) return;
+                    PlaceOutsideBoundary(3.1f);
+                    CheckThat("assembly reach measures the visible outer yellow markings", mission.AssemblyBoundaryRadius > 8.7f && mission.AssemblyBoundaryRadius < 8.9f);
+                    CheckThat("3.1 metres of body clearance outside the yellow boundary rejects delivery", !mission.PlayerAtAssembly && !mission.CanDepositGroup && !mission.TryAssemblyInteraction(), BoundaryEvidence());
+                    EnableFootInput();
+                    InputSystem.QueueStateEvent(testKeyboard, new KeyboardState(Key.E));
+                    Next(33); break;
+                case 33:
+                    if (age < .1f) return;
+                    InputSystem.QueueStateEvent(testKeyboard, new KeyboardState());
+                    player.enabled = false;
+                    CheckThat("real E beyond the three-metre body-clearance limit leaves the group following", mission.ActiveGroup == 0 && mission.GroupsDelivered == 0 &&
+                        mission.residents.Where(r => r.rescueGroup == 0).All(r => r.State == EvacuationResident.ResidentState.Following), BoundaryEvidence());
+                    PlaceOutsideBoundary(3f);
+                    CheckThat("three metres of clear space beyond the player's body allows delivery", mission.PlayerAtAssembly && mission.CanDepositGroup, BoundaryEvidence());
+                    PlaceOutsideBoundary(2.9f);
+                    CheckThat("delivery is available with both feet well outside the yellow ring", BodyBoundaryClearance() > 2.8f && FootBoundaryClearance() > 1.5f && mission.CanDepositGroup, BoundaryEvidence());
+                    Next(34); break;
+                case 34:
+                    if (age < .1f) return;
                     Next(3); break;
                 case 3:
                     if (!mission.CanDepositGroup) return;
+                    // Hold the automated leader outside for every key probe. Its navigation
+                    // deceleration/avoidance must not carry the fixture across the line while E is processed.
+                    PlaceOutsideBoundary(2.9f);
                     CheckThat("group marker hides while leading group " + (groupIndex + 1), !marker.IsVisible && mission.NextRecruitGroup == -1);
                     stagedBefore = mission.AssembledCount;
-                    UseContext(ContextualInteractionKind.AssemblyPoint, mission.assemblyPoint, null);
+                    depositingResidents = mission.residents.Where(r => r.rescueGroup == groupIndex).ToArray();
+                    handoffPositions = depositingResidents.Select(r => r.transform.position).ToArray();
+                    if (groupIndex == 0)
+                        CheckThat("E is ready while followers are still beyond the old distance gate", depositingResidents.Any(r =>
+                            EvacuationResident.FlatDistance(r.transform.position, mission.assemblyPoint.position) > mission.assemblyGroupDistance));
+                    foreach (var r in depositingResidents) r.enabled = true;
+                    Time.timeScale = 0f;
+                    CheckThat("pause rejects assembly handoff", !mission.TryAssemblyInteraction());
+                    Time.timeScale = 1f;
+                    leader.isStopped = true;
+                    EnableFootInput();
+                    InputSystem.QueueStateEvent(testKeyboard, new KeyboardState(Key.E));
+                    Next(36); break;
+                case 36:
+                    if (age < .1f) return;
+                    InputSystem.QueueStateEvent(testKeyboard, new KeyboardState());
+                    player.enabled = false;
+                    CheckThat("real E hands off group " + (groupIndex + 1) + " with both feet well outside the yellow ring", mission.ActiveGroup == -1 && BodyBoundaryClearance() > 2.8f && FootBoundaryClearance() > 1.5f, BoundaryEvidence());
                     CheckThat("group " + (groupIndex + 1) + " E orders physical staging", mission.IsDepositing && mission.AssembledCount == stagedBefore);
+                    CheckThat("handoff immediately frees the player to find the next group " + (groupIndex + 1), mission.ActiveGroup == -1 &&
+                        mission.GroupsDelivered == groupIndex + 1 && mission.NextRecruitGroup == (groupIndex < 2 ? groupIndex + 1 : -1));
+                    CheckThat("handoff starts routes without teleporting group " + (groupIndex + 1), depositingResidents.Select((r, i) =>
+                        r.IsMovingToAssembly && !r.Agent.isStopped && Vector3.Distance(r.transform.position, handoffPositions[i]) <= r.runningSpeed * (age + .2f) &&
+                        EvacuationResident.FlatDistance(r.Agent.destination, mission.AssemblySlot(r).position) < .5f).All(v => v));
+                    CheckThat("repeated E cannot hand off the same group twice", !mission.TryAssemblyInteraction() && mission.GroupsDelivered == groupIndex + 1);
                     CheckThat("depositing does not count as shelter rescue", mission.RescuedCount == 0 && !mission.IsComplete);
+                    if (groupIndex == 1) MoveToNextGroupDuringArrival();
                     Next(4); break;
                 case 4:
-                    if (mission.ActiveGroup >= 0) return;
                     int expected = groupIndex == 0 ? 2 : groupIndex == 1 ? 4 : 7;
+                    if (mission.AssembledCount != expected) return;
+                    if (groupIndex == 0)
+                        CheckThat("the first group enters and settles while the player stays well outside", BodyBoundaryClearance() > 2.8f && FootBoundaryClearance() > 1.5f &&
+                            mission.residents.Where(r => r.rescueGroup == 0).All(r => r.IsAtAssembly), BoundaryEvidence());
                     CheckThat("assembly count reaches " + expected + " only on real arrival", mission.AssembledCount == expected && mission.residents.Where(r => r.IsAtAssembly).All(r =>
                         EvacuationResident.FlatDistance(r.transform.position, mission.AssemblySlot(r).position) < 1.4f));
                     CheckThat("previous groups wait while the player collects group " + (groupIndex + 1), waiting.All(p => Vector3.Distance(p.Key.transform.position, p.Value) < .3f));
                     foreach (var r in mission.residents.Where(r => r.IsAtAssembly)) waiting[r] = r.transform.position;
                     Capture("0" + (groupIndex + 2) + "-assembly-" + expected, mission.assemblyPoint.position + new Vector3(17, 15, -22), mission.assemblyPoint.position + Vector3.up * 3f);
+                    if (groupIndex == 0)
+                        Capture("07-ground-sign", mission.assemblyPoint.position + new Vector3(1, 5.8f, -6), mission.assemblyPoint.position + new Vector3(0, 3.6f, 7.5f));
                     if (groupIndex < 2)
                     {
                         CheckThat("partial assembly cannot start shelter escort " + expected, !mission.AllAtAssembly && !mission.EscortStarted);
@@ -220,7 +303,7 @@ public sealed class GroupRescueProbe : MonoBehaviour
                     else
                     {
                         CheckThat("seven assembled survivors await explicit departure", mission.AllAtAssembly && !mission.EscortStarted && !mission.ShelterOpened && mission.RescuedCount == 0);
-                        leader.SetDestination(mission.assemblyPoint.position + new Vector3(0, 0, -6)); Next(5);
+                        ResumeLeader(); leader.SetDestination(mission.assemblyPoint.position + new Vector3(0, 0, -6)); Next(5);
                     }
                     break;
                 case 5:
@@ -270,7 +353,7 @@ public sealed class GroupRescueProbe : MonoBehaviour
                     if (closing.IsRelocating || closing.ThoughtIndex < 0) return;
                     var firstThought = closing.thoughts[0];
                     var closingVoice = closing.GetComponents<AudioSource>().FirstOrDefault(s => s.clip == firstThought.voice);
-                    CheckThat("closing preserves its written line and plays an assigned voice in 2D", closing.CurrentLine == firstThought.text &&
+                    CheckThat("closing preserves its written line and plays an assigned voice in 2D after its fade", closing.CurrentLine == firstThought.text &&
                         (!firstThought.voice || closingVoice && closingVoice.isPlaying && closingVoice.spatialBlend == 0));
                     closing.Cancel();
                     report.rescued = mission.RescuedCount; report.elapsedSeconds = Time.time - began;
@@ -340,7 +423,28 @@ public sealed class GroupRescueProbe : MonoBehaviour
         player.enabled = false;
     }
     EvacuationResident GroupLeader() => mission.residents.First(r => r.rescueGroup == groupIndex);
-    void MoveToGroup() => leader.SetDestination(GroupLeader().panicGroupAnchor.position);
+    void ResumeLeader() { leader.nextPosition = leader.transform.position; leader.updatePosition = true; leader.isStopped = false; }
+    void MoveToGroup() { ResumeLeader(); leader.SetDestination(GroupLeader().panicGroupAnchor.position); }
+    void MoveToNextGroupDuringArrival() { ResumeLeader(); leader.SetDestination(mission.residents.First(r => r.rescueGroup == groupIndex + 1).panicGroupAnchor.position); }
+    float BodyBoundaryClearance() => EvacuationResident.FlatDistance(player.transform.position, mission.assemblyPoint.position) - playerBodyRadius - mission.AssemblyBoundaryRadius;
+    float FootBoundaryClearance() => playerFeet.Min(t => EvacuationResident.FlatDistance(t.position, mission.assemblyPoint.position) - mission.AssemblyBoundaryRadius);
+    string BoundaryEvidence() => "bodyRadius=" + playerBodyRadius.ToString("F3") + " bodyClearance=" + BodyBoundaryClearance().ToString("F3") +
+        " nearestFootOrToeClearance=" + FootBoundaryClearance().ToString("F3") + " activeGroup=" + mission.ActiveGroup + " delivered=" + mission.GroupsDelivered;
+    void PlaceOutsideBoundary(float distance)
+    {
+        leader.updatePosition = true;
+        Require(leader.Warp(OnMesh(mission.assemblyPoint.position + Vector3.back * (mission.AssemblyBoundaryRadius + playerBodyRadius + distance))), "boundary input fixture stays on village navigation");
+        leader.ResetPath(); leader.isStopped = true; leader.velocity = Vector3.zero; leader.updatePosition = false;
+        Require(Mathf.Abs(BodyBoundaryClearance() - distance) < .001f, "boundary probe has the requested measured body clearance");
+    }
+    void EnableFootInput()
+    {
+        typeof(FireRescuePlayer).GetField("focused", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(player, true);
+        typeof(FireRescuePlayer).GetField("waitForMouseRelease", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(player, false);
+        Cursor.lockState = CursorLockMode.Locked;
+        player.viewCamera.transform.rotation = Quaternion.LookRotation(Vector3.back);
+        player.enabled = true;
+    }
     bool NearLeader(Vector3 point, float radius) => !leader.pathPending && EvacuationResident.FlatDistance(leader.transform.position, point) < radius;
     static Vector3 OnMesh(Vector3 p)
     {
@@ -407,8 +511,6 @@ public sealed class GroupRescueProbe : MonoBehaviour
             group.transform.rotation = Quaternion.LookRotation(group.transform.position - eye);
             group.transform.localScale = Vector3.one * Mathf.Clamp(Vector3.Distance(group.transform.position, eye) * .025f, 1f, 2.5f);
         }
-        Quaternion labelRotation = assembly && assembly.label ? assembly.label.transform.rotation : Quaternion.identity;
-        if (assembly && assembly.label) assembly.label.transform.rotation = Quaternion.LookRotation(assembly.label.transform.position - eye);
         var target = new RenderTexture(1440, 900, 24, RenderTextureFormat.ARGB32, RenderTextureReadWrite.sRGB);
         var image = new Texture2D(1440, 900, TextureFormat.RGB24, false); var old = RenderTexture.active;
         try
@@ -419,7 +521,6 @@ public sealed class GroupRescueProbe : MonoBehaviour
         }
         finally
         {
-            if (assembly && assembly.label) assembly.label.transform.rotation = labelRotation;
             if (group) { group.transform.rotation = groupRotation; group.transform.localScale = groupScale; }
             camera.targetTexture = null; RenderTexture.active = old; target.Release(); Object.DestroyImmediate(image); Object.DestroyImmediate(target); Object.DestroyImmediate(go);
         }

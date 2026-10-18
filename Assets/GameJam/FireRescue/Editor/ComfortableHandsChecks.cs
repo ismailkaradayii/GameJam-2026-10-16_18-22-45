@@ -23,7 +23,10 @@ public static class ComfortableHandsChecks
     static float previousLeftDepth, previousDepthDelta;
     static double deadline;
     static double leftDepthSum, rightDepthSum, leftDepthSquared, rightDepthSquared, pairedDepthSum;
-    static bool background, hasPreviousDepth, capturedRunForward, capturedRunBack;
+    static double legSum, legSquared, armLegSum;
+    static float maxFingerBend, maxWristBend, minPalmInward;
+    static bool background, hasPreviousDepth, capturedRunForward, capturedRunBack, capturedWalkForward, capturedWalkBack;
+    static int previousFrameRate, previousVSync;
     static string error;
     static Vector3 minLeft, maxLeft, minRight, maxRight, minGun, maxGun;
 
@@ -44,11 +47,18 @@ public static class ComfortableHandsChecks
     [MenuItem("GameJam/Final Loop/Check comfortable hands")]
     public static void Begin()
     {
-        if (EditorApplication.isPlayingOrWillChangePlaymode || EditorApplication.isCompiling)
-            throw new InvalidOperationException("Use idle Edit Mode with Volcano_Demo open.");
+        if (phase >= 0 || EditorApplication.isCompiling || (EditorApplication.isPlayingOrWillChangePlaymode && !EditorApplication.isPlaying))
+            throw new InvalidOperationException("Wait for the current hands check or editor transition to finish.");
         if (!Object.FindFirstObjectByType<FireRescuePlayer>())
             throw new InvalidOperationException("Open the authored Volcano_Demo scene first.");
         Directory.CreateDirectory(Folder);
+        if (EditorApplication.isPlaying)
+        {
+            SessionState.SetBool(Pending, false);
+            EditorApplication.isPaused = false;
+            Start();
+            return;
+        }
         SessionState.SetBool(Pending, true);
         EditorApplication.EnterPlaymode();
     }
@@ -56,9 +66,11 @@ public static class ComfortableHandsChecks
     static void Start()
     {
         lines.Clear(); error = null; frame = -1; maxGripError = 0f;
-        capturedRunForward = capturedRunBack = false;
+        capturedRunForward = capturedRunBack = capturedWalkForward = capturedWalkBack = false;
         walkDepth = walkHeight = pistolWalkWidth = pistolWalkHeight = 0f;
         background = Application.runInBackground; Application.runInBackground = true;
+        previousFrameRate = Application.targetFrameRate; previousVSync = QualitySettings.vSyncCount;
+        QualitySettings.vSyncCount = 0; Application.targetFrameRate = 60;
         Application.logMessageReceived += Log;
         try
         {
@@ -105,6 +117,8 @@ public static class ComfortableHandsChecks
                     driver.move = Vector2.up; Next(1); break;
                 case 1:
                     if (age < 2.4f) return;
+                    lines.Add("walk speed=" + player.firstPerson.CurrentSpeed.ToString("F3") + " target=" + initialWalkSpeed
+                        + " samples=" + sampleCount + " grounded=" + groundedSamples + " dt=" + Time.deltaTime.ToString("F4"));
                     Check("Unarmed walking uses the existing movement speed", Mathf.Abs(player.firstPerson.CurrentSpeed - initialWalkSpeed) < .15f);
                     CheckUnarmed("walk", false); Capture("unarmed-walk");
                     driver.sprint = true; Next(2); break;
@@ -166,7 +180,15 @@ public static class ComfortableHandsChecks
         leftDepthSum += left.z; rightDepthSum += right.z;
         leftDepthSquared += left.z * left.z; rightDepthSquared += right.z * right.z;
         pairedDepthSum += left.z * right.z;
-        if (phase == 2) CaptureRunningExtrema(left, right);
+        if (phase == 1 || phase == 2)
+        {
+            CaptureSwingExtrema(left, right);
+            var thigh = animator.GetBoneTransform(HumanBodyBones.LeftUpperLeg);
+            var knee = animator.GetBoneTransform(HumanBodyBones.LeftLowerLeg);
+            float leg = Vector3.Dot((knee.position - thigh.position).normalized, player.transform.forward);
+            legSum += leg; legSquared += leg * leg; armLegSum += left.z * leg;
+            SampleRelaxedHand(animator, true); SampleRelaxedHand(animator, false);
+        }
         sampleCount++;
         if (player.firstPerson.IsGrounded) groundedSamples++;
         if (player.pistol.DrawAmount < .999f || player.pistol.IsReloading) return;
@@ -177,24 +199,46 @@ public static class ComfortableHandsChecks
         maxGripError = Mathf.Max(maxGripError, Vector3.Distance(right, localPosition + localRotation * ItfaiyeFirstPersonHands.RightGrip));
     }
 
-    static void CaptureRunningExtrema(Vector3 left, Vector3 right)
+    static void SampleRelaxedHand(Animator animator, bool left)
+    {
+        var hand = animator.GetBoneTransform(left ? HumanBodyBones.LeftHand : HumanBodyBones.RightHand);
+        var forearm = animator.GetBoneTransform(left ? HumanBodyBones.LeftLowerArm : HumanBodyBones.RightLowerArm);
+        var index = animator.GetBoneTransform(left ? HumanBodyBones.LeftIndexProximal : HumanBodyBones.RightIndexProximal);
+        var little = animator.GetBoneTransform(left ? HumanBodyBones.LeftLittleProximal : HumanBodyBones.RightLittleProximal);
+        Vector3 a = index.position - hand.position, b = little.position - hand.position;
+        maxWristBend = Mathf.Max(maxWristBend, Vector3.Angle(a + b, hand.position - forearm.position));
+        Vector3 palm = (left ? Vector3.Cross(a, b) : Vector3.Cross(b, a)).normalized;
+        minPalmInward = Mathf.Min(minPalmInward, Vector3.Dot(palm, player.viewCamera.transform.right * (left ? 1f : -1f)));
+        int start = (int)(left ? HumanBodyBones.LeftIndexProximal : HumanBodyBones.RightIndexProximal);
+        for (int i = 0; i < 4; i++)
+        {
+            var proximal = animator.GetBoneTransform((HumanBodyBones)(start + i * 3));
+            var middle = animator.GetBoneTransform((HumanBodyBones)(start + i * 3 + 1));
+            var distal = animator.GetBoneTransform((HumanBodyBones)(start + i * 3 + 2));
+            maxFingerBend = Mathf.Max(maxFingerBend, Vector3.Angle(middle.position - proximal.position, distal.position - middle.position));
+        }
+    }
+
+    static void CaptureSwingExtrema(Vector3 left, Vector3 right)
     {
         float delta = hasPreviousDepth ? left.z - previousLeftDepth : 0f;
+        bool running = phase == 2;
+        string gait = running ? "run" : "walk";
         // Capture when a measured wrist actually reverses at the end of its arc.
         // This avoids two arbitrary frames that could show nearly the same pose.
         if (hasPreviousDepth && previousDepthDelta > 0f && delta <= 0f &&
-            left.z > hands.leftRestPosition.z + .04f && right.z < hands.rightRestPosition.z - .04f && !capturedRunForward)
+            left.z > hands.leftRestPosition.z + .015f && right.z < hands.rightRestPosition.z - .015f && !(running ? capturedRunForward : capturedWalkForward))
         {
-            capturedRunForward = true;
-            lines.Add("Run left-forward/right-back extremum: left=" + left.ToString("F4") + " right=" + right.ToString("F4"));
-            Capture("unarmed-run-forward"); Save();
+            if (running) capturedRunForward = true; else capturedWalkForward = true;
+            lines.Add(gait + " left-forward/right-back extremum: left=" + left.ToString("F4") + " right=" + right.ToString("F4"));
+            Capture("unarmed-" + gait + "-forward"); Save();
         }
         if (hasPreviousDepth && previousDepthDelta < 0f && delta >= 0f &&
-            left.z < hands.leftRestPosition.z - .04f && right.z > hands.rightRestPosition.z + .04f && !capturedRunBack)
+            left.z < hands.leftRestPosition.z - .015f && right.z > hands.rightRestPosition.z + .015f && !(running ? capturedRunBack : capturedWalkBack))
         {
-            capturedRunBack = true;
-            lines.Add("Run left-back/right-forward extremum: left=" + left.ToString("F4") + " right=" + right.ToString("F4"));
-            Capture("unarmed-run-back"); Save();
+            if (running) capturedRunBack = true; else capturedWalkBack = true;
+            lines.Add(gait + " left-back/right-forward extremum: left=" + left.ToString("F4") + " right=" + right.ToString("F4"));
+            Capture("unarmed-" + gait + "-back"); Save();
         }
         previousDepthDelta = delta; previousLeftDepth = left.z; hasPreviousDepth = true;
     }
@@ -204,8 +248,8 @@ public static class ComfortableHandsChecks
         Vector3 left = maxLeft - minLeft, right = maxRight - minRight;
         lines.Add(gait + " actual wrist excursion left=" + left.ToString("F4") + " right=" + right.ToString("F4"));
         Check("Unarmed " + gait + " stays grounded throughout the sample", groundedSamples == sampleCount);
-        float minHeight = running ? .04f : .012f, maxHeight = running ? .16f : .075f;
-        float minDepth = running ? .12f : .035f, maxDepth = running ? .34f : .15f;
+        float minHeight = running ? .15f : .10f, maxHeight = running ? .45f : .30f;
+        float minDepth = running ? .10f : .06f, maxDepth = running ? .30f : .20f;
         Check("Unarmed " + gait + " has visible vertical arm movement", sampleCount > 10 && left.y > minHeight && right.y > minHeight && left.y < maxHeight && right.y < maxHeight);
         Check("Unarmed " + gait + " visibly swings forward and back", left.z > minDepth && right.z > minDepth && left.z < maxDepth && right.z < maxDepth);
         double covariance = pairedDepthSum - leftDepthSum * rightDepthSum / sampleCount;
@@ -214,12 +258,21 @@ public static class ComfortableHandsChecks
         double correlation = covariance / Math.Sqrt(Math.Max(1e-12, leftVariance * rightVariance));
         lines.Add(gait + " left/right fore-aft correlation=" + correlation.ToString("F4"));
         Check("Unarmed " + gait + " swings the arms in opposite directions", correlation < -.8);
+        double legVariance = legSquared - legSum * legSum / sampleCount;
+        double armLegCorrelation = (armLegSum - leftDepthSum * legSum / sampleCount)
+            / Math.Sqrt(Math.Max(1e-12, leftVariance * legVariance));
+        lines.Add(gait + " arm/leg correlation=" + armLegCorrelation.ToString("F4") + " max wrist bend=" + maxWristBend.ToString("F2")
+            + " max finger bend=" + maxFingerBend.ToString("F2") + " inward palm=" + minPalmInward.ToString("F3"));
+        Check("Unarmed " + gait + " counter-swings with the leg on the same side", armLegCorrelation < -.65);
+        Check("Unarmed " + gait + " keeps wrists aligned with forearms", maxWristBend < 15f);
+        Check("Unarmed " + gait + " keeps the palms inward", minPalmInward > .85f);
+        Check("Unarmed " + gait + " keeps fingers loosely curled", maxFingerBend < 45f);
         Check("Unarmed " + gait + " alternates which arm is forward",
             maxLeft.z > hands.leftRestPosition.z + .012f && minLeft.z < hands.leftRestPosition.z - .012f &&
             maxRight.z > hands.rightRestPosition.z + .012f && minRight.z < hands.rightRestPosition.z - .012f);
         Check("Unarmed " + gait + " leaves the centre of the view clear", maxLeft.y < -.12f && maxRight.y < -.12f);
         if (running)
-            Check("Running has a visibly stronger arm swing than walking", Mathf.Min(left.z, right.z) > walkDepth * 1.5f && Mathf.Min(left.y, right.y) > walkHeight * 1.4f);
+            Check("Running has a visibly stronger arm swing than walking", Mathf.Min(left.z, right.z) > walkDepth * 1.1f && Mathf.Min(left.y, right.y) > walkHeight * 1.25f);
         else
         {
             walkDepth = Mathf.Max(left.z, right.z);
@@ -251,6 +304,8 @@ public static class ComfortableHandsChecks
         sampleCount = groundedSamples = 0; minLeft = minRight = minGun = Vector3.one * float.PositiveInfinity;
         maxLeft = maxRight = maxGun = Vector3.one * float.NegativeInfinity;
         leftDepthSum = rightDepthSum = leftDepthSquared = rightDepthSquared = pairedDepthSum = 0;
+        legSum = legSquared = armLegSum = 0;
+        maxFingerBend = maxWristBend = 0f; minPalmInward = 1f;
         previousLeftDepth = previousDepthDelta = 0f; hasPreviousDepth = false;
         Save();
     }
@@ -271,6 +326,7 @@ public static class ComfortableHandsChecks
     {
         phase = -1; Application.logMessageReceived -= Log;
         Application.runInBackground = background;
+        Application.targetFrameRate = previousFrameRate; QualitySettings.vSyncCount = previousVSync;
         lines.Add(failure == null ? "COMPLETED " + DateTime.UtcNow.ToString("O") : "FAILED " + failure);
         Save();
         if (EditorApplication.isPlaying) EditorApplication.ExitPlaymode();

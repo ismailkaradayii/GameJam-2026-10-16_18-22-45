@@ -49,7 +49,8 @@ public static class GameplayFeelSetup
             Dirty(animator);
         }
         var hands = player.firstPerson.handsAnimator.GetComponent<Itfaiye.ItfaiyeFirstPersonHands>();
-        hands.unarmedSprintSwing = new Vector3(.04f, .09f, .17f); hands.unarmedSprintBlendSeconds = .12f;
+        hands.unarmedWalkSwingDegrees = 16f; hands.unarmedSprintSwingDegrees = 26f;
+        hands.unarmedSprintBlendSeconds = .18f;
         Dirty(hands); Dirty(tree); Dirty(unarmed); Dirty(machine); Dirty(controller);
     }
     static void NormalizeTruckScale(FireTruckDrive drive)

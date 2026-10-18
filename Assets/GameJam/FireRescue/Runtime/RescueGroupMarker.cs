@@ -8,6 +8,7 @@ namespace GameJam.FireRescue
         public EvacuationMission mission;
         public TextMesh symbol;
         public Renderer backdrop;
+        public Renderer[] accents;
         public float height = 7f;
         public int CurrentGroup { get; private set; } = -1;
         public bool IsVisible => symbol && symbol.gameObject.activeInHierarchy;
@@ -17,7 +18,9 @@ namespace GameJam.FireRescue
             CurrentGroup = mission && mission.IsActive && !mission.IsComplete ? mission.NextRecruitGroup : -1;
             bool visible = CurrentGroup >= 0 && mission.PlayerTransform;
             if (symbol) symbol.gameObject.SetActive(visible);
-            if (backdrop) backdrop.enabled = visible;
+            // Keep old serialized cards hidden as well; the marker has an open silhouette.
+            if (backdrop) backdrop.enabled = false;
+            if (accents != null) foreach (var accent in accents) if (accent) accent.enabled = visible;
             if (!visible) return;
 
             Vector3 center = Vector3.zero;
@@ -43,6 +46,7 @@ namespace GameJam.FireRescue
             CurrentGroup = -1;
             if (symbol) symbol.gameObject.SetActive(false);
             if (backdrop) backdrop.enabled = false;
+            if (accents != null) foreach (var accent in accents) if (accent) accent.enabled = false;
         }
     }
 }
