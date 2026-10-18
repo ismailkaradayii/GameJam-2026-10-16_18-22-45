@@ -9218,14 +9218,6 @@ PrefabInstance:
       value: 8.341232
       objectReference: {fileID: 0}
     - target: {fileID: 7123928594576945424, guid: 0bf90fd8a8763a543bd98f4e87b67dba, type: 3}
-      propertyPath: brakeTorque
-      value: 46800
-      objectReference: {fileID: 0}
-    - target: {fileID: 7123928594576945424, guid: 0bf90fd8a8763a543bd98f4e87b67dba, type: 3}
-      propertyPath: motorTorque
-      value: 20800
-      objectReference: {fileID: 0}
-    - target: {fileID: 7123928594576945424, guid: 0bf90fd8a8763a543bd98f4e87b67dba, type: 3}
       propertyPath: antiRollForce
       value: 18000
       objectReference: {fileID: 0}
@@ -9246,28 +9238,12 @@ PrefabInstance:
       value: 140
       objectReference: {fileID: 0}
     - target: {fileID: 7123928594576945424, guid: 0bf90fd8a8763a543bd98f4e87b67dba, type: 3}
-      propertyPath: arcadeLateralGrip
-      value: 13
-      objectReference: {fileID: 0}
-    - target: {fileID: 7123928594576945424, guid: 0bf90fd8a8763a543bd98f4e87b67dba, type: 3}
-      propertyPath: maxForwardSpeedKph
-      value: 156
-      objectReference: {fileID: 0}
-    - target: {fileID: 7123928594576945424, guid: 0bf90fd8a8763a543bd98f4e87b67dba, type: 3}
-      propertyPath: maxReverseSpeedKph
-      value: 58.5
-      objectReference: {fileID: 0}
-    - target: {fileID: 7123928594576945424, guid: 0bf90fd8a8763a543bd98f4e87b67dba, type: 3}
       propertyPath: parkingBrakeTorque
       value: 40000
       objectReference: {fileID: 0}
     - target: {fileID: 7123928594576945424, guid: 0bf90fd8a8763a543bd98f4e87b67dba, type: 3}
       propertyPath: highSpeedSteerAngle
       value: 22
-      objectReference: {fileID: 0}
-    - target: {fileID: 7123928594576945424, guid: 0bf90fd8a8763a543bd98f4e87b67dba, type: 3}
-      propertyPath: arcadeCornerSpeedKph
-      value: 54.6
       objectReference: {fileID: 0}
     - target: {fileID: 7123928594576945424, guid: 0bf90fd8a8763a543bd98f4e87b67dba, type: 3}
       propertyPath: centerOfMassOffset.y
@@ -9294,28 +9270,8 @@ PrefabInstance:
       value: 0.6
       objectReference: {fileID: 0}
     - target: {fileID: 7123928594576945424, guid: 0bf90fd8a8763a543bd98f4e87b67dba, type: 3}
-      propertyPath: arcadeBrakeAcceleration
-      value: 31.2
-      objectReference: {fileID: 0}
-    - target: {fileID: 7123928594576945424, guid: 0bf90fd8a8763a543bd98f4e87b67dba, type: 3}
       propertyPath: torqueBoostFadeSpeedKph
       value: 45.5
-      objectReference: {fileID: 0}
-    - target: {fileID: 7123928594576945424, guid: 0bf90fd8a8763a543bd98f4e87b67dba, type: 3}
-      propertyPath: groundAccelerationAssist
-      value: 18.2
-      objectReference: {fileID: 0}
-    - target: {fileID: 7123928594576945424, guid: 0bf90fd8a8763a543bd98f4e87b67dba, type: 3}
-      propertyPath: lowSpeedTorqueMultiplier
-      value: 2
-      objectReference: {fileID: 0}
-    - target: {fileID: 7123928594576945424, guid: 0bf90fd8a8763a543bd98f4e87b67dba, type: 3}
-      propertyPath: throttleReleasePerSecond
-      value: 20
-      objectReference: {fileID: 0}
-    - target: {fileID: 7123928594576945424, guid: 0bf90fd8a8763a543bd98f4e87b67dba, type: 3}
-      propertyPath: throttleResponsePerSecond
-      value: 18
       objectReference: {fileID: 0}
     - target: {fileID: 7123928594576945424, guid: 0bf90fd8a8763a543bd98f4e87b67dba, type: 3}
       propertyPath: accelerationAssistFadeSpeedKph

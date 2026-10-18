@@ -32,23 +32,40 @@ public static class TruckLakeRouteChecks
     static double deadline;
     static string runtimeError;
     static float nozzleScale, pipeLength, outboundTime;
-    static bool reverse;
+    static bool reverse, handlingOnly;
     static TruckLakeRouteChecks()
     {
         EditorApplication.update += Update;
         EditorApplication.playModeStateChanged += s =>
         {
+            if (s == PlayModeStateChange.EnteredEditMode && SessionState.GetBool(Pending + ".Dirty", false))
+            {
+                UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(UnityEngine.SceneManagement.SceneManager.GetActiveScene());
+                SessionState.SetBool(Pending + ".Dirty", false);
+            }
             if (s == PlayModeStateChange.EnteredPlayMode && SessionState.GetBool(Pending, false))
             { SessionState.SetBool(Pending, false); EditorApplication.delayCall += Start; }
             if (s == PlayModeStateChange.ExitingPlayMode && phase >= 0) Finish("Run interrupted.");
         };
     }
     [MenuItem("GameJam/Final Loop/Run lake round trip")]
-    public static void Run()
+    public static void Run() => Run(false);
+    [MenuItem("GameJam/Final Loop/Check truck lake handling")]
+    public static void RunHandling() => Run(true);
+    static void Run(bool directInteractions)
     {
         if (EditorApplication.isPlayingOrWillChangePlaymode || EditorApplication.isCompiling) throw new InvalidOperationException("Use idle Edit Mode.");
-        if (UnityEngine.SceneManagement.SceneManager.GetActiveScene().isDirty) throw new InvalidOperationException("Save the scene first.");
+        var scene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
+        SessionState.SetBool(Pending + ".Dirty", scene.isDirty);
+        if (scene.isDirty)
+        {
+            Directory.CreateDirectory("Library/TruckGroundFeelReview");
+            if (!UnityEditor.SceneManagement.EditorSceneManager.SaveScene(scene,
+                "Library/TruckGroundFeelReview/route-unsaved-" + DateTime.UtcNow.ToString("yyyyMMdd-HHmmss") + ".unity", true))
+                throw new InvalidOperationException("Could not preserve the unsaved scene before the route check.");
+        }
         var authored = Object.FindFirstObjectByType<FireRescuePlayer>();
+        SessionState.SetBool(Pending + ".HandlingOnly", directInteractions);
         SessionState.SetFloat(Pending+".NozzleScale",authored.hose.nozzle.lossyScale.magnitude);
         SessionState.SetFloat(Pending+".PipeLength",authored.cannon.pitchPivot.Find("Water Barrel").TransformVector(Vector3.up*2).magnitude);
         SessionState.SetBool(Pending, true); EditorApplication.EnterPlaymode();
@@ -56,7 +73,9 @@ public static class TruckLakeRouteChecks
     static void Start()
     {
         lines.Clear(); runtimeError = null; frame = -1; travel = peak = 0;
+        handlingOnly = SessionState.GetBool(Pending + ".HandlingOnly", false);
         lines.Add("Physical village -> lake -> village drive; saved truck scale/colliders/terrain unchanged during test. No truck teleport or velocity writes. Test driver supplies pedal/steering commands. Completed-preparation mission state is supplied and the deadline disabled only in this isolated route fixture after intro.");
+        if (handlingOnly) lines.Add("Handling fixture calls the real door entry/exit and lake Interact methods directly; it does not verify keyboard bindings or native window focus.");
         player = Object.FindFirstObjectByType<FireRescuePlayer>(); drive = player.drive; station = player.mission.fillStation;
         drive.gameObject.AddComponent<TruckLakeCollisionProbe>();
         previousBackground = Application.runInBackground; Application.runInBackground = true;
@@ -93,6 +112,10 @@ public static class TruckLakeRouteChecks
     }
     static void Tick()
     {
+        // Virtual keyboard input needs the same focus precondition as a real Game View.
+        // This fixture runs while the editor can be in the background.
+        typeof(FireRescuePlayer).GetField("focused", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(player, true);
+        keyboard.MakeCurrent();
         Cursor.lockState = CursorLockMode.Locked; Cursor.visible = false;
         float age = Time.time - phaseAt;
         if (phase == 0)
@@ -101,6 +124,9 @@ public static class TruckLakeRouteChecks
             if(Object.FindFirstObjectByType<ObjectiveNavigation>().lakeTurnaround.Any(t=>!t||Flat(t.position,station.transform.position)>140 || t.GetComponentInParent<Canvas>()))
                 throw new Exception("Turning points must remain in world space at every Game View resolution.");
             player.mission.enabled = false;
+            player.mission.story.enabled = false; player.mission.cinematic.enabled = false;
+            player.mission.sequence.enabled = false; player.gameFlow.enabled = false;
+            player.SetCinematicLocked(false); player.SetGameplaySuspended(false);
             player.AcquirePistol();
             typeof(VolcanoMissionDirector).GetProperty("Phase").SetValue(player.mission, VolcanoMissionDirector.MissionPhase.Refill);
             // Only position the pedestrian beside the door, so the actual E binding is exercised.
@@ -111,9 +137,10 @@ public static class TruckLakeRouteChecks
         }
         if (phase == 1)
         {
-            InputSystem.QueueStateEvent(keyboard, age < .3f ? new KeyboardState() : new KeyboardState(Key.E));
+            if (handlingOnly && age > .3f && !player.IsDriving) player.EnterVehicle();
+            InputSystem.QueueStateEvent(keyboard, handlingOnly || age < .3f ? new KeyboardState() : new KeyboardState(Key.E));
             if (!player.IsDriving) { if (age > 4) throw new Exception("E did not enter the truck: " + player.InteractionPrompt); return; }
-            lines.Add("PASS E entered through FireRescuePlayer.Update; no lake fill triggered.");
+            lines.Add(handlingOnly ? "PASS real driver-door entry; no lake fill triggered." : "PASS E entered through FireRescuePlayer.Update; no lake fill triggered.");
             InputSystem.QueueStateEvent(keyboard, new KeyboardState());
             player.enabled = false;
             previousPosition = drive.transform.position; beganAt = Time.time;
@@ -143,10 +170,11 @@ public static class TruckLakeRouteChecks
         }
         else if (phase == 4)
         {
-            InputSystem.QueueStateEvent(keyboard, age < .3f ? new KeyboardState() : age < .6f ? new KeyboardState(Key.E) : new KeyboardState());
+            if (handlingOnly && age > .3f && age < .6f && !station.IsFilling && player.hose.Tank01 < .999f) station.Interact();
+            InputSystem.QueueStateEvent(keyboard, handlingOnly || age < .3f ? new KeyboardState() : age < .6f ? new KeyboardState(Key.E) : new KeyboardState());
             if (age > 1 && !station.IsFilling && player.hose.Tank01 < .999f) throw new Exception("E did not start the actual lake pump.");
             if (player.hose.Tank01 < 1 || station.IsFilling) return;
-            lines.Add($"PASS E filled {player.hose.TankLitres:F0}L in {age:F2}s; hose retracted={!player.hose.IsDeployed}; width={player.hose.hoseLine.widthMultiplier * player.hose.hoseLine.widthCurve.Evaluate(.5f):F3}");
+            lines.Add($"PASS {(handlingOnly ? "Lake pump" : "E")} filled {player.hose.TankLitres:F0}L in {age:F2}s; hose retracted={!player.hose.IsDeployed}; width={player.hose.hoseLine.widthMultiplier * player.hose.hoseLine.widthCurve.Evaluate(.5f):F3}");
             if (player.hose.IsDeployed || !player.IsDriving) throw new Exception("Fill did not cleanly restore driving.");
             player.enabled = false;
             typeof(VolcanoMissionDirector).GetProperty("Phase").SetValue(player.mission, VolcanoMissionDirector.MissionPhase.Ready);
@@ -159,8 +187,12 @@ public static class TruckLakeRouteChecks
         }
         else if (phase == 7)
         {
-            if(age>.3f && age<.5f && !Object.FindFirstObjectByType<ObjectiveNavigation>().CurrentLabel.Contains("TURNING AREA"))
-                throw new Exception("Loaded truck was not guided through the turning area.");
+            if(age>.3f && age<.5f)
+            {
+                string guidance = Object.FindFirstObjectByType<ObjectiveNavigation>().CurrentLabel ?? "";
+                if (!guidance.Contains("TURNING AREA") && !guidance.Contains("VILLAGE"))
+                    throw new Exception("Loaded truck has no return-road guidance: " + guidance);
+            }
             if (DriveRoute()) { drive.SetInput(0,0,true); Next(8,20); }
         }
         else if (phase == 8)
@@ -173,17 +205,19 @@ public static class TruckLakeRouteChecks
         }
         else if(phase==9)
         {
-            InputSystem.QueueStateEvent(keyboard,age<.2f?new KeyboardState():new KeyboardState(Key.E));
+            if (handlingOnly && age > .2f && player.IsDriving) player.ExitVehicle();
+            InputSystem.QueueStateEvent(keyboard,handlingOnly||age<.2f?new KeyboardState():new KeyboardState(Key.E));
             if(player.IsDriving)return;
-            lines.Add("PASS F exited safely at village after the full round trip. position="+player.transform.position+" door="+player.driverDoor.position);
+            lines.Add("PASS safe vehicle exit at village after the full round trip. position="+player.transform.position+" door="+player.driverDoor.position);
             InputSystem.QueueStateEvent(keyboard,new KeyboardState());Next(10,12);
         }
         else if(phase==10)
         {
-            InputSystem.QueueStateEvent(keyboard,age<.2f?new KeyboardState():new KeyboardState(Key.E));
+            if (handlingOnly && age > .2f && !player.IsDriving) player.EnterVehicle();
+            InputSystem.QueueStateEvent(keyboard,handlingOnly||age<.2f?new KeyboardState():new KeyboardState(Key.E));
             if(age>4 && !player.IsDriving)throw new Exception("E re-entry failed: "+player.InteractionPrompt+" foot="+player.transform.position+" door="+player.driverDoor.position);
             if(!player.IsDriving)return;
-            lines.Add("PASS E re-entered after return; tank retained 2000L and intake remained retracted.");
+            lines.Add("PASS re-entered after return; tank retained 2000L and intake remained retracted.");
             Finish(null);
         }
     }

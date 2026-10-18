@@ -1,0 +1,58 @@
+Fire truck driving and wheel-ground presentation - 18 October 2026
+
+The existing fire truck retains its WheelColliders, body mass, suspension, low-speed
+turning assistance, hill hold and obstacle handling. Progressive handling shares a
+smoothed steering input between visible wheels and assisted yaw. At road speeds the
+turning circle opens according to a lateral-acceleration limit; yaw and service-brake
+pressure build gradually. Parking, hill hold and wreck safety remain immediate.
+Wheel spin from travel uses the scaled world wheel radius. Gear reversal drains
+the old pedal under braking, preventing an old forward torque impulse when reversing
+away from an obstacle below the usual direction-change speed threshold.
+
+The authored truck uses 6000Nm per powered wheel, a 1.5 low-speed torque multiplier,
+2m/s2 ground assistance, 104km/h forward and 26km/h reverse limits, 16000Nm service
+brakes and 4m/s2 supplemental braking. Pedal response is 2.5/second with release at
+5/second. Existing steering radius, suspension, collider sizes, centre of mass and
+anti-roll settings are preserved. Progressive handling is opt-in for other trucks.
+
+FireTruckGroundEffects samples the actual four wheel contacts. MudDry, Mud and
+Mud_rubble accept impressions and soil dust; lava, water, buildings and fence surfaces
+do not. Tire width comes from the wheel mesh. Mesh edges sample the terrain so marks
+follow its height and slope. Connected tread strips break on contact loss, stop,
+teleport, sharp surface changes and water crossings. Dust density follows rolling
+speed, slip and braking, rising from the contact patches with a soft fade.
+
+The existing Dust_a texture and Ground ash dust material are reused on a private
+material instance; their source assets are unchanged. Two URP shaders provide tire
+tread pattern, ambient/main-light shading, shadows and fog. Dust also softens depth
+intersections. Explicit prefab material, shader and texture references include them
+in standalone builds.
+
+One bounded world-space mesh holds at most 4096 tread quads and one particle system
+holds at most 480 dust particles. Marks fade over 80 seconds, with the oldest marks
+reused earlier if the fixed buffer fills. No per-frame GameObject creation occurs.
+Pause freezes both effects; disabling hides the owned render root and clears dust;
+destroying the component releases its runtime objects, mesh and material instances.
+
+GameJam > Final Loop > Apply truck ground feel authors the prefab and removes only
+the selected driving overrides from the saved mission scene. Other unsaved scene
+edits are copied to Library/TruckGroundFeelReview and preserved in the editor.
+Check truck ground feel measures actual forces, contacts, tracks, dust, acceleration,
+braking, turning, hill hold, reverse, pause, water, airborne wheels, teleport breaks,
+bounded capacity and fading. It uses a temporary Terrain in Play Mode without
+changing the source terrain. Reports and captures: Logs/TruckGroundFeel/.
+Check truck lake handling checks the normal village/lake drive, filling and return
+with the actual truck and terrain. It calls the real door entry/exit and lake pump
+interaction methods directly; keyboard bindings/native editor focus are outside
+this handling fixture. Run lake round trip retains the virtual-keyboard variant.
+Both preserve the unsaved scene before Play Mode. Report: Logs/TruckLakeRoute-checks.txt.
+
+Measured on the actual 6800kg truck: 0-50km/h in 4.16 seconds, peak forward
+acceleration 6.69m/s2; service braking from 50.3km/h stopped in 1.38 seconds/10.94m.
+The 9.7-degree test slope held with no drift and released into an uphill pull-away.
+The final materials were checked against same-frame captures with effects disabled:
+patterned impressions remain visible against the soil and rising dust changes more
+than 10000 pixels above the track region in the low rear view.
+The physical lake handling fixture completed 1099.3m in 106.57 seconds, reaching
+the lake in 36.71 seconds, filling 2000L in 8.31 seconds and retaining it on return.
+Peak speed was 64.0km/h; all colliders remained enabled and exit/re-entry succeeded.

@@ -5427,6 +5427,7 @@ GameObject:
   - component: {fileID: 45011469052894866}
   - component: {fileID: 4865318999240101847}
   - component: {fileID: 8896686709481957503}
+  - component: {fileID: 1466676267435431910}
   m_Layer: 0
   m_Name: Fire Truck
   m_TagString: Untagged
@@ -5542,20 +5543,20 @@ MonoBehaviour:
   - {x: 0, y: 0, z: 0}
   - {x: 0, y: 0, z: 0}
   wheelSpinFromTravel: 1
-  motorTorque: 20800
-  maxForwardSpeedKph: 156
-  maxReverseSpeedKph: 58.5
-  brakeTorque: 46800
+  motorTorque: 6000
+  maxForwardSpeedKph: 104
+  maxReverseSpeedKph: 26
+  brakeTorque: 16000
   parkingBrakeTorque: 40000
   coastBrakeTorque: 140
   allWheelDrive: 1
-  lowSpeedTorqueMultiplier: 2
+  lowSpeedTorqueMultiplier: 1.5
   torqueBoostFadeSpeedKph: 45.5
   smoothPedals: 1
-  throttleResponsePerSecond: 18
-  throttleReleasePerSecond: 20
+  throttleResponsePerSecond: 2.5
+  throttleReleasePerSecond: 5
   hillHoldAssist: 1
-  groundAccelerationAssist: 18.2
+  groundAccelerationAssist: 2
   accelerationAssistFadeSpeedKph: 104
   maxSteerAngle: 46
   highSpeedSteerAngle: 22
@@ -5572,12 +5573,19 @@ MonoBehaviour:
   arcadeLowSpeedYawRate: 143
   arcadeHighSpeedYawRate: 71.5
   arcadeSteeringResponse: 12
-  arcadeLateralGrip: 13
-  arcadeBrakeAcceleration: 31.2
-  arcadeCornerSpeedKph: 54.6
+  arcadeLateralGrip: 10
+  arcadeBrakeAcceleration: 4
+  arcadeCornerSpeedKph: 42
   arcadeUprightStrength: 45
   obstacleStepHeight: 2.4
   obstacleLiftAcceleration: 65
+  progressiveHandling: 1
+  steeringInputResponse: 2.8
+  steeringReturnResponse: 4.5
+  highSpeedSteeringResponse: 0.55
+  maxLateralAcceleration: 8
+  yawAccelerationDegrees: 150
+  serviceBrakeResponse: 4
 --- !u!114 &7915165097456723516
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -5798,6 +5806,45 @@ MonoBehaviour:
   automaticSuppressionDelay: 2
   automaticSuppressionLitresPerSecond: 18
   truckWetProtectionSeconds: 10
+--- !u!114 &1466676267435431910
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3982989680251876926}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2ca0ee96740c432fae8dfb5b78e076e1, type: 3}
+  m_Name:
+  m_EditorClassIdentifier:
+  drive: {fileID: 7123928594576945424}
+  tireTrackMaterial: {fileID: 2100000, guid: cd4b646d59900e945a0b0d37adbc28ef, type: 2}
+  dustMaterial: {fileID: 2100000, guid: d36687a2ca5f1224f9758f18a438f7fe, type: 2}
+  soilDustShader: {fileID: 4800000, guid: 4c68e98610e5486387f9defb077ba1fd, type: 3}
+  dustTexture: {fileID: 2800000, guid: 5407ae27152b432aad928ef038cf94ea, type: 3}
+  looseTerrainLayers:
+  - {fileID: 8574412962073106934, guid: b8f167e698144e64a9c6136902b2b40c, type: 2}
+  - {fileID: 8574412962073106934, guid: b3a2e4940a67499e9740976481773b4d, type: 2}
+  - {fileID: 8574412962073106934, guid: 518dc95633c04075b3aa11d0a4cf69b9, type: 2}
+  additionalLooseSurfaceLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  maximumSegments: 4096
+  trackLifetime: 80
+  sampleSpacing: 0.35
+  teleportBreakDistance: 8
+  minimumSpeedKph: 1.8
+  tireWidthMultiplier: 1
+  fallbackWidthToRadius: 0.42
+  trackOpacity: 0.62
+  trackTint: {r: 0.055, g: 0.035, b: 0.018, a: 1}
+  surfaceOffset: 0.025
+  minimumGroundNormalY: 0.62
+  maximumDustParticles: 480
+  dustRatePerWheel: 21
+  dustLifetime: 1.65
+  dustTint: {r: 0.46, g: 0.355, b: 0.25, a: 0.55}
 --- !u!1 &4190309344186504088
 GameObject:
   m_ObjectHideFlags: 0

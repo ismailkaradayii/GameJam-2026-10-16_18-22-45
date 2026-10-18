@@ -77,6 +77,22 @@ namespace GameJam.FireRescue
         [Min(0f)] public float obstacleStepHeight = 2.4f;
         [Min(1f)] public float obstacleLiftAcceleration = 65f;
 
+        [Header("Progressive truck response")]
+        [Tooltip("Give steering, yaw and service brakes a gradual response while retaining the assisted low-speed turning radius.")]
+        public bool progressiveHandling;
+        [Tooltip("Normalized steering travel per second while turning the wheel.")]
+        [Min(.1f)] public float steeringInputResponse = 2.8f;
+        [Tooltip("Normalized steering travel per second while letting the wheel return to centre.")]
+        [Min(.1f)] public float steeringReturnResponse = 4.5f;
+        [Tooltip("Steering response at the steering fade speed. High-speed corrections build more gradually.")]
+        [Range(.1f, 1f)] public float highSpeedSteeringResponse = .55f;
+        [Tooltip("Limit assisted yaw by cornering acceleration in metres per second squared. Low-speed maneuvering keeps its original radius.")]
+        [Min(.1f)] public float maxLateralAcceleration = 8f;
+        [Tooltip("Maximum assisted yaw acceleration, in degrees per second squared.")]
+        [Min(1f)] public float yawAccelerationDegrees = 150f;
+        [Tooltip("Service brake pressure build-up per second. Parking and hill hold remain immediate.")]
+        [Min(.1f)] public float serviceBrakeResponse = 4f;
+
         public bool IsDriven { get; private set; }
         public ThermalDamage Thermal { get; private set; }
         public float MotorEfficiency => Thermal ? Thermal.MotorEfficiency : 1f;
@@ -84,6 +100,9 @@ namespace GameJam.FireRescue
         public bool IsWrecked => Thermal && Thermal.IsDestroyed;
         public float SpeedKph => body != null ? body.linearVelocity.magnitude * 3.6f : 0f;
         public float RearSteerFactor => lowSpeedRearSteerRatio * (1f - Mathf.InverseLerp(10f, rearSteerFadeSpeedKph, SpeedKph));
+        public float AppliedThrottle => appliedThrottle;
+        public float AppliedSteering => arcadeSteer;
+        public float AppliedBrake => IsDriven ? Mathf.Clamp01(smoothedBrakeTorque / Mathf.Max(1f, brakeTorque)) : 1f;
 
         private float throttleInput;
         private float steeringInput;
@@ -104,7 +123,12 @@ namespace GameJam.FireRescue
         {
             float cap = Mathf.Lerp(arcadeLowSpeedYawRate, arcadeHighSpeedYawRate,
                 Mathf.Clamp01(Mathf.Abs(speedKph) / Mathf.Max(1f, maxForwardSpeedKph)));
-            return Mathf.Min(Mathf.Abs(speedKph) / 3.6f / Mathf.Max(3f, arcadeTurnRadius) * Mathf.Rad2Deg, cap);
+            float speed = Mathf.Abs(speedKph) / 3.6f;
+            float rate = Mathf.Min(speed / Mathf.Max(3f, arcadeTurnRadius) * Mathf.Rad2Deg, cap);
+            // a = speed * yaw rate. At town speeds the existing turning circle still
+            // applies; at road speeds it must open out instead of snapping sideways.
+            return progressiveHandling ? Mathf.Min(rate,
+                Mathf.Max(.1f, maxLateralAcceleration) / Mathf.Max(.5f, speed) * Mathf.Rad2Deg) : rate;
         }
 
         private void Awake()
@@ -189,11 +213,22 @@ namespace GameJam.FireRescue
             float speedFraction = Mathf.Clamp01(Mathf.Abs(signedSpeed) * 3.6f / Mathf.Max(1f, steeringFadeSpeedKph));
             float steeringLimit = Mathf.Lerp(maxSteerAngle,
                 Mathf.Min(highSpeedSteerAngle, maxSteerAngle), speedFraction);
-            float targetSteer = IsDriven ? steeringInput * steeringLimit : 0f;
+            float requestedSteering = IsDriven ? steeringInput : 0f;
+            float steeringResponse = 8f;
+            if (progressiveHandling)
+            {
+                bool centring = Mathf.Abs(requestedSteering) < .001f ||
+                    Mathf.Sign(requestedSteering) == Mathf.Sign(arcadeSteer) && Mathf.Abs(requestedSteering) < Mathf.Abs(arcadeSteer);
+                steeringResponse = (centring ? steeringReturnResponse : steeringInputResponse) *
+                    Mathf.Lerp(1f, highSpeedSteeringResponse, speedFraction);
+            }
+            arcadeSteer = Mathf.MoveTowards(arcadeSteer, requestedSteering,
+                steeringResponse * Time.fixedDeltaTime);
+            // The visible front wheels and the yaw assistance follow the same wheel
+            // movement, including the slower sweep through centre when countersteering.
+            float targetSteer = (progressiveHandling ? arcadeSteer : requestedSteering) * steeringLimit;
             currentSteerAngle = Mathf.MoveTowards(currentSteerAngle, targetSteer,
                 steeringSpeed * Time.fixedDeltaTime);
-            arcadeSteer = Mathf.MoveTowards(arcadeSteer, IsDriven ? steeringInput : 0f,
-                8f * Time.fixedDeltaTime);
 
             float requestedThrottle = IsDriven && !IsWrecked ? throttleInput : 0f;
             int requestedDirection = requestedThrottle < 0f ? -1 : 1;
@@ -204,7 +239,10 @@ namespace GameJam.FireRescue
                 (!hillHoldAssist || requestedDirection != lastPoweredDirection);
             if (Mathf.Abs(requestedThrottle) > .05f && !changingDirection)
                 lastPoweredDirection = requestedDirection;
-            bool braking = !IsDriven || IsWrecked || brakeInput || changingDirection;
+            // Drain the old pedal under braking before engaging the opposite gear,
+            // including when a wall or a near stop keeps speed below the gear threshold.
+            bool releasingOppositePedal = progressiveHandling && requestedThrottle * appliedThrottle < -.001f;
+            bool braking = !IsDriven || IsWrecked || brakeInput || changingDirection || releasingOppositePedal;
             float pedalTarget = braking ? 0f : requestedThrottle;
             appliedThrottle = smoothPedals ? Mathf.MoveTowards(appliedThrottle, pedalTarget,
                 (Mathf.Abs(pedalTarget) > Mathf.Abs(appliedThrottle) ? throttleResponsePerSecond : throttleReleasePerSecond) * Time.fixedDeltaTime) : pedalTarget;
@@ -214,8 +252,12 @@ namespace GameJam.FireRescue
                 braking ? brakeTorque : holdingHill ? parkingBrakeTorque * .5f : Mathf.Abs(throttle) < 0.05f ? coastBrakeTorque : 0f;
             // Release the parking/hill brake immediately when the accelerator is pressed.
             // Otherwise the motor spends its first frames fighting residual brake torque.
-            smoothedBrakeTorque = smoothPedals && IsDriven && appliedBrake >= smoothedBrakeTorque ? Mathf.MoveTowards(smoothedBrakeTorque, appliedBrake,
-                Mathf.Max(brakeTorque, parkingBrakeTorque) * 5f * Time.fixedDeltaTime) : appliedBrake;
+            if (progressiveHandling)
+                smoothedBrakeTorque = IsDriven && !IsWrecked && !holdingHill && appliedBrake > smoothedBrakeTorque ?
+                    Mathf.MoveTowards(smoothedBrakeTorque, appliedBrake, Mathf.Max(1f, brakeTorque) * serviceBrakeResponse * Time.fixedDeltaTime) : appliedBrake;
+            else
+                smoothedBrakeTorque = smoothPedals && IsDriven && appliedBrake >= smoothedBrakeTorque ? Mathf.MoveTowards(smoothedBrakeTorque, appliedBrake,
+                    Mathf.Max(brakeTorque, parkingBrakeTorque) * 5f * Time.fixedDeltaTime) : appliedBrake;
 
             float targetTopSpeed = (throttle < 0f ? maxReverseSpeedKph : maxForwardSpeedKph) * MotorEfficiency;
             if (arcadeHandling) targetTopSpeed = CornerSpeedLimit(targetTopSpeed);
@@ -245,7 +287,8 @@ namespace GameJam.FireRescue
                 {
                     Vector3 rollingDirection = Quaternion.AngleAxis(wheel.steerAngle, wheel.transform.up) * wheel.transform.forward;
                     float rollingSpeed = Vector3.Dot(body.GetPointVelocity(wheel.transform.position), rollingDirection);
-                    float degrees = grounded ? rollingSpeed / Mathf.Max(.05f, wheel.radius) * Mathf.Rad2Deg : wheel.rpm * 6f;
+                    float worldRadius = wheel.radius * Mathf.Abs(wheel.transform.lossyScale.y);
+                    float degrees = grounded ? rollingSpeed / Mathf.Max(.05f, worldRadius) * Mathf.Rad2Deg : wheel.rpm * 6f;
                     visualSpin[index] = Mathf.Repeat(visualSpin[index] + degrees * Time.fixedDeltaTime, 360f);
                 }
             }
@@ -278,7 +321,8 @@ namespace GameJam.FireRescue
             if (!braking && Mathf.Abs(throttle) > .05f) turnSpeed = Mathf.Max(turnSpeed, 1.5f);
             float targetYaw = arcadeSteer * direction * FullSteeringYawRate(turnSpeed * 3.6f) * Mathf.Deg2Rad;
             float yaw = Vector3.Dot(body.angularVelocity, normal);
-            body.AddTorque(normal * Mathf.Clamp((targetYaw - yaw) * arcadeSteeringResponse, -7f, 7f), ForceMode.Acceleration);
+            float yawAcceleration = progressiveHandling ? Mathf.Max(1f, yawAccelerationDegrees) * Mathf.Deg2Rad : 7f;
+            body.AddTorque(normal * Mathf.Clamp((targetYaw - yaw) * arcadeSteeringResponse, -yawAcceleration, yawAcceleration), ForceMode.Acceleration);
             body.AddForce(-right * Mathf.Clamp(Vector3.Dot(body.linearVelocity, right) * arcadeLateralGrip, -55f, 55f), ForceMode.Acceleration);
             float cornerLimit = CornerSpeedLimit((signedSpeed < -.1f ? maxReverseSpeedKph : maxForwardSpeedKph) * MotorEfficiency) / 3.6f;
             float cornerExcess = Mathf.Abs(signedSpeed) - cornerLimit;
@@ -292,7 +336,8 @@ namespace GameJam.FireRescue
             if (braking || holdingHill)
             {
                 Vector3 planar = Vector3.ProjectOnPlane(body.linearVelocity, normal);
-                body.AddForce(-Vector3.ClampMagnitude(planar * 8f, arcadeBrakeAcceleration), ForceMode.Acceleration);
+                float pressure = progressiveHandling && !holdingHill && !IsWrecked ? AppliedBrake : 1f;
+                body.AddForce(-Vector3.ClampMagnitude(planar * 8f, arcadeBrakeAcceleration * pressure), ForceMode.Acceleration);
             }
             else if (Mathf.Abs(throttle) > .15f)
                 AssistLowObstacles(Mathf.Sign(throttle), forward);
