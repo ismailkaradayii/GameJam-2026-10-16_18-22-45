@@ -23,7 +23,12 @@ namespace Ashfall.MainMenu
 
         [Header("Cinematic")]
         [SerializeField] private bool playIntro = true;
-        [SerializeField, Min(0f)] private float introDuration = 10f;
+        [SerializeField, Min(0f)] private float introDuration = 4.5f;
+        [SerializeField, Min(0f)] private float preLogoDelay = 2.25f;
+        [SerializeField, Min(0.05f)] private float logoFadeInDuration = 0.8f;
+        [SerializeField, Min(0f)] private float logoHoldDuration = 0.45f;
+        [SerializeField, Min(0.05f)] private float menuFadeDuration = 0.32f;
+        [SerializeField, Min(0f)] private float menuStaggerDelay = 0.08f;
         [SerializeField] private ParticleSystem ambientEmbers;
         [SerializeField] private ParticleSystem eruptionSmoke;
         [SerializeField] private ParticleSystem eruptionSparks;
@@ -43,6 +48,7 @@ namespace Ashfall.MainMenu
         public string GameplaySceneName => gameplaySceneName;
 
         private Vector3 cameraRestPosition;
+        private Material volcanicTextMaterial;
         private bool panelOpen;
         private bool panelClosing;
         private CanvasGroup activePanel;
@@ -53,6 +59,7 @@ namespace Ashfall.MainMenu
             Time.timeScale = 1f;
             Cursor.lockState = CursorLockMode.None;
             Cursor.visible = true;
+            NormalizeMenuButtonImages();
             WireButtonCallbacks();
             if (cameraTransform != null) cameraRestPosition = cameraTransform.localPosition;
             if (ambientEmbers != null && !ambientEmbers.isPlaying) ambientEmbers.Play();
@@ -73,6 +80,108 @@ namespace Ashfall.MainMenu
             SetGlow(0f);
         }
 
+        private void NormalizeMenuButtonImages()
+        {
+            if (mainMenuGroup != null)
+            {
+                RectTransform menuRect = mainMenuGroup.GetComponent<RectTransform>();
+                menuRect.anchorMin = new Vector2(0.055f, 0.12f);
+                menuRect.anchorMax = new Vector2(0.43f, 0.60f);
+                menuRect.offsetMin = Vector2.zero;
+                menuRect.offsetMax = Vector2.zero;
+            }
+            if (titleGroup != null)
+            {
+                RectTransform logoRect = titleGroup.GetComponent<RectTransform>();
+                logoRect.anchorMin = new Vector2(0.04f, 0.61f);
+                logoRect.anchorMax = new Vector2(0.64f, 0.96f);
+                logoRect.offsetMin = Vector2.zero;
+                logoRect.offsetMax = Vector2.zero;
+            }
+            if (menuButtons == null) return;
+            string[] menuLabels = { "NEW GAME", "SETTINGS", "HOW TO PLAY", "EXIT" };
+            for (int buttonIndex = 0; buttonIndex < menuButtons.Length; buttonIndex++)
+            {
+                Button button = menuButtons[buttonIndex];
+                if (button == null) continue;
+                Image plate = button.GetComponent<Image>();
+                if (plate == null || plate.sprite == null) continue;
+                // The supplied artwork is a complete volcanic plate. Slicing its
+                // large source borders into a compact menu row collapses the image
+                // into scattered fragments, so always render the full sprite.
+                plate.type = Image.Type.Simple;
+                plate.preserveAspect = false;
+                plate.fillCenter = true;
+                plate.color = new Color(1f, 1f, 1f, 0f);
+                plate.raycastTarget = true;
+                button.targetGraphic = plate;
+                button.transition = Selectable.Transition.None;
+
+                Text label = button.GetComponentInChildren<Text>(true);
+                if (label != null)
+                {
+                    if (buttonIndex < menuLabels.Length) label.text = menuLabels[buttonIndex];
+                    // Keep the authored lava-rock display face on the four primary
+                    // menu labels without changing typography elsewhere in the UI.
+                    Font volcanicFace = Ashfall.UI.AshfallTypography.MainMenuDisplay;
+                    if (volcanicFace != null) label.font = volcanicFace;
+                    ApplyVolcanicTextMaterial(label, plate.sprite.texture);
+                    label.fontStyle = FontStyle.Normal;
+                    label.alignment = TextAnchor.MiddleLeft;
+                    label.resizeTextForBestFit = false;
+                    label.fontSize = 48;
+                    RectTransform labelRect = label.rectTransform;
+                    labelRect.anchorMin = Vector2.zero;
+                    labelRect.anchorMax = Vector2.one;
+                    labelRect.pivot = new Vector2(0.5f, 0.5f);
+                    labelRect.offsetMin = new Vector2(112f, 14f);
+                    labelRect.offsetMax = new Vector2(-72f, -14f);
+                    labelRect.localScale = Vector3.one;
+                }
+
+                AshfallMenuButtonPointerAudio pointer = button.GetComponent<AshfallMenuButtonPointerAudio>();
+                if (pointer == null) pointer = button.gameObject.AddComponent<AshfallMenuButtonPointerAudio>();
+                pointer.ConfigureVisual(plate, label);
+
+                ColorBlock colors = button.colors;
+                colors.normalColor = Color.white;
+                colors.highlightedColor = new Color(1f, 0.88f, 0.72f, 1f);
+                colors.pressedColor = new Color(0.78f, 0.5f, 0.32f, 1f);
+                colors.selectedColor = colors.highlightedColor;
+                colors.disabledColor = new Color(0.48f, 0.43f, 0.4f, 0.78f);
+                colors.colorMultiplier = 1f;
+                colors.fadeDuration = 0.1f;
+                button.colors = colors;
+            }
+        }
+
+        private void ApplyVolcanicTextMaterial(Text label, Texture lavaTexture)
+        {
+            if (volcanicTextMaterial == null)
+            {
+                Shader shader = Resources.Load<Shader>("ASHFALL/UI/Shaders/VolcanicText");
+                if (shader == null)
+                {
+                    Debug.LogWarning("ASHFALL: Volcanic text shader could not be loaded; menu text will use its fallback color.", this);
+                    return;
+                }
+                volcanicTextMaterial = new Material(shader)
+                {
+                    name = "Volcanovski Lava Text (Runtime)",
+                    hideFlags = HideFlags.HideAndDontSave
+                };
+                volcanicTextMaterial.SetFloat("_Brightness", 1.45f);
+                volcanicTextMaterial.SetFloat("_EdgeCutoff", 0.18f);
+            }
+            if (lavaTexture != null) volcanicTextMaterial.SetTexture("_LavaTex", lavaTexture);
+            label.material = volcanicTextMaterial;
+        }
+
+        private void OnDestroy()
+        {
+            if (volcanicTextMaterial != null) Destroy(volcanicTextMaterial);
+        }
+
         private void WireButtonCallbacks()
         {
             if (menuButtons != null)
@@ -88,59 +197,31 @@ namespace Ashfall.MainMenu
 
         private IEnumerator Start()
         {
+            // Runtime font initializers also run between Awake and Start. Reapply
+            // the authored main-menu face here so entering Play Mode or returning
+            // to this scene cannot restore the generic UI font.
+            NormalizeMenuButtonImages();
+
             if (!playIntro)
             {
                 yield return RevealMenu();
                 yield break;
             }
 
-            float start = Time.unscaledTime;
-            float duration = Mathf.Max(8f, introDuration);
-            while (Time.unscaledTime - start < 2f)
-            {
-                float t = Mathf.Clamp01((Time.unscaledTime - start) / 2f);
-                SetGlow(0.035f + t * 0.06f);
-                yield return null;
-            }
+            // Let the background establish itself before presenting the menu brand.
+            // The VideoPlayer remains completely independent and keeps running.
+            if (preLogoDelay > 0f) yield return new WaitForSecondsRealtime(preLogoDelay);
+            yield return Fade(titleGroup, 0f, 1f, logoFadeInDuration);
+            float requestedHold = Mathf.Max(logoHoldDuration,
+                introDuration - preLogoDelay - logoFadeInDuration);
+            if (requestedHold > 0f) yield return new WaitForSecondsRealtime(requestedHold);
 
-            while (Time.unscaledTime - start < 4f)
-            {
-                float t = Mathf.Clamp01((Time.unscaledTime - start - 2f) / 2f);
-                SetGlow(Mathf.Lerp(0.095f, 0.4f, t));
-                if (eruptionLight != null) eruptionLight.intensity = Mathf.Lerp(0.15f, 1.2f, t);
-                yield return null;
-            }
-
-            if (eruptionSmoke != null) eruptionSmoke.Play();
-            if (eruptionSparks != null) eruptionSparks.Play();
-            if (eruptionSource != null && eruptionSource.clip != null) eruptionSource.Play();
-            yield return ShakeCamera();
-
-            float flashStart = Time.unscaledTime;
-            while (Time.unscaledTime - flashStart < 1.5f)
-            {
-                float t = (Time.unscaledTime - flashStart) / 1.5f;
-                float pulse = Mathf.Sin(t * Mathf.PI);
-                SetGlow(Mathf.Lerp(0.4f, 0.1f, t) + pulse * 0.32f);
-                if (eruptionLight != null) eruptionLight.intensity = Mathf.Lerp(1.2f, 0.3f, t) + pulse * 2.5f;
-                yield return null;
-            }
-
-            float titleWait = Mathf.Max(0f, 6f - (Time.unscaledTime - start));
-            if (titleWait > 0f) yield return new WaitForSecondsRealtime(titleWait);
-            yield return Fade(titleGroup, 0f, 1f, 0.9f);
-
-            float menuStart = Time.unscaledTime;
-            float revealDelay = Mathf.Max(0.16f, (duration - 8f) / Mathf.Max(1, menuGroups.Length));
             for (int i = 0; i < menuGroups.Length; i++)
             {
                 if (i < menuButtons.Length && menuButtons[i] != null) menuButtons[i].interactable = true;
-                yield return Fade(menuGroups[i], 0f, 1f, 0.38f);
-                yield return new WaitForSecondsRealtime(revealDelay);
+                yield return Fade(menuGroups[i], 0f, 1f, menuFadeDuration);
+                if (menuStaggerDelay > 0f) yield return new WaitForSecondsRealtime(menuStaggerDelay);
             }
-
-            float remaining = duration - 8f - (Time.unscaledTime - menuStart);
-            if (remaining > 0f) yield return new WaitForSecondsRealtime(remaining);
             if (eruptionLight != null) eruptionLight.intensity = 0.22f;
             SetGlow(0.08f);
         }

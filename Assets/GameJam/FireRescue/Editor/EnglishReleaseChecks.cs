@@ -93,8 +93,18 @@ public sealed class EnglishMenuCapture : MonoBehaviour
         var texts = Object.FindObjectsByType<Text>(FindObjectsInactive.Include, FindObjectsSortMode.None);
         foreach (var text in texts) EnglishReleaseChecks.Audit(report, text.name, text.text);
         var title = texts.FirstOrDefault(t => t.text == "VOLKANOVSKI");
-        EnglishReleaseChecks.Check(report, title && title.gameObject.activeInHierarchy && title.font.HasCharacter('I'), "Visible VOLKANOVSKI title uses a font with uppercase I");
-        EnglishReleaseChecks.Check(report, title && !title.cachedTextGenerator.GetVerticesArray().Any(v => !float.IsFinite(v.position.x)), "Title geometry is valid");
+        var logo = Object.FindObjectsByType<Image>(FindObjectsInactive.Include, FindObjectsSortMode.None)
+            .FirstOrDefault(image => image.name == "VolkanovskiLogoIntro");
+        var logoGroup = logo ? logo.GetComponent<CanvasGroup>() : null;
+        bool visibleLogo = logo && logo.enabled && logo.sprite && logo.gameObject.activeInHierarchy && logoGroup && logoGroup.alpha > .95f;
+        bool visibleTextTitle = title && title.gameObject.activeInHierarchy && title.font && title.font.HasCharacter('I');
+        EnglishReleaseChecks.Check(report, visibleLogo || visibleTextTitle, "Visible VOLKANOVSKI branding uses the authored logo or a readable text title");
+        EnglishReleaseChecks.Check(report, visibleLogo
+            ? logo.rectTransform.rect.width > 0 && logo.rectTransform.rect.height > 0 && float.IsFinite(logo.rectTransform.position.x) && !visibleTextTitle
+            : visibleTextTitle && !title.cachedTextGenerator.GetVerticesArray().Any(v => !float.IsFinite(v.position.x)), "Title geometry is valid and the logo has no duplicate text title");
+        var primaryLabels = texts.Where(t => t.gameObject.activeInHierarchy && t.GetComponentInParent<Button>() &&
+            new[] { "NEW GAME", "SETTINGS", "HOW TO PLAY", "EXIT" }.Contains(t.text.ToUpperInvariant())).ToArray();
+        EnglishReleaseChecks.Check(report, primaryLabels.Length == 4 && primaryLabels.All(t => t.font && t.font.HasCharacter('I')), "All four primary menu labels retain a font with uppercase I");
         EnglishReleaseChecks.Check(report, texts.Any(t => t.text.Equals("New game", StringComparison.OrdinalIgnoreCase)), "English main menu buttons survive");
         yield return new WaitForEndOfFrame();
         Directory.CreateDirectory(EnglishReleaseChecks.Folder);

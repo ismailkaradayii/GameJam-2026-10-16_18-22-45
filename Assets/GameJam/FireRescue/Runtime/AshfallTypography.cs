@@ -12,7 +12,7 @@ namespace Ashfall.UI
         public enum Role { Heading, Body, Label, Caption, Button, Number }
         public static readonly Color Paper = new Color(.93f, .915f, .88f);
         public static readonly Color Secondary = new Color(.74f, .735f, .71f);
-        static Font modular, regular, semibold, compact;
+        static Font modular, mainMenuDisplay, regular, semibold, compact;
         static TMP_FontAsset bodySdf, displaySdf;
 
         public static Font Regular => regular ? regular : (regular = Resources.Load<Font>("ASHFALL/UI/Fonts/Barlow-Medium"));
@@ -20,6 +20,8 @@ namespace Ashfall.UI
         public static Font Compact => compact ? compact : (compact = Resources.Load<Font>("ASHFALL/UI/Fonts/Barlow-SemiBold"));
         // Retained for older authoring tools and the legacy font's sanitizer.
         public static Font Modular => modular ? modular : (modular = Resources.Load<Font>("ASHFALL/UI/Fonts/Modular"));
+        public static Font MainMenuDisplay => mainMenuDisplay ? mainMenuDisplay :
+            (mainMenuDisplay = Resources.Load<Font>("ASHFALL/UI/Fonts/Volkanovski_Lava"));
         public static TMP_FontAsset BodySdf => bodySdf ? bodySdf : (bodySdf = Resources.Load<TMP_FontAsset>("ASHFALL/UI/Fonts/Barlow SDF"));
         public static TMP_FontAsset DisplaySdf => displaySdf ? displaySdf : (displaySdf = Resources.Load<TMP_FontAsset>("ASHFALL/UI/Fonts/Chakra SDF"));
 
@@ -48,13 +50,21 @@ namespace Ashfall.UI
             {
                 // Arrow glyphs use their existing symbol font.
                 if (label.name == "Direction" || label.name == "Arrow") continue;
-                label.font = Face(Infer(label)); label.fontStyle = FontStyle.Normal;
+                label.font = IsPrimaryMainMenuLabel(label) && MainMenuDisplay ? MainMenuDisplay : Face(Infer(label));
+                label.fontStyle = FontStyle.Normal;
             }
             foreach (var label in Object.FindObjectsByType<TMP_Text>(FindObjectsInactive.Include, FindObjectsSortMode.None))
             {
                 var font = UsesBodyFace(label) ? BodySdf : DisplaySdf;
                 if (font) { label.font = font; label.fontSharedMaterial = font.material; label.fontStyle = FontStyles.Normal; }
             }
+        }
+
+        static bool IsPrimaryMainMenuLabel(Text label)
+        {
+            if (!label || label.gameObject.scene.name != "MainMenu" || !label.GetComponentInParent<Button>()) return false;
+            string value = label.text.Trim().ToUpperInvariant();
+            return value == "NEW GAME" || value == "SETTINGS" || value == "HOW TO PLAY" || value == "EXIT";
         }
 
         public static Role Infer(Text label)

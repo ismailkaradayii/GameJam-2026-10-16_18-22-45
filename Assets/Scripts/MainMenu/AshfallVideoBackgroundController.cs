@@ -37,11 +37,19 @@ namespace Ashfall.MainMenu
             videoPlayer.errorReceived += OnErrorReceived;
             videoPlayer.frameReady += OnFrameReady;
             videoPlayer.loopPointReached += OnLoopPointReached;
-            if (started) BeginPlayback();
+            // Script recompiles can disable/enable this component while Play Mode
+            // remains active. OnDisable stops the player, so restart preparation
+            // here as well instead of relying on Start being called a second time.
+            if (Application.isPlaying)
+            {
+                started = true;
+                BeginPlayback();
+            }
         }
 
         private void Start()
         {
+            if (started) return;
             started = true;
             BeginPlayback();
         }
