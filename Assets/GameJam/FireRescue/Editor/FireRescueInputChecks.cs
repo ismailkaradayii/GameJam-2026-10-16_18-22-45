@@ -207,7 +207,7 @@ public static class FireRescueInputChecks
                 case 12:
                     if (elapsed < 0.2d) return;
                     Require("E_drops_intake_in_water", hose.IsDeployed && !hose.IsCarried && water.ContainsIntake(hose.nozzle.position), StateEvidence() + "; nozzle=" + hose.nozzle.position + "; surface=" + water.SurfaceY);
-                    Press(Key.P, 13, "P_pump_press");
+                    Press(Key.F, 13, "F_pump_press");
                     break;
                 case 13:
                     if (elapsed < 0.2d) return;

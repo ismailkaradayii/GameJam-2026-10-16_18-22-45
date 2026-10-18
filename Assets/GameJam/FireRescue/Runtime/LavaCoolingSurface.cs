@@ -17,6 +17,9 @@ namespace GameJam.FireRescue
         [Min(.05f)] public float meshRefreshInterval = .12f;
         public Color coldTint = new Color(.38f, .43f, .48f, 1f);
         public int CooledPatchCount { get; private set; }
+        public int CrustMeshRebuildCount { get; private set; }
+        public int CrustColliderCookCount { get; private set; }
+        public int SourceMeshReadCount { get; private set; }
         public bool BlocksFlow => flow && flow.StoppedByCooling;
         public bool HasDirectCooling
         {
@@ -44,6 +47,7 @@ namespace GameJam.FireRescue
             public Mesh mesh;
             public Material material;
             public MeshCollider solid;
+            public bool geometryDirty = true;
         }
         readonly List<Patch> patches = new List<Patch>();
         static readonly List<LavaCoolingSurface> surfaces = new List<LavaCoolingSurface>();
@@ -52,11 +56,15 @@ namespace GameJam.FireRescue
         readonly List<Vector2> uv = new List<Vector2>();
         readonly List<int> indices = new List<int>();
         readonly Dictionary<Vector3, float> arcDistances = new Dictionary<Vector3, float>();
+        readonly List<Vector3> sourcePoints = new List<Vector3>();
+        readonly List<int> sourceTriangles = new List<int>();
+        readonly List<int> submeshTriangles = new List<int>();
+        Mesh cachedSurfaceMesh;
         LavaIgnitionSource source;
         ProgressiveLavaFlow flow;
         ParticleSystem steam;
         float nextSteam, nextMesh;
-        bool dirty;
+        bool dirty, sourceGeometryDirty = true, sourceWasVisible;
         Matrix4x4 surfaceMatrix;
         float RequiredWater => Mathf.Max(1f, litresPerPatch);
 
@@ -97,11 +105,60 @@ namespace GameJam.FireRescue
         }
         void LateUpdate()
         {
-            if (patches.Count == 0 || !source || !source.heatCollider) return;
-            if (source.heatCollider.transform.localToWorldMatrix != surfaceMatrix) dirty = true;
+            if (patches.Count == 0) return;
+            if (!source) source = GetComponent<LavaIgnitionSource>();
+            if (!source || !source.heatCollider)
+            {
+                if (sourceWasVisible) { NotifySurfaceChanged(); RefreshCrust(); }
+                return;
+            }
+            Mesh current = source.heatCollider is MeshCollider collider ? collider.sharedMesh : null;
+            bool visible = source.heatCollider.enabled && (!source.surfaceRenderer || source.surfaceRenderer.enabled);
+            if (current != cachedSurfaceMesh || visible != sourceWasVisible ||
+                source.heatCollider.transform.localToWorldMatrix != surfaceMatrix) NotifySurfaceChanged();
             if (dirty && Time.time >= nextMesh) RefreshCrust();
         }
-        public void NotifySurfaceChanged() => dirty = true;
+        public void NotifySurfaceChanged()
+        {
+            sourceGeometryDirty = true;
+            foreach (var patch in patches) InvalidateGeometry(patch);
+        }
+        /// <summary>A growing front changes only its old partial cell and the newly revealed cells.</summary>
+        public void NotifySurfaceChanged(Bounds changedBounds)
+        {
+            // Even an untouched cover must read the latest lava when a new region is added later.
+            sourceGeometryDirty = true;
+            foreach (var patch in patches)
+            {
+                if (patch.kind == RegionKind.Downstream)
+                {
+                    // Arc clipping uses the nearest centreline, which can differ from authored
+                    // row distance on a hairpin. Keep residual reaches conservative.
+                    InvalidateGeometry(patch);
+                    continue;
+                }
+                if (patch.kind == RegionKind.Water)
+                {
+                    float radius = Mathf.Max(1f, patchRadius) * Mathf.Sqrt(Progress(patch)) * 1.03f;
+                    if (changedBounds.min.x <= patch.point.x + radius && changedBounds.max.x >= patch.point.x - radius &&
+                        changedBounds.min.z <= patch.point.z + radius && changedBounds.max.z >= patch.point.z - radius)
+                        InvalidateGeometry(patch);
+                    continue;
+                }
+                if (changedBounds.max.y < patch.lowY || changedBounds.min.y > patch.highY) continue;
+                // Transform the changed cells' bounds, not the currently clipped cover: a protected
+                // foundation can be empty until the front first reaches it. This is conservative
+                // for rotated/tilted boxes and curved routes, so it never misses newly arriving lava.
+                Bounds local = new Bounds(patch.worldToFootprint.MultiplyPoint3x4(changedBounds.center), Vector3.zero);
+                for (int x = -1; x <= 1; x += 2) for (int y = -1; y <= 1; y += 2) for (int z = -1; z <= 1; z += 2)
+                    local.Encapsulate(patch.worldToFootprint.MultiplyPoint3x4(changedBounds.center +
+                        Vector3.Scale(changedBounds.extents, new Vector3(x, y, z))));
+                if (local.min.x <= patch.footprintHalfSize.x && local.max.x >= -patch.footprintHalfSize.x &&
+                    local.min.z <= patch.footprintHalfSize.z && local.max.z >= -patch.footprintHalfSize.z)
+                    InvalidateGeometry(patch);
+            }
+        }
+        void InvalidateGeometry(Patch patch) { patch.geometryDirty = true; dirty = true; }
         public bool IsHotAt(Vector3 point) => CoolingAt(point) < 1f;
         public float DirectCoolingAt(Vector3 point)
         {
@@ -142,6 +199,7 @@ namespace GameJam.FireRescue
                 patches.Add(region); CreateCrust(region);
             }
             if (progress <= region.progress) return;
+            bool becomesSolid = region.progress < 1f && progress >= 1f;
             region.progress = progress;
             // Equal-temperature touching reaches can share one continuous mesh. Different
             // temperatures stay separate so an old cold reach is never reheated by a new dam.
@@ -153,10 +211,11 @@ namespace GameJam.FireRescue
                     other.toDistance < region.fromDistance || other.fromDistance > region.toDistance) continue;
                 region.fromDistance = Mathf.Min(region.fromDistance, other.fromDistance);
                 region.toDistance = Mathf.Max(region.toDistance, other.toDistance);
+                InvalidateGeometry(region);
                 DisposePatch(other); patches.RemoveAt(i);
             }
-            UpdateHeat(region); dirty = true;
-            if (progress >= 1f) RefreshCrust();
+            UpdateHeat(region);
+            if (becomesSolid) { InvalidateGeometry(region); RefreshCrust(); }
         }
         /// <summary>Uses the water already delivered to a house; never consumes another tank litre.</summary>
         public static void CoolBuildingFoundation(BurnableBuilding building, float progress)
@@ -223,14 +282,19 @@ namespace GameJam.FireRescue
             }
             var box = building.ignitionBounds;
             Vector3 scale = box.transform.lossyScale;
-            region.worldToFootprint = Matrix4x4.Translate(-box.center) * box.transform.worldToLocalMatrix;
-            region.footprintHalfSize = box.size * .5f + new Vector3(1.5f / Mathf.Max(.001f, Mathf.Abs(scale.x)), 0,
+            Matrix4x4 footprint = Matrix4x4.Translate(-box.center) * box.transform.worldToLocalMatrix;
+            Vector3 halfSize = box.size * .5f + new Vector3(1.5f / Mathf.Max(.001f, Mathf.Abs(scale.x)), 0,
                 1.5f / Mathf.Max(.001f, Mathf.Abs(scale.z)));
+            float lowY = box.bounds.min.y - .25f, highY = box.bounds.min.y + 1.5f;
+            if (region.worldToFootprint != footprint || region.footprintHalfSize != halfSize || region.lowY != lowY || region.highY != highY)
+                InvalidateGeometry(region);
+            region.worldToFootprint = footprint; region.footprintHalfSize = halfSize;
             // Only the contact-height slab is protected, never another river overhead.
-            region.lowY = box.bounds.min.y - .25f;
-            region.highY = box.bounds.min.y + 1.5f;
+            region.lowY = lowY; region.highY = highY;
+            bool becomesSolid = region.progress < 1f && progress >= 1f;
             region.progress = Mathf.Max(region.progress, progress);
-            UpdateHeat(region); dirty = true;
+            UpdateHeat(region);
+            if (becomesSolid) InvalidateGeometry(region);
             if (!source) source = GetComponent<LavaIgnitionSource>();
             if (!flow) flow = GetComponent<ProgressiveLavaFlow>();
             if (flow)
@@ -238,7 +302,7 @@ namespace GameJam.FireRescue
                 flow.NotifyCoolingChanged();
                 if (region.progress >= 1f) flow.RefreshCoolingBarrier();
             }
-            if (region.progress >= 1f) RefreshCrust();
+            if (becomesSolid) RefreshCrust();
         }
         float Progress(Patch p) => p.kind == RegionKind.Water ? Mathf.Clamp01(p.water / RequiredWater) : p.progress;
         bool ContainsRegion(Patch p, Vector3 point)
@@ -282,7 +346,7 @@ namespace GameJam.FireRescue
             patch.water = Mathf.Min(RequiredWater, patch.water + litres);
             float t = Mathf.Clamp01(patch.water / RequiredWater);
             UpdateHeat(patch);
-            dirty = true;
+            InvalidateGeometry(patch);
             if (!flow) flow = GetComponent<ProgressiveLavaFlow>();
             if (flow) flow.NotifyCoolingChanged();
             if (Time.time >= nextSteam) { nextSteam = Time.time + .08f; EmitSteam(point); }
@@ -327,6 +391,7 @@ namespace GameJam.FireRescue
             patch.material.DisableKeyword("_SURFACE_TYPE_TRANSPARENT");
             patch.material.EnableKeyword("_EMISSION");
             patch.renderer.sharedMaterial = patch.material;
+            InvalidateGeometry(patch);
             UpdateHeat(patch);
         }
         void UpdateHeat(Patch patch)
@@ -373,26 +438,43 @@ namespace GameJam.FireRescue
                     if (patch.renderer) patch.renderer.enabled = false;
                     if (patch.solid) patch.solid.enabled = false;
                 }
+                sourceWasVisible = false;
                 return;
             }
             Mesh mesh = collider.sharedMesh;
             if (!mesh.isReadable) return;
-            surfaceMatrix = collider.transform.localToWorldMatrix;
-            var points = mesh.vertices;
-            for (int i = 0; i < points.Length; i++) points[i] = surfaceMatrix.MultiplyPoint3x4(points[i]);
-            var triangles = mesh.triangles;
-            arcDistances.Clear();
+            bool visible = collider.enabled && (!source.surfaceRenderer || source.surfaceRenderer.enabled);
+            if (mesh != cachedSurfaceMesh || collider.transform.localToWorldMatrix != surfaceMatrix || visible != sourceWasVisible)
+                NotifySurfaceChanged();
+            dirty = false;
+            sourceWasVisible = visible;
+            if (sourceGeometryDirty)
+            {
+                // Keep reusable world-space buffers while only a region's temperature changes.
+                // A genuinely changed/extended lava mesh invalidates every affected cover.
+                surfaceMatrix = collider.transform.localToWorldMatrix;
+                mesh.GetVertices(sourcePoints); mesh.GetTriangles(sourceTriangles, 0);
+                for (int submesh = 1; submesh < mesh.subMeshCount; submesh++)
+                {
+                    mesh.GetTriangles(submeshTriangles, submesh);
+                    sourceTriangles.AddRange(submeshTriangles);
+                }
+                for (int i = 0; i < sourcePoints.Count; i++) sourcePoints[i] = surfaceMatrix.MultiplyPoint3x4(sourcePoints[i]);
+                cachedSurfaceMesh = mesh; sourceGeometryDirty = false; arcDistances.Clear(); SourceMeshReadCount++;
+            }
             foreach (var patch in patches)
             {
+                if (!patch.geometryDirty) continue;
+                patch.geometryDirty = false;
                 vertices.Clear(); uv.Clear(); indices.Clear();
                 float progress = Progress(patch);
                 float radius = Mathf.Max(1f, patchRadius) * Mathf.Sqrt(progress);
                 float boundsRadius = radius * 1.03f;
                 var toLocal = patch.renderer.transform.worldToLocalMatrix;
                 int planeCount = patch.kind == RegionKind.Water ? Sides : patch.kind == RegionKind.Foundation ? 6 : 2;
-                for (int i = 0; i < triangles.Length; i += 3)
+                for (int i = 0; i < sourceTriangles.Count; i += 3)
                 {
-                    Vector3 a = points[triangles[i]], b = points[triangles[i + 1]], c = points[triangles[i + 2]];
+                    Vector3 a = sourcePoints[sourceTriangles[i]], b = sourcePoints[sourceTriangles[i + 1]], c = sourcePoints[sourceTriangles[i + 2]];
                     if (patch.kind == RegionKind.Water &&
                         (Mathf.Min(a.x, b.x, c.x) > patch.point.x + boundsRadius || Mathf.Max(a.x, b.x, c.x) < patch.point.x - boundsRadius ||
                         Mathf.Min(a.z, b.z, c.z) > patch.point.z + boundsRadius || Mathf.Max(a.z, b.z, c.z) < patch.point.z - boundsRadius)) continue;
@@ -438,14 +520,14 @@ namespace GameJam.FireRescue
                 }
                 patch.mesh.Clear(); patch.mesh.SetVertices(vertices); patch.mesh.SetUVs(0, uv); patch.mesh.SetTriangles(indices, 0);
                 patch.mesh.RecalculateNormals(); patch.mesh.RecalculateTangents(); patch.mesh.RecalculateBounds();
-                patch.renderer.enabled = indices.Count > 0 && collider.enabled &&
-                    (!source.surfaceRenderer || source.surfaceRenderer.enabled);
+                CrustMeshRebuildCount++;
+                patch.renderer.enabled = indices.Count > 0 && visible;
                 // Keep the visible cooled surface and the walkable/wheel surface identical.
                 if (patch.solid)
                 {
                     patch.solid.sharedMesh = null;
                     patch.solid.enabled = progress >= 1f && patch.renderer.enabled;
-                    if (patch.solid.enabled) patch.solid.sharedMesh = patch.mesh;
+                    if (patch.solid.enabled) { patch.solid.sharedMesh = patch.mesh; CrustColliderCookCount++; }
                 }
             }
         }
@@ -453,6 +535,9 @@ namespace GameJam.FireRescue
         {
             foreach (var p in patches) DisposePatch(p);
             patches.Clear(); CooledPatchCount = 0; dirty = false; nextMesh = nextSteam = 0;
+            cachedSurfaceMesh = null; sourceGeometryDirty = true; sourceWasVisible = false;
+            sourcePoints.Clear(); sourceTriangles.Clear(); submeshTriangles.Clear(); arcDistances.Clear();
+            CrustMeshRebuildCount = CrustColliderCookCount = SourceMeshReadCount = 0;
             if (steam) steam.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
         }
         static void DisposePatch(Patch p)

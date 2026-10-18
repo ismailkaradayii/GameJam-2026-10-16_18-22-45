@@ -125,7 +125,7 @@ namespace Itfaiye.Editor
                 case 8:
                     Input(); Mouse(129.6f); if (elapsed < .4f) return;
                     Check("Same turn speed has the same sway at 30 and 60 FPS", hipSway > .007f && Mathf.Abs(Mathf.Abs(hands.CurrentSwayOffset.x) - hipSway) < .0003f);
-                    Input(Key.Digit1); Mouse(); Next(9); return;
+                    Input(Key.Digit2); Mouse(); Next(9); return;
                 case 9:
                     Input(); Mouse(); if (elapsed < .6f) return;
                     Check("Holstering restores the original camera view", !pistol.Equipped && Mathf.Abs(player.playerCamera.fieldOfView - player.fieldOfView) < .01f);

@@ -31,6 +31,9 @@ public static class VillageAlarmSetup
             var wrist = animator.GetBoneTransform(HumanBodyBones.RightHand);
             report.AppendLine("Hands=" + Path(animator.transform) + "; lengths=" + Vector3.Distance(shoulder.position, elbow.position) + "/" + Vector3.Distance(elbow.position, wrist.position) + "; scale=" + animator.transform.lossyScale);
         }
+        if (mission.villageAlarm && mission.villageAlarm.contactPoint)
+            foreach (var collider in Physics.OverlapSphere(mission.villageAlarm.contactPoint.position, 4f, ~0, QueryTriggerInteraction.Ignore))
+                report.AppendLine("NEARBY COLLIDER " + Path(collider.transform) + "; bounds=" + collider.bounds + "; type=" + collider.GetType().Name);
         foreach (var t in Object.FindObjectsByType<Transform>(FindObjectsInactive.Include, FindObjectsSortMode.None))
         {
             string prefab = PrefabUtility.GetPrefabAssetPathOfNearestInstanceRoot(t);
@@ -94,15 +97,15 @@ public static class VillageAlarmSetup
         alarm.mission = mission; alarm.player = player; alarm.movingHead = moving.transform;
         alarm.hands = player.firstPerson.handsAnimator.GetComponent<Itfaiye.ItfaiyeFirstPersonHands>();
         alarm.cameraKick = player.viewCamera.GetComponent<VolcanoCameraShake>();
-        alarm.maximumPressDistance = 3.6f;
+        alarm.maximumPressDistance = 1.5f;
         var contact = new GameObject("Alarm palm contact").transform; contact.SetParent(button.transform, false);
         Vector3 contactPosition = movingRenderer.bounds.center;
         contactPosition.y = movingRenderer.bounds.max.y + .015f;
         contact.SetPositionAndRotation(contactPosition, Quaternion.FromToRotation(Vector3.up, button.transform.forward));
         alarm.contactPoint = contact;
         var approach = new GameObject("Alarm approach pose").transform; approach.SetParent(mission.transform, false);
-        Vector3 direction = Vector3.ProjectOnPlane(mission.standingSpawn.position - contactPosition, Vector3.up).normalized;
-        Vector3 approachPosition = contactPosition + direction * .8f; approachPosition.y = mission.standingSpawn.position.y;
+        ResolveApproach(alarm, out Vector3 direction, out float approachDistance);
+        Vector3 approachPosition = contactPosition + direction * approachDistance; approachPosition.y = mission.standingSpawn.position.y;
         approach.SetPositionAndRotation(approachPosition, Quaternion.LookRotation(-direction)); alarm.approachPose = approach;
         alarm.redSpot = Object.FindObjectsByType<Light>(FindObjectsSortMode.None).Where(l => l.type == LightType.Spot)
             .OrderBy(l => Vector3.Distance(l.transform.position, contactPosition)).FirstOrDefault();
@@ -160,9 +163,44 @@ public static class VillageAlarmSetup
             throw new InvalidOperationException("Use the authored Volcano_Demo in Edit Mode.");
         var alarm = Object.FindFirstObjectByType<VolcanoMissionDirector>().villageAlarm;
         alarm.hands.buttonLeanInViewMetres = .4f;
+        alarm.maximumPressDistance = 1.5f;
+        ResolveApproach(alarm, out Vector3 direction, out float approachDistance);
+        Vector3 approach = alarm.contactPoint.position + direction * approachDistance;
+        approach.y = alarm.mission.standingSpawn.position.y;
+        alarm.approachPose.SetPositionAndRotation(approach, Quaternion.LookRotation(-direction));
+        alarm.redSpot.transform.rotation = Quaternion.LookRotation(alarm.contactPoint.position - alarm.redSpot.transform.position);
+        alarm.redSpot.range = Mathf.Max(alarm.redSpot.range, Vector3.Distance(alarm.redSpot.transform.position, alarm.contactPoint.position) * 2.2f);
+        foreach (Object modified in new Object[] { alarm, alarm.approachPose, alarm.redSpot, alarm.redSpot.transform })
+        {
+            Dirty(modified);
+            if (PrefabUtility.IsPartOfPrefabInstance(modified)) PrefabUtility.RecordPrefabInstancePropertyModifications(modified);
+        }
         Dirty(alarm.hands); PrefabUtility.RecordPrefabInstancePropertyModifications(alarm.hands);
         AssetDatabase.SaveAssets(); EditorSceneManager.MarkSceneDirty(alarm.gameObject.scene); EditorSceneManager.SaveScene(alarm.gameObject.scene);
         Validate(); ContextualInteractionSetup.Validate();
+    }
+    static void ResolveApproach(VillageAlarmButton alarm, out Vector3 direction, out float distance)
+    {
+        Vector3 contact = alarm.contactPoint.position;
+        direction = Vector3.ProjectOnPlane(alarm.mission.standingSpawn.position - contact, Vector3.up).normalized;
+        distance = 1.2f;
+        // A tabletop button must be approached from its closest exposed edge, not through the table.
+        var support = Physics.RaycastAll(contact + Vector3.up * .1f, Vector3.down, 2f, ~0, QueryTriggerInteraction.Ignore)
+            .OrderBy(hit => hit.distance)
+            .FirstOrDefault(hit => hit.collider is BoxCollider && !hit.transform.IsChildOf(alarm.transform) &&
+                !hit.transform.IsChildOf(alarm.player.transform)).collider as BoxCollider;
+        if (!support) return;
+        Vector3 local = support.transform.InverseTransformPoint(contact), half = support.size * .5f;
+        Vector3 min = support.center - half, max = support.center + half;
+        var edges = new[] { new Vector3(min.x, local.y, local.z), new Vector3(max.x, local.y, local.z),
+            new Vector3(local.x, local.y, min.z), new Vector3(local.x, local.y, max.z) };
+        Vector3 offset = edges.Select(edge => Vector3.ProjectOnPlane(support.transform.TransformPoint(edge) - contact, Vector3.up))
+            .OrderBy(delta => delta.sqrMagnitude).First();
+        if (offset.sqrMagnitude < .0001f) return;
+        direction = offset.normalized;
+        var body = alarm.player.playerBody;
+        float radius = body.radius * Mathf.Max(body.transform.lossyScale.x, body.transform.lossyScale.z);
+        distance = offset.magnitude + radius + .1f;
     }
     [MenuItem("GameJam/Final Loop/Validate village alarm button")]
     public static void Validate()

@@ -216,20 +216,20 @@ public sealed class GroupRescueProbe : MonoBehaviour
                     {
                         foreach (var lagging in mission.residents.Where(r => r.rescueGroup == 0))
                         { lagging.enabled = false; lagging.Agent.isStopped = true; }
-                        leader.SetDestination(mission.assemblyPoint.position + Vector3.back * (mission.AssemblyBoundaryRadius + playerBodyRadius + 3.4f));
+                        leader.SetDestination(mission.assemblyPoint.position + Vector3.back * (mission.AssemblyBoundaryRadius + playerBodyRadius + 4.4f));
                         Next(32);
                     }
                     else
                     {
-                        leader.SetDestination(mission.assemblyPoint.position + Vector3.back * (mission.AssemblyBoundaryRadius + playerBodyRadius + 2.9f));
+                        leader.SetDestination(mission.assemblyPoint.position + Vector3.back * (mission.AssemblyBoundaryRadius + playerBodyRadius + 3.9f));
                         Next(3);
                     }
                     break;
                 case 32:
-                    if (!NearLeader(mission.assemblyPoint.position + Vector3.back * (mission.AssemblyBoundaryRadius + playerBodyRadius + 3.4f), .8f)) return;
-                    PlaceOutsideBoundary(3.1f);
+                    if (!NearLeader(mission.assemblyPoint.position + Vector3.back * (mission.AssemblyBoundaryRadius + playerBodyRadius + 4.4f), .8f)) return;
+                    PlaceOutsideBoundary(4.1f);
                     CheckThat("assembly reach measures the visible outer yellow markings", mission.AssemblyBoundaryRadius > 8.7f && mission.AssemblyBoundaryRadius < 8.9f);
-                    CheckThat("3.1 metres of body clearance outside the yellow boundary rejects delivery", !mission.PlayerAtAssembly && !mission.CanDepositGroup && !mission.TryAssemblyInteraction(), BoundaryEvidence());
+                    CheckThat("4.1 metres of body clearance outside the yellow boundary rejects delivery", !mission.PlayerAtAssembly && !mission.CanDepositGroup && !mission.TryAssemblyInteraction(), BoundaryEvidence());
                     EnableFootInput();
                     InputSystem.QueueStateEvent(testKeyboard, new KeyboardState(Key.E));
                     Next(33); break;
@@ -237,12 +237,12 @@ public sealed class GroupRescueProbe : MonoBehaviour
                     if (age < .1f) return;
                     InputSystem.QueueStateEvent(testKeyboard, new KeyboardState());
                     player.enabled = false;
-                    CheckThat("real E beyond the three-metre body-clearance limit leaves the group following", mission.ActiveGroup == 0 && mission.GroupsDelivered == 0 &&
+                    CheckThat("real E beyond the four-metre body-clearance limit leaves the group following", mission.ActiveGroup == 0 && mission.GroupsDelivered == 0 &&
                         mission.residents.Where(r => r.rescueGroup == 0).All(r => r.State == EvacuationResident.ResidentState.Following), BoundaryEvidence());
-                    PlaceOutsideBoundary(3f);
-                    CheckThat("three metres of clear space beyond the player's body allows delivery", mission.PlayerAtAssembly && mission.CanDepositGroup, BoundaryEvidence());
-                    PlaceOutsideBoundary(2.9f);
-                    CheckThat("delivery is available with both feet well outside the yellow ring", BodyBoundaryClearance() > 2.8f && FootBoundaryClearance() > 1.5f && mission.CanDepositGroup, BoundaryEvidence());
+                    PlaceOutsideBoundary(4f);
+                    CheckThat("four metres of clear space beyond the player's body allows delivery", mission.PlayerAtAssembly && mission.CanDepositGroup, BoundaryEvidence());
+                    PlaceOutsideBoundary(3.9f);
+                    CheckThat("delivery is available with both feet well outside the yellow ring", BodyBoundaryClearance() > 3.8f && FootBoundaryClearance() > 2.5f && mission.CanDepositGroup, BoundaryEvidence());
                     Next(34); break;
                 case 34:
                     if (age < .1f) return;
@@ -251,7 +251,7 @@ public sealed class GroupRescueProbe : MonoBehaviour
                     if (!mission.CanDepositGroup) return;
                     // Hold the automated leader outside for every key probe. Its navigation
                     // deceleration/avoidance must not carry the fixture across the line while E is processed.
-                    PlaceOutsideBoundary(2.9f);
+                    PlaceOutsideBoundary(3.9f);
                     CheckThat("group marker hides while leading group " + (groupIndex + 1), !marker.IsVisible && mission.NextRecruitGroup == -1);
                     stagedBefore = mission.AssembledCount;
                     depositingResidents = mission.residents.Where(r => r.rescueGroup == groupIndex).ToArray();
@@ -271,22 +271,49 @@ public sealed class GroupRescueProbe : MonoBehaviour
                     if (age < .1f) return;
                     InputSystem.QueueStateEvent(testKeyboard, new KeyboardState());
                     player.enabled = false;
-                    CheckThat("real E hands off group " + (groupIndex + 1) + " with both feet well outside the yellow ring", mission.ActiveGroup == -1 && BodyBoundaryClearance() > 2.8f && FootBoundaryClearance() > 1.5f, BoundaryEvidence());
+                    CheckThat("real E hands off group " + (groupIndex + 1) + " at 3.9 metres outside the yellow ring", mission.ActiveGroup == -1 && BodyBoundaryClearance() > 3.8f && FootBoundaryClearance() > 2.5f, BoundaryEvidence());
                     CheckThat("group " + (groupIndex + 1) + " E orders physical staging", mission.IsDepositing && mission.AssembledCount == stagedBefore);
                     CheckThat("handoff immediately frees the player to find the next group " + (groupIndex + 1), mission.ActiveGroup == -1 &&
                         mission.GroupsDelivered == groupIndex + 1 && mission.NextRecruitGroup == (groupIndex < 2 ? groupIndex + 1 : -1));
                     CheckThat("handoff starts routes without teleporting group " + (groupIndex + 1), depositingResidents.Select((r, i) =>
                         r.IsMovingToAssembly && !r.Agent.isStopped && Vector3.Distance(r.transform.position, handoffPositions[i]) <= r.runningSpeed * (age + .2f) &&
                         EvacuationResident.FlatDistance(r.Agent.destination, mission.AssemblySlot(r).position) < .5f).All(v => v));
-                    CheckThat("repeated E cannot hand off the same group twice", !mission.TryAssemblyInteraction() && mission.GroupsDelivered == groupIndex + 1);
+                    if (groupIndex < 2)
+                        CheckThat("repeated E cannot hand off the same group twice", !mission.TryAssemblyInteraction() && mission.GroupsDelivered == groupIndex + 1);
                     CheckThat("depositing does not count as shelter rescue", mission.RescuedCount == 0 && !mission.IsComplete);
                     if (groupIndex == 1) MoveToNextGroupDuringArrival();
+                    if (groupIndex == 2)
+                    {
+                        CheckThat("early departure can be requested while the final group walks in", mission.TryAssemblyInteraction() && mission.DepartureRequested && !mission.EscortStarted);
+                        PlaceOutsideBoundary(4.1f);
+                        typeof(EvacuationMission).GetMethod("TickGroups", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(mission, null);
+                        CheckThat("leaving the assembly range cancels a pending departure", !mission.DepartureRequested && !mission.EscortStarted);
+                        PlaceOutsideBoundary(3.9f);
+                        Next(37); break;
+                    }
+                    Next(4); break;
+                case 37:
+                    if (age < .1f) return;
+                    EnableFootInput();
+                    InputSystem.QueueStateEvent(testKeyboard, new KeyboardState(Key.E));
+                    Next(38); break;
+                case 38:
+                    if (age < .1f) return;
+                    InputSystem.QueueStateEvent(testKeyboard, new KeyboardState());
+                    player.enabled = false;
+                    CheckThat("one real E remembers the final departure before everyone is ready", mission.DepartureRequested && !mission.EscortStarted && mission.GroupsDelivered == 3);
                     Next(4); break;
                 case 4:
+                    if (groupIndex == 2)
+                    {
+                        if (!mission.EscortStarted) return;
+                        CheckThat("the queued departure starts without another E", !mission.DepartureRequested && mission.FollowingCount == 7 && mission.AssembledCount == 0);
+                        Next(5); break;
+                    }
                     int expected = groupIndex == 0 ? 2 : groupIndex == 1 ? 4 : 7;
                     if (mission.AssembledCount != expected) return;
                     if (groupIndex == 0)
-                        CheckThat("the first group enters and settles while the player stays well outside", BodyBoundaryClearance() > 2.8f && FootBoundaryClearance() > 1.5f &&
+                        CheckThat("the first group enters and settles while the player stays well outside", BodyBoundaryClearance() > 3.8f && FootBoundaryClearance() > 2.5f &&
                             mission.residents.Where(r => r.rescueGroup == 0).All(r => r.IsAtAssembly), BoundaryEvidence());
                     CheckThat("assembly count reaches " + expected + " only on real arrival", mission.AssembledCount == expected && mission.residents.Where(r => r.IsAtAssembly).All(r =>
                         EvacuationResident.FlatDistance(r.transform.position, mission.AssemblySlot(r).position) < 1.4f));
@@ -300,20 +327,13 @@ public sealed class GroupRescueProbe : MonoBehaviour
                         CheckThat("partial assembly cannot start shelter escort " + expected, !mission.AllAtAssembly && !mission.EscortStarted);
                         groupIndex++; MoveToGroup(); Next(2);
                     }
-                    else
-                    {
-                        CheckThat("seven assembled survivors await explicit departure", mission.AllAtAssembly && !mission.EscortStarted && !mission.ShelterOpened && mission.RescuedCount == 0);
-                        ResumeLeader(); leader.SetDestination(mission.assemblyPoint.position + new Vector3(0, 0, -6)); Next(5);
-                    }
                     break;
                 case 5:
-                    if (!NearLeader(mission.assemblyPoint.position + new Vector3(0, 0, -6), 1f)) return;
-                    UseContext(ContextualInteractionKind.AssemblyPoint, mission.assemblyPoint, null);
                     CheckThat("final E takes all seven from assembly", mission.EscortStarted && mission.FollowingCount == 7 && mission.AssembledCount == 0);
                     CheckThat("departure is idempotent", !mission.TryAssemblyInteraction());
                     CheckThat("escort keeps English guidance and its single departure cue", mission.GroupObjective == "Lead everyone to the shelter" && mission.GroupDetail.Contains("green marker") &&
-                        PendingLines().Length == 1 && PendingLines()[0].id == "depart" && PendingLines()[0].text == "Follow me. I'll take you to the shelter." && !marker.IsVisible);
-                    leader.SetDestination(mission.shelterApproach.position); Next(6); break;
+                        (PendingLines().Length == 1 && PendingLines()[0].id == "depart" || mission.dialogue.CurrentId == "depart") && !marker.IsVisible);
+                    ResumeLeader(); leader.SetDestination(mission.shelterApproach.position); Next(6); break;
                 case 6:
                     if (!NearLeader(mission.shelterApproach.position, 2f)) return;
                     CheckThat("shelter opens after the assembled group is escorted", mission.ShelterOpened && mission.EscortStarted);

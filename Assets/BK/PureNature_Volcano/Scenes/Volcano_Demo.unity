@@ -4363,7 +4363,7 @@ MonoBehaviour:
   - {fileID: 1491007321}
   - {fileID: 1240688359}
   - {fileID: 776496231}
-  maximumPressDistance: 3.6
+  maximumPressDistance: 1.5
   slapSeconds: 0.72
   contactFraction: 0.42
   buttonTravelMetres: 0.045
@@ -4561,7 +4561,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 1
     m_LineSpacing: 1.05
-  m_Text: Place the hose intake in water and press P to pump. Press R to retract
+  m_Text: Place the hose intake in water and press F to pump. Press R to retract
     it.
 --- !u!222 &33244185
 CanvasRenderer:
@@ -14222,7 +14222,7 @@ MonoBehaviour:
   contextualInteractions: {fileID: 459833459}
   interactKey: 19
   retractHoseKey: 32
-  pumpKey: 30
+  pumpKey: 20
   requiresWeaponPickup: 1
   vehicleCameraBlendSeconds: 0.6
   firstPerson: {fileID: 95214801}
@@ -289180,7 +289180,7 @@ MonoBehaviour:
   secondsBetweenSpawns: 2.2
   maximumAlive: 10
   disperseIntoVillage: 1
-  buildingAttackShare: 0.5
+  buildingAttackShare: 0.3
   strandedSpiritSeconds: 6
   strandedSpiritDistance: 120
 --- !u!4 &1377955235
@@ -333617,6 +333617,7 @@ MonoBehaviour:
   equipmentText: {fileID: 1050697417}
   equipmentGroup: {fileID: 1004747839}
   waterGroup: {fileID: 1203750494}
+  equipmentSlots: {fileID: 0}
   objectiveGroup: {fileID: 1024031545}
   objectiveText: {fileID: 49634491}
   waterText: {fileID: 881182537}
@@ -346823,8 +346824,8 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1690681691}
   serializedVersion: 2
-  m_LocalRotation: {x: -0, y: 0.08429334, z: -0, w: 0.996441}
-  m_LocalPosition: {x: 28.25961, y: 1.04, z: -597.33466}
+  m_LocalRotation: {x: -0, y: 0.7071068, z: -0, w: 0.7071068}
+  m_LocalPosition: {x: 25.60063, y: 1.04, z: -599.49664}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -388219,7 +388220,7 @@ Light:
   m_Type: 0
   m_Color: {r: 1, g: 0.025, b: 0.006, a: 1}
   m_Intensity: 55
-  m_Range: 10
+  m_Range: 11.314969
   m_SpotAngle: 34
   m_InnerSpotAngle: 19
   m_CookieSize: 10
@@ -388280,7 +388281,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1904283976}
   serializedVersion: 2
-  m_LocalRotation: {x: -0.13629584, y: 0.71084195, z: -0.67492276, w: -0.14354949}
+  m_LocalRotation: {x: -0.058913205, y: 0.8954604, z: -0.4232551, w: -0.124639854}
   m_LocalPosition: {x: 1.5215645, y: -178.84987, z: -121.98938}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0

@@ -141,11 +141,15 @@ public static class VehicleInteractionChecks
             case 11:
                 if (age < .3f) return;
                 var lake = ui.targets.First(t => t && t.kind == ContextualInteractionKind.LakeFill);
-                Check("lake prompt uses P without stealing E", player.mission.fillStation.CanFill && ui.Describe(lake, out var fill) && fill.input == InteractionInput.Pump && ui.Label(fill.input) == "[P]");
-                Keys(Key.P); Next(12); return;
+                Check("lake prompt uses F without stealing E", player.mission.fillStation.CanFill && ui.Describe(lake, out var fill) && fill.input == InteractionInput.Pump && ui.Label(fill.input) == "[F]");
+                Keys(Key.P); Next(111); return;
+            case 111:
+                if (age < .2f) return;
+                Check("old P binding no longer starts lake filling", !player.mission.fillStation.IsFilling && !player.hose.IsPumping);
+                Keys(Key.F); Next(12); return;
             case 12:
                 if (age < .4f) return;
-                Check("P starts actual water transfer and leaves the driver seated", player.IsDriving && player.mission.fillStation.IsFilling && player.hose.IsPumping && player.hose.TankLitres > 0);
+                Check("F starts actual water transfer and leaves the driver seated", player.IsDriving && player.mission.fillStation.IsFilling && player.hose.IsPumping && player.hose.TankLitres > 0);
                 Keys(); Next(13); return;
             case 13:
                 if (age < .15f) return;

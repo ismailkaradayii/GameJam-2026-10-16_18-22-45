@@ -36,11 +36,14 @@ namespace GameJam.FireRescue
         RectTransform cleanQuest, cleanSpeed, cleanSubtitle, cleanToast;
         string laidOutTitle, laidOutBody, laidOutHint, laidOutSubtitle, laidOutToast;
         float laidOutWidth;
+        RectTransform drivingHint;
+        float defaultWaterHeight;
         int layoutScreenWidth, layoutScreenHeight;
 
         [Header("Integrated gameplay")]
         public Text equipmentText;
         public GameObject equipmentGroup, waterGroup;
+        public EquipmentSlotsHUD equipmentSlots;
         public CanvasGroup objectiveGroup;
         // Keep the existing authoring tools compatible with the volcanic Canvas bindings.
         public VolcanoMissionDirector mission { get => missionDirector; set => missionDirector = value; }
@@ -117,6 +120,13 @@ namespace GameJam.FireRescue
             ApplySavedSettings();
             ConfigureReadableHudText();
             if (VolcanicHudTheme.Current) VolcanicHudTheme.Current.Apply(this);
+            BuildDrivingHint();
+            if (equipmentGroup)
+            {
+                equipmentSlots = equipmentGroup.GetComponent<EquipmentSlotsHUD>();
+                if (!equipmentSlots) equipmentSlots = equipmentGroup.AddComponent<EquipmentSlotsHUD>();
+                equipmentSlots.Configure(this);
+            }
             VolcanicHudTheme.ConfigurePauseMenu(this);
             HideTransientCenterNotifications();
             SetPanel(pausePanel, false);
@@ -157,6 +167,39 @@ namespace GameJam.FireRescue
                 foreach (Text label in villageIntegrity.houseLabels) FitText(label, 11, 16, false);
             if (villageIntegrity.defenseGroup)
                 FitText(villageIntegrity.defenseGroup.transform.Find("Title")?.GetComponent<Text>(), 17, 24, false);
+        }
+
+        void BuildDrivingHint()
+        {
+            if (!waterGroup || drivingHint) return;
+            defaultWaterHeight = ((RectTransform)waterGroup.transform).sizeDelta.y;
+            drivingHint = new GameObject("Water cannon controls", typeof(RectTransform)).GetComponent<RectTransform>();
+            drivingHint.SetParent(waterGroup.transform, false);
+            drivingHint.anchorMin = drivingHint.anchorMax = drivingHint.pivot = new Vector2(0, 1);
+            var icon = new GameObject("Right mouse button", typeof(RectTransform), typeof(RawImage)).GetComponent<RawImage>();
+            icon.transform.SetParent(drivingHint, false);
+            icon.texture = Resources.Load<Texture2D>("ASHFALL/UI/Icons/TutorialMouseButtons");
+            icon.uvRect = new Rect(295f / 700f, 13f / 211f, 108f / 700f, 168f / 211f);
+            icon.raycastTarget = false;
+            icon.rectTransform.anchorMin = icon.rectTransform.anchorMax = icon.rectTransform.pivot = new Vector2(0, .5f);
+            icon.rectTransform.sizeDelta = new Vector2(32f * 108f / 168f, 32f);
+            var label = new GameObject("Spray water hint", typeof(RectTransform), typeof(Text)).GetComponent<Text>();
+            label.transform.SetParent(drivingHint, false);
+            label.font = Ashfall.UI.AshfallTypography.Regular;
+            label.fontSize = 16; label.color = Color.white; label.alignment = TextAnchor.MiddleLeft;
+            label.supportRichText = true; label.raycastTarget = false;
+            label.text = HudInputEmphasis.Format("Hold RMB · Spray water");
+            label.rectTransform.anchorMin = Vector2.zero; label.rectTransform.anchorMax = Vector2.one;
+            label.rectTransform.offsetMin = new Vector2(30, 0); label.rectTransform.offsetMax = Vector2.zero;
+            drivingHint.gameObject.SetActive(false);
+        }
+
+        public float LayoutDrivingHint(float x, float y, float width)
+        {
+            if (!drivingHint || !drivingHint.gameObject.activeSelf) return 0f;
+            drivingHint.anchoredPosition = new Vector2(x, -y);
+            drivingHint.sizeDelta = new Vector2(width, 32);
+            return 44f;
         }
 
         static void FitButtonText(Button button, int minimum, int preferred)
@@ -249,6 +292,7 @@ namespace GameJam.FireRescue
             foreach (var house in flow.targetBuildings) if (house) { if (!house.IsBurnedOut) standing++; if (house.IsBurning) burning++; }
             if (objectiveText) objectiveText.text = (cleanPresentation ? "Houses   " : "Houses standing   ") + standing + " / " + Mathf.Max(1, flow.TargetCount);
             bool showWater = playing && (player.IsDriving || hose.IsDeployed);
+            if (drivingHint) drivingHint.gameObject.SetActive(playing && player.IsDriving);
             if (waterGroup) waterGroup.SetActive(showWater);
             else
             {
@@ -258,16 +302,16 @@ namespace GameJam.FireRescue
                 var label = waterText ? waterText.transform.parent.Find("WaterLabel") : null;
                 if (label) label.gameObject.SetActive(showWater);
             }
-            if (equipmentGroup) equipmentGroup.SetActive(playing && player.HasPistol && !player.IsDriving && (!cleanPresentation || !hose.IsCarried));
-            if (cleanPresentation && equipmentGroup)
+            if (equipmentGroup) equipmentGroup.SetActive(playing && player.HasPistol && !player.IsDriving && !hose.IsCarried);
+            if (cleanPresentation && equipmentGroup && !equipmentSlots)
             {
                 var equipmentRect = equipmentGroup.transform as RectTransform;
                 Vector2 position = new Vector2(-28, showWater ? 194 : 60);
                 if (equipmentRect && equipmentRect.anchoredPosition != position) equipmentRect.anchoredPosition = position;
             }
-            if (equipmentText && player.pistol) equipmentText.text = "1  PISTOL  " + (player.pistol.Equipped ? player.pistol.Ammo + " / " + player.pistol.reserveAmmo : "[HOLSTERED]") +
+            if (!equipmentSlots && equipmentText && player.pistol) equipmentText.text = "1  PISTOL  " + (player.pistol.Equipped ? player.pistol.Ammo + " / " + player.pistol.reserveAmmo : "[HOLSTERED]") +
                 (player.pistol.IsReloading ? "  RELOADING " + Mathf.RoundToInt(player.pistol.ReloadProgress * 100) + "%" : "");
-            if (cleanPresentation && equipmentText && player.pistol) equipmentText.text = "1   PISTOL    " +
+            if (!equipmentSlots && cleanPresentation && equipmentText && player.pistol) equipmentText.text = "1   PISTOL    " +
                 (player.pistol.IsReloading ? "RELOADING" : player.pistol.Equipped ? player.pistol.Ammo + " / " + player.pistol.reserveAmmo : "HOLSTERED");
             if (waterText) waterText.text = Mathf.CeilToInt(hose.TankLitres) + " / " + Mathf.RoundToInt(hose.tankCapacityLitres) + " L";
             if (waterFill) waterFill.fillAmount = hose.Tank01;
@@ -316,6 +360,13 @@ namespace GameJam.FireRescue
                 if (cleanSpeed) cleanSpeed.gameObject.SetActive(playing && player.IsDriving);
                 if (objectiveText) objectiveText.transform.parent.gameObject.SetActive(playing && (!missionDirector || !missionDirector.EruptionTriggered));
             }
+            if ((!cleanPresentation || !VolcanicHudTheme.Current) && waterGroup)
+            {
+                var water = (RectTransform)waterGroup.transform;
+                float addedHeight = LayoutDrivingHint(18, defaultWaterHeight - 2, water.rect.width - 36);
+                water.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, defaultWaterHeight + addedHeight);
+            }
+            if (equipmentSlots) equipmentSlots.RefreshDisplay();
             if (questTitleText)
             {
                 if (!objectiveFeedback)
@@ -513,7 +564,7 @@ namespace GameJam.FireRescue
             {
                 questTitleText.text = "Fill the water tank";
                 questBodyText.text = "Evacuation complete  ·  " + (evacuation ? evacuation.TotalCount : 7) + " / " + (evacuation ? evacuation.TotalCount : 7) + " safe.\nLower the hose into the lake and start the pump.";
-                questHintText.text = hose.IsDeployed ? "P  Toggle pump   ·   R  Retrieve hose" : "E  Exit vehicle   ·   E  Take hose";
+                questHintText.text = hose.IsDeployed ? "F  Toggle pump   ·   R  Retrieve hose" : "E  Exit vehicle   ·   E  Take hose";
                 questFill.fillAmount = hose.Tank01;
                 return;
             }

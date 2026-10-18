@@ -41,7 +41,7 @@ public static class ShortDefenseChecks
         var mission = Object.FindFirstObjectByType<VolcanoMissionDirector>();
         Undo.RecordObjects(new Object[] { mission.encounter, mission.gameFlow }, "Short defense mission");
         mission.encounter.waveSizes = new[] { 10 }; mission.encounter.maximumAlive = 10;
-        mission.encounter.buildingAttackShare = .5f;
+        mission.encounter.buildingAttackShare = .3f;
         mission.gameFlow.defenseFireBuildings = mission.gameFlow.targetBuildings.Where(h => h).Take(3).ToArray();
         EditorUtility.SetDirty(mission.encounter); EditorUtility.SetDirty(mission.gameFlow);
         EditorSceneManager.MarkSceneDirty(scene);
@@ -81,7 +81,7 @@ public static class ShortDefenseChecks
             for (int i = 0; i < 2000; i++) encounter.TickEncounter(.1f);
             Add("Saved scene releases exactly ten spirits in a single wave", encounter.PlannedCount == 10 && encounter.SpawnedCount == 10 && encounter.AliveCount == 10 && encounter.WaveCount == 1 && encounter.AllWavesReleased);
             var houseAttackers = encounter.LivingCreatures.Select(a => a.GetComponent<LavaCreatureCombat>()).Where(c => c.attackBuildings).ToArray();
-            Add("The live roster contains exactly five house attackers and five player hunters", houseAttackers.Length == 5 && encounter.LivingCreatures.Count(a => !a.GetComponent<LavaCreatureCombat>().attackBuildings) == 5,
+            Add("The live roster contains exactly three house attackers and seven player hunters", houseAttackers.Length == 3 && encounter.LivingCreatures.Count(a => !a.GetComponent<LavaCreatureCombat>().attackBuildings) == 7,
                 string.Concat(encounter.LivingCreatures.Select(a => a.GetComponent<LavaCreatureCombat>().attackBuildings ? "H" : "P")));
             var randomState = UnityEngine.Random.state;
             var patterns = new HashSet<string>(); bool balanced = true;
@@ -90,8 +90,8 @@ public static class ShortDefenseChecks
                 var shuffle = typeof(LavaCreatureEncounter).GetMethod("CreateAttackOrder", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic);
                 for (int sample = 0; sample < 32; sample++)
                 {
-                    var order = (bool[])shuffle.Invoke(null, new object[] { 10, .5f });
-                    balanced &= order.Length == 10 && order.Count(role => role) == 5;
+                    var order = (bool[])shuffle.Invoke(null, new object[] { 10, .3f });
+                    balanced &= order.Length == 10 && order.Count(role => role) == 3;
                     patterns.Add(string.Concat(order.Select(role => role ? "H" : "P")));
                 }
             }
@@ -107,11 +107,17 @@ public static class ShortDefenseChecks
             Add("Only the three selected houses can ignite, including contact attempts on every other house", flow.RequiredFireCount == 3 && houses.Count(h => h.IsBurning) == 3 && required.All(h => h.IsBurning));
             var findBuilding = typeof(LavaCreatureCombat).GetMethod("FindBuilding", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
             bool allHaveHouses = houseAttackers.All(c => (bool)findBuilding.Invoke(c, null) && required.Contains(c.BuildingTarget));
-            Add("All five house attackers can target the three mission houses, including already burning ones", allHaveHouses);
+            Add("Each house attacker owns one of the three distinct mission houses", allHaveHouses &&
+                houseAttackers.Select(c => c.AssignedBuilding).Distinct().Count() == 3 &&
+                houseAttackers.All(c => c.BuildingTarget == c.AssignedBuilding));
             foreach (var house in houses) house.enabled = false;
             foreach (var house in required) house.enabled = true;
             var first = required[0]; first.ApplyWater(first.litresToExtinguish * .5f); flow.TickDefenseFires();
             Add("Repeated fire-objective updates do not replenish a partially extinguished fire", Mathf.Abs(first.Heat - .5f) < .001f);
+            first.ApplyWater(first.litresToExtinguish + 1);
+            var firstAttacker = houseAttackers.Single(c => c.AssignedBuilding == first);
+            Add("A saved assigned house cannot redirect its attacker to another burning house", !(bool)findBuilding.Invoke(firstAttacker, null) &&
+                required.Skip(1).All(h => h.IsBurning) && firstAttacker.AssignedBuilding == first);
 
             survival.enabled = true;
             foreach (var actor in encounter.LivingCreatures.Take(9).ToArray()) actor.ApplyDamage(actor.Health + 1);

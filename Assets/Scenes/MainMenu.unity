@@ -4923,7 +4923,7 @@ MonoBehaviour:
     and press E to collect the next group. Bring them to the AMBER assembly area
     and press E to leave them there. Repeat for all seven, then press E and lead
     everyone to the GREEN shelter. Enter the fire truck behind the house and fill
-    its tank with P at the BLUE lake parking bay. E exits below 20 km/h. The volcano erupts
+    its tank with F at the BLUE lake parking bay. E exits below 20 km/h. The volcano erupts
     after 120 seconds, even if preparations are incomplete. Stop three waves of fire
     spirits and extinguish burning houses. You win if at least one house survives;
     you lose if all are destroyed. Stay away from hot lava.
@@ -5727,8 +5727,8 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 1
     m_LineSpacing: 1.15
-  m_Text: Press E to take the bedside pistol. Press 1 to draw or holster it, or 0
-    to holster. Your weapon returns after exiting the truck.
+  m_Text: 'E: take the bedside pistol. 1: pistol, 2: empty hands, mouse wheel: switch.
+    Exiting the truck draws your pistol.'
 --- !u!222 &386650046
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -11893,7 +11893,7 @@ AudioSource:
   serializedVersion: 4
   OutputAudioMixerGroup: {fileID: 0}
   m_audioClip: {fileID: 0}
-  m_Resource: {fileID: 0}
+  m_Resource: {fileID: 8300000, guid: 346a40df5829f8c4c80b2aeb23caaafe, type: 3}
   m_PlayOnAwake: 0
   m_Volume: 0.22
   m_Pitch: 1
@@ -11902,7 +11902,7 @@ AudioSource:
   Spatialize: 0
   SpatializePostEffects: 0
   Priority: 128
-  DopplerLevel: 1
+  DopplerLevel: 0
   MinDistance: 1
   MaxDistance: 500
   Pan2D: 0
@@ -15052,7 +15052,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 1
     m_LineSpacing: 1.15
-  m_Text: Stop in the BLUE lake parking bay and press P to connect. E exits the truck. The
+  m_Text: Stop in the BLUE lake parking bay and press F to connect. E exits the truck. The
     hose retracts when the tank is full.
 --- !u!222 &1209084851
 CanvasRenderer:
@@ -17950,7 +17950,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 1
     m_LineSpacing: 1.05
-  m_Text: 1 / 0
+  m_Text: 1 / 2
 --- !u!222 &1447387504
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -19687,7 +19687,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 1
     m_LineSpacing: 1.05
-  m_Text: P
+  m_Text: F
 --- !u!222 &1582640256
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -27711,7 +27711,7 @@ MonoBehaviour:
     m_VerticalOverflow: 1
     m_LineSpacing: 1.15
   m_Text: On foot, take the hose from the rear of the truck, drop its intake in the
-    lake, and press P to start the pump.
+    lake, and press F to start the pump.
 --- !u!222 &2119521428
 CanvasRenderer:
   m_ObjectHideFlags: 0

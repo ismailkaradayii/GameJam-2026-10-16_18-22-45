@@ -28,6 +28,8 @@ namespace GameJam.FireRescue
         [Range(2f, 7f)] public float roofJumpClearance = 3.4f;
         [Min(15f)] public float maximumLifeSeconds = 105f;
         public BurnableBuilding BuildingTarget { get; private set; }
+        public BurnableBuilding AssignedBuilding { get; private set; }
+        bool assignedHouseOnly;
         float lifetime, retaliationUntil, progressClock;
         Vector3 progressPosition;
         readonly SpiritOutdoorNavigation navigation = new SpiritOutdoorNavigation();
@@ -36,7 +38,8 @@ namespace GameJam.FireRescue
         public Vector3 RoofImpactPoint => roofFlight.RoofPoint;
         public Collider RoofContactCollider { get; private set; }
         public float RoofFlightProgress => State == Motion.RoofLeaping ? Mathf.Clamp01(elapsed / duration) : 0f;
-        public bool PursuingBuilding => attackBuildings && Time.time >= retaliationUntil;
+        public bool PursuingBuilding => attackBuildings && (assignedHouseOnly || Time.time >= retaliationUntil);
+        bool PrioritizesBuilding => PursuingBuilding && (assignedHouseOnly || !PlayerInPounceRange());
         public int RouteRecoveries { get; private set; }
         public Motion State { get; private set; }
         public int Leaps { get; private set; }
@@ -62,6 +65,9 @@ namespace GameJam.FireRescue
         bool initialized, attacking, struck, alerted;
         bool playerPounceLive;
         CharacterController ignoredPlayerBody;
+        CreatureCombatPlayer vehicleOwner;
+        FireRescuePlayer vehicleCoordinator;
+        BoxCollider truckFootprint;
         Collider[] contactHitboxes;
         bool[] previousPlayerIgnores;
         bool downhillLeap, emergenceSplash, villageEmergence;
@@ -106,6 +112,14 @@ namespace GameJam.FireRescue
             if (initialized) return;
             villageEmergence = true; emergenceDepth = Mathf.Max(.5f, depth);
             descentPath = null; descentDistances = null;
+        }
+
+        public void AssignBuilding(BurnableBuilding house)
+        {
+            AssignedBuilding = house;
+            assignedHouseOnly = house;
+            BuildingTarget = house;
+            navigation.Invalidate();
         }
 
         /// <summary>Bring an isolated surviving spirit back through a safe lava bank without replacing its health or actor.</summary>
@@ -225,6 +239,11 @@ namespace GameJam.FireRescue
             Initialize();
             if (!initialized || !actor || actor.IsDefeated) return;
             dt = Mathf.Min(dt, .1f);
+            RefreshTruckFootprint();
+            // A moving truck may cover a spirit between hops. Resolve its footprint before
+            // terrain grounding can leave the visible core pinned underneath the chassis.
+            if (!IsIntroductionJump && !IsDescending && State != Motion.Emerging && State != Motion.RoofLeaping)
+                EscapeTruckOverlap();
             if (!IsIntroductionJump && !IsDescending && State != Motion.Emerging) IgniteThermalContacts(RoofBodyPosition, RoofBodyRadius + .22f);
             lifetime += dt;
             if (attackBuildings && lifetime >= maximumLifeSeconds)
@@ -232,8 +251,8 @@ namespace GameJam.FireRescue
                 // Stragglers dissipate; no infinite encounter if scenery blocks a hop.
                 actor.Dissipate(); return;
             }
-            if (!IsIntroductionJump && PursuingBuilding && !IsDescending &&
-                (State == Motion.Searching || State == Motion.Recovery) && !PlayerInPounceRange() && TickBuildingContact()) return;
+            if (!IsIntroductionJump && PrioritizesBuilding && !IsDescending &&
+                (State == Motion.Searching || State == Motion.Recovery) && TickBuildingContact()) return;
             cooldown = Mathf.Max(0f, cooldown - dt);
             attackWait += dt;
             elapsed += dt;
@@ -252,7 +271,15 @@ namespace GameJam.FireRescue
                     if (elapsed >= duration) { jump.CombatGrounded(landing); Change(Motion.Searching, 0f); }
                     break;
                 case Motion.Searching:
-                    bool siege = PursuingBuilding && !PlayerInPounceRange() && FindBuilding();
+                    bool siege = PrioritizesBuilding && FindBuilding();
+                    if (assignedHouseOnly && !siege && !IsDescending)
+                    {
+                        // Water protection can temporarily block an ignition. Wait for that
+                        // house; a rescued/destroyed house permanently ends this assignment.
+                        if (!AssignedBuilding || AssignedBuilding.IsRescued || AssignedBuilding.IsBurnedOut)
+                            actor.Dissipate();
+                        return;
+                    }
                     bool hasTarget = target && target.isActiveAndEnabled && target.Health > 0f;
                     Vector3 offset = hasTarget ? target.PursuitPosition - transform.position : Vector3.zero;
                     // A nearby player can intercept the procession, including from a vehicle.
@@ -275,7 +302,7 @@ namespace GameJam.FireRescue
                     }
                     if (!downhillLeap && !attacking)
                     {
-                        goal = navigation.Next(transform.position, goal, radius + .45f);
+                        goal = navigation.Next(transform.position, goal, radius + .45f, truckFootprint);
                         offset = goal - transform.position; offset.y = 0;
                     }
                     if (!attacking && offset.magnitude < .65f) return;
@@ -284,7 +311,7 @@ namespace GameJam.FireRescue
                     // Commit to the player's position now: strafing can evade the pounce.
                     float step = downhillLeap ? Mathf.Min(downhillHopDistance, offset.magnitude) :
                         Mathf.Min(attacking ? attackRange : hopDistance, Mathf.Max(0f, offset.magnitude - (attacking ? .55f : .1f)));
-                    landing = attacking ? GroundAt(target.PursuitPosition) : ChooseLanding(start, direction, step);
+                    landing = attacking ? SafeGroundLanding(target.PursuitPosition) : ChooseLanding(start, direction, step);
                     if (!attacking && FlatDistance(start, landing) < .18f)
                     {
                         navigation.Invalidate(); detourSide = lane % 2 == 0 ? 1 : -1;
@@ -317,7 +344,7 @@ namespace GameJam.FireRescue
                         // stale by half a second before a moving player even saw the launch.
                         pounceEnd = PlayerPounceAim();
                         direction = Vector3.ProjectOnPlane(pounceEnd - RoofBodyPosition, Vector3.up).normalized;
-                        landing = GroundAt(target.PursuitPosition);
+                        landing = SafeGroundLanding(target.PursuitPosition);
                     }
                     else jump.CombatWindup(direction, Mathf.Clamp01(elapsed / duration));
                     UpdateAttackTell();
@@ -426,6 +453,11 @@ namespace GameJam.FireRescue
 
         bool FindBuilding()
         {
+            if (assignedHouseOnly)
+            {
+                BuildingTarget = CanTargetBuilding(AssignedBuilding) ? AssignedBuilding : null;
+                return BuildingTarget;
+            }
             if (CanTargetBuilding(BuildingTarget)) return true;
             BuildingTarget = null; navigation.Invalidate(); float best = float.PositiveInfinity;
             foreach (var house in BurnableBuilding.ActiveBuildings)
@@ -543,7 +575,16 @@ namespace GameJam.FireRescue
 
         Vector3 PlayerPounceAim()
         {
-            if (target.VehicleTarget) return target.ClosestThreatPoint(RoofBodyPosition);
+            if (target.VehicleTarget)
+            {
+                Vector3 aim = target.ClosestThreatPoint(RoofBodyPosition);
+                if (truckFootprint)
+                {
+                    aim = SpiritOutdoorNavigation.Exterior(truckFootprint, RoofBodyPosition, 0f);
+                    aim.y = Mathf.Lerp(truckFootprint.bounds.min.y, truckFootprint.bounds.max.y, .45f);
+                }
+                return aim;
+            }
             var body = target.ContactBody;
             if (!body || !body.enabled) return target.AttackPoint;
             Bounds bounds = body.bounds;
@@ -575,7 +616,7 @@ namespace GameJam.FireRescue
                 {
                     Vector3 center = hit.point + hit.normal * (RoofBodyRadius + .025f);
                     PlaceRoofBody(center, velocity, t);
-                    if (IsPlayerTarget(hit.collider)) DetonatePlayerAttack(center, velocity, hit.collider);
+                    if (IsPlayerTarget(hit.collider)) ResolvePounceContact(center, velocity, hit.collider);
                     else RecoverMissedPlayerPounce(false);
                     return;
                 }
@@ -585,7 +626,7 @@ namespace GameJam.FireRescue
                     Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore);
                 for (int contact = 0; contact < contacts; contact++)
                     if (IsPlayerTarget(playerContacts[contact]) && ExplosionCanReach(next, playerContacts[contact].ClosestPoint(next)))
-                    { DetonatePlayerAttack(next, velocity, playerContacts[contact]); return; }
+                    { ResolvePounceContact(next, velocity, playerContacts[contact]); return; }
             }
             if (elapsed >= duration) RecoverMissedPlayerPounce();
         }
@@ -595,6 +636,15 @@ namespace GameJam.FireRescue
             if (!contact || !target || !target.CanBeTargeted) return false;
             var vehicle = target.VehicleTarget;
             return vehicle ? contact.transform.IsChildOf(vehicle.transform) : contact == target.ContactBody;
+        }
+
+        void ResolvePounceContact(Vector3 center, Vector3 velocity, Collider contact)
+        {
+            if (!target.VehicleTarget) { DetonatePlayerAttack(center, velocity, contact); return; }
+            // Keep the seven hunters alive around the truck. Its existing heat/contact
+            // damage still applies, but only an on-foot player hit consumes a pounce.
+            IgniteThermalContacts(center, playerBlastRadius);
+            RecoverMissedPlayerPounce(false);
         }
 
         void RecoverMissedPlayerPounce(bool canContactWhileLanding = true)
@@ -608,7 +658,7 @@ namespace GameJam.FireRescue
             HideAttackTell();
             navigation.Invalidate();
             start = transform.position;
-            landing = GroundAt(start);
+            landing = SafeGroundLanding(start);
             height = 0f;
             float fallSeconds = Mathf.Sqrt(2f * Mathf.Max(0f, start.y - landing.y) / 25f);
             Change(Motion.Settling, Mathf.Clamp(fallSeconds, .12f, .6f));
@@ -667,6 +717,38 @@ namespace GameJam.FireRescue
             if (player) target = CreatureCombatPlayer.Ensure(player);
         }
 
+        void RefreshTruckFootprint()
+        {
+            if (vehicleOwner != target)
+            {
+                vehicleOwner = target;
+                vehicleCoordinator = target ? target.GetComponent<FireRescuePlayer>() : null;
+                truckFootprint = null;
+            }
+            if (!truckFootprint && vehicleCoordinator && vehicleCoordinator.drive)
+                truckFootprint = vehicleCoordinator.drive.GetComponent<BoxCollider>();
+        }
+
+        Vector3 SafeGroundLanding(Vector3 point)
+        {
+            if (truckFootprint && SpiritOutdoorNavigation.Inside(truckFootprint, point, radius + .65f))
+                point = SpiritOutdoorNavigation.Outside(point, transform.position, radius + .8f, truckFootprint);
+            return GroundAt(point);
+        }
+
+        void EscapeTruckOverlap()
+        {
+            if (!truckFootprint || !SpiritOutdoorNavigation.Inside(truckFootprint, transform.position, radius + .12f) ||
+                RoofBodyPosition.y - RoofBodyRadius > truckFootprint.bounds.max.y + .15f) return;
+            Vector3 outside = SafeGroundLanding(transform.position);
+            if (SpiritOutdoorNavigation.Inside(truckFootprint, outside, radius + .12f)) return;
+            outside.y = Mathf.Max(outside.y, transform.position.y);
+            transform.position = outside;
+            RecoverMissedPlayerPounce(false);
+            cooldown = Mathf.Max(cooldown, .45f);
+            RouteRecoveries++;
+        }
+
         Vector3 ChooseLanding(Vector3 from, Vector3 forward, float distance)
         {
             Vector3 best = from;
@@ -679,7 +761,7 @@ namespace GameJam.FireRescue
                 Vector3 route = Quaternion.AngleAxis(angle, Vector3.up) * forward;
                 float clear = ClearDistance(from, route, distance);
                 Vector3 candidate = GroundAt(from + route * clear);
-                if (SpiritOutdoorNavigation.Contains(candidate, radius + .2f)) continue;
+                if (SpiritOutdoorNavigation.Contains(candidate, radius + .2f, truckFootprint)) continue;
                 if (downhillLeap)
                 {
                     // Shorten cliff-edge hops instead of refusing every downhill step.
@@ -745,7 +827,7 @@ namespace GameJam.FireRescue
             foreach (var other in crowd)
             {
                 if (!other || other == this || !other.isActiveAndEnabled || other.target != target) continue;
-                if (other.PursuingBuilding && other.BuildingTarget && !other.IsAttacking && !other.PlayerInPounceRange()) continue;
+                if (other.assignedHouseOnly || (other.PrioritizesBuilding && other.BuildingTarget && !other.IsAttacking)) continue;
                 if (other.IsAttacking)
                 {
                     attackers++;
@@ -770,7 +852,13 @@ namespace GameJam.FireRescue
             {
                 float angle = i == 0 ? 0 : ((i + 1) / 2) * 30f * (i % 2 == 0 ? -1 : 1);
                 Vector3 p = center + Quaternion.Euler(0, angle, 0) * radial.normalized * ring;
-                p = SpiritOutdoorNavigation.Outside(p, transform.position, radius + .65f);
+                if (target.VehicleTarget && truckFootprint)
+                {
+                    Vector3 outward = Quaternion.Euler(0, angle, 0) * radial.normalized;
+                    p = SpiritOutdoorNavigation.Exterior(truckFootprint,
+                        center + outward * (truckFootprint.bounds.size.magnitude + ring), 1.4f + lane % 3 * .45f);
+                }
+                p = SpiritOutdoorNavigation.Outside(p, transform.position, radius + .65f, truckFootprint);
                 float score = FlatDistance(p, transform.position) + Occupancy(p) * 9f;
                 if (score < bestScore) { bestScore = score; best = p; }
             }
@@ -841,11 +929,11 @@ namespace GameJam.FireRescue
         {
             if (distance < .001f) return 0f;
             float outdoor = distance;
-            if (SpiritOutdoorNavigation.Blocked(from, from + along * distance, radius + .2f))
+            if (SpiritOutdoorNavigation.Blocked(from, from + along * distance, radius + .2f, truckFootprint))
             {
                 float low = 0, high = distance;
                 for (int n = 0; n < 9; n++)
-                { float middle = (low + high) * .5f; if (SpiritOutdoorNavigation.Blocked(from, from + along * middle, radius + .2f)) high = middle; else low = middle; }
+                { float middle = (low + high) * .5f; if (SpiritOutdoorNavigation.Blocked(from, from + along * middle, radius + .2f, truckFootprint)) high = middle; else low = middle; }
                 outdoor = Mathf.Max(0, low - .04f);
             }
             int count = Physics.SphereCastNonAlloc(from + Vector3.up * bodyOffset, radius, along, hits,

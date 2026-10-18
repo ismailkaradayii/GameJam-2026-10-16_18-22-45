@@ -11,7 +11,7 @@ W: İleri / gaz
 S: Fren, durduktan sonra geri
 A / D: Direksiyon
 Boşluk: Fren
-F: Durduktan sonra araçtan in
+E: Durduktan sonra araçtan in
 Fare: Kamerayı çevir, ekranın ortasındaki artıyla yanan eve nişan al
 Sağ fare tuşu basılı: Çatıdaki su topundan su püskürt
 Fare tekerleği: Kamera uzaklığı
@@ -20,22 +20,22 @@ Yayadayken:
 WASD: Yürü
 Shift: Koş
 Fare: Etrafa bak
-F: Sürücü kapısının yakınında araca bin
+E: Sürücü kapısının yakınında araca bin
 E: Aracın arkasında hortumu al; taşırken baktığın yere bırak
 E: Bırakılmış hortum ucunun yakınında yeniden al
-P: Pompayı aç / kapat
+F: Pompayı aç / kapat
 R: Aracın arkasında hortumu topla
 
 Esc: İmleci serbest bırak. Devam etmek için oyun ekranına tıkla.
 V: Volcano_Demo'da patlama sırasını hemen başlat.
 
 Su çekme sırası:
-1. Göle yakın park et, dur ve F ile in.
+1. Göle yakın park et, dur ve E ile in.
 2. Aracın arkasına git, E ile hortumu al.
 3. Kıyıya yürü, suya bak ve E ile emiş ucunu suya bırak.
-4. P ile pompayı aç. Sol üstte su miktarı ve durum görünür.
+4. F ile pompayı aç. Sol üstte su miktarı ve durum görünür.
 5. İşin bitince aracın arkasına dön, R ile hortumu topla.
-6. Sürücü kapısına git, F ile bin.
+6. Sürücü kapısına git, E ile bin.
 
 Depo: 2000 litre. Dolum: 150 litre/saniye. Hortum erişimi: 45 metre.
 Başlangıç suyu: 1000 litre. Su topu: 35 litre/saniye, 85 metre menzil.

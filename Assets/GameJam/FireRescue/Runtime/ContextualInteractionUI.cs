@@ -157,9 +157,22 @@ namespace GameJam.FireRescue
                     float distance = delta.magnitude;
                     if (distance > target.maximumViewDistance || distance < .04f) continue;
                     float facing = Vector3.Dot(eye.forward, delta / distance);
-                    if (facing < Mathf.Cos(target.maximumLookAngle * Mathf.Deg2Rad)) continue;
+                    var evacuation = mission ? mission.evacuation : null;
+                    bool nearbyGroup = target.kind == ContextualInteractionKind.Resident && target.resident && evacuation &&
+                        evacuation.CanRecruitGroup(target.resident) &&
+                        EvacuationResident.FlatDistance(evacuation.PlayerTransform.position, target.resident.transform.position) <= EvacuationMission.CloseGroupInteractionReach;
+                    // At talking distance, looking toward the group is enough; camera pitch
+                    // and a moving villager no longer demand a precise crosshair hit.
+                    if (nearbyGroup)
+                    {
+                        Vector3 flatForward = Vector3.ProjectOnPlane(eye.forward, Vector3.up);
+                        if (flatForward.sqrMagnitude < .01f) flatForward = player.transform.forward;
+                        if (Vector3.Dot(flatForward, Vector3.ProjectOnPlane(delta, Vector3.up)) < 0f) continue;
+                    }
+                    else if (facing < Mathf.Cos(target.maximumLookAngle * Mathf.Deg2Rad)) continue;
                     if (!target.TryDescribe(this, out InteractionOffer offer) || !HasLineOfSight(target, position)) continue;
                     float score = facing * 2f + target.priority * .5f - distance / target.maximumViewDistance * .3f;
+                    if (nearbyGroup) score += 3f;
                     if (target == selected.target) score += .04f;
                     if (score <= bestScore) continue;
                     best = offer; best.target = target; bestScore = score;
@@ -180,6 +193,8 @@ namespace GameJam.FireRescue
         public bool HasLineOfSight(ContextualInteractionTarget target, Vector3 point)
         {
             if (!player || !player.viewCamera || !target) return false;
+            if (target.kind == ContextualInteractionKind.Resident && target.resident && mission && mission.evacuation && mission.evacuation.groupRescue)
+                return mission.evacuation.CanSeeRecruitGroup(target.resident);
             Vector3 origin = player.viewCamera.transform.position, delta = point - origin;
             float distance = delta.magnitude;
             int count = Physics.RaycastNonAlloc(origin, delta.normalized, sightHits, Mathf.Max(0f, distance - .08f), ~0, QueryTriggerInteraction.Ignore);
@@ -248,7 +263,7 @@ namespace GameJam.FireRescue
                         if (r.IsAtAssembly)
                         { offer.title = "Waiting at the assembly point"; offer.detail = evacuation.GroupStatus; return true; }
                         if (r.IsCalled)
-                        { offer.title = "Following you"; offer.detail = evacuation.EscortStarted ? "Follow the green marker" : "Come within 3 m of the yellow boundary, then press " + evacuation.InteractLabel; return true; }
+                        { offer.title = "Following you"; offer.detail = evacuation.EscortStarted ? "Follow the green marker" : "Come within 4 m of the yellow boundary, then press " + evacuation.InteractLabel; return true; }
                         if (!evacuation.CanRecruitGroup(r)) return false;
                         offer.title = "Recruit the group";
                         offer.detail = "Lead this group to the assembly point";
@@ -281,11 +296,11 @@ namespace GameJam.FireRescue
                     if (player.IsDriving || !evacuation || !evacuation.groupRescue || !evacuation.IsActive || evacuation.EscortStarted) return false;
                     // The freestanding assembly sign and objective hint carry this copy.
                     // Keep the E offer for the existing interaction coordinator.
-                    if (evacuation.ActiveGroup < 0 && !evacuation.AllAtAssembly) return false;
-                    if (evacuation.ActiveGroup >= 0 || evacuation.AllAtAssembly)
+                    if (evacuation.ActiveGroup < 0 && !evacuation.AllAtAssembly && !evacuation.CanRequestDeparture) return false;
+                    if (evacuation.ActiveGroup >= 0 || evacuation.AllAtAssembly || evacuation.CanRequestDeparture)
                     {
                         offer.input = InteractionInput.Interact;
-                        offer.blocked = !evacuation.PlayerAtAssembly || !evacuation.AllAtAssembly && !evacuation.CanDepositGroup;
+                        offer.blocked = !evacuation.CanRequestDeparture && !evacuation.CanDepositGroup;
                     }
                     return true;
                 case ContextualInteractionKind.LakeFill:

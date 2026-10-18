@@ -230,10 +230,10 @@ public static class ContextualInteractionChecks
                 if (age < .8f) return;
                 ui.RefreshSelection();
                 if (!Capture("04-lake-progress.png")) return;
-                Check("automatic fill displays actual tank progress with P disconnect", ui.CurrentTarget == lake && ui.CurrentOffer.showProgress && ui.CurrentOffer.input == InteractionInput.Pump &&
+                Check("automatic fill displays actual tank progress with F disconnect", ui.CurrentTarget == lake && ui.CurrentOffer.showProgress && ui.CurrentOffer.input == InteractionInput.Pump &&
                     player.hose.Tank01 > initialTank && Mathf.Abs(ui.CurrentOffer.progress - player.hose.Tank01) < .002f, Snapshot());
                 Check("progress is rendered by the prefab", ui.progressGroup.activeSelf && ui.progressFill.fillAmount > 0);
-                Check("P disconnect cancels the original pump and retracts the hose", mission.fillStation.Interact() && !mission.fillStation.IsFilling && !player.hose.IsDeployed);
+                Check("F disconnect cancels the original pump and retracts the hose", mission.fillStation.Interact() && !mission.fillStation.IsFilling && !player.hose.IsDeployed);
                 // Camera and input remain live for multi-resolution projection checks.
                 resolution = 0; SetResolution(sizes[resolution]); Next(10); return;
             case 10:

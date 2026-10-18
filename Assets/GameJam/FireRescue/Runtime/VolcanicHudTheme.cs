@@ -130,7 +130,8 @@ namespace GameJam.FireRescue
                 if (hud.waterFill) Top(hud.waterFill.transform.parent as RectTransform, 44, 108, 252, 4);
                 if (hud.pumpText) HudInputEmphasis.Apply(hud.pumpText);
                 float description = hud.pumpText ? Text(hud.pumpText, 44, 126, 252, 28) : 28;
-                Size(water, 340, 126 + description + 36);
+                float drivingControls = hud.LayoutDrivingHint(44, 126 + description + 10, 252);
+                Size(water, 340, 126 + description + 36 + drivingControls);
                 if (water.gameObject.activeSelf) waterTop = water.anchoredPosition.y + water.rect.height + 12;
             }
             if (hud.lowWaterWarning)
@@ -145,8 +146,11 @@ namespace GameJam.FireRescue
             if (hud.equipmentGroup)
             {
                 var panel = hud.equipmentGroup.transform as RectTransform;
-                Size(panel, 340, 104); Position(panel, new Vector2(-28, waterTop));
-                if (hud.equipmentText) Top(hud.equipmentText.rectTransform, 44, 34, 252, 36);
+                if (!hud.equipmentSlots)
+                {
+                    Size(panel, 340, 104); Position(panel, new Vector2(-28, waterTop));
+                    if (hud.equipmentText) Top(hud.equipmentText.rectTransform, 44, 34, 252, 36);
+                }
             }
             if (hud.healthPanel)
             {

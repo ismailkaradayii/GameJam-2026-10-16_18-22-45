@@ -23,7 +23,7 @@ public static class VehicleInteractionSetup
         if (!File.Exists(backup + "/Before.unity")) EditorSceneManager.SaveScene(scene, backup + "/Before.unity", true);
         var player = Object.FindFirstObjectByType<FireRescuePlayer>();
         Undo.RecordObject(player, "Share E for vehicle entry and exit");
-        player.interactKey = Key.E; player.pumpKey = Key.P;
+        player.interactKey = Key.E; player.pumpKey = Key.F;
         EditorUtility.SetDirty(player);
         var words = player.contextualInteractions.words;
         Undo.RecordObject(words, "Describe moving vehicle exit");
@@ -41,16 +41,16 @@ public static class VehicleInteractionSetup
                 text.text = original.Replace("E / F", "E")
                     .Replace("Press E at the driver's door to enter; stop and press F to exit.", "Press E at the driver's door to enter. Press E to exit below 20 km/h.")
                     .Replace("Sürücü kapısında E ile bin; durduktan sonra F ile in.", "Sürücü kapısında E ile bin; hız 20 km/sa altındayken E ile in.")
-                    .Replace("Stop in the BLUE lake ring and press E to connect.", "Stop in the BLUE lake ring and press P to connect. E exits the truck.")
-                    .Replace("Araçla MAVİ göl halkasında dur. E bağlantıyı kurar;", "Araçla MAVİ göl halkasında dur. P bağlantıyı kurar; E araçtan indirir.")
-                    .Replace("fill its tank with E at the BLUE lake marker.", "fill its tank with P at the BLUE lake marker. E exits below 20 km/h.")
-                    .Replace("MAVİ göl işaretinde E ile depoyu doldur.", "MAVİ göl işaretinde P ile depoyu doldur. Hız 20 km/sa altındayken E ile in.");
+                    .Replace("Stop in the BLUE lake ring and press E to connect.", "Stop in the BLUE lake ring and press F to connect. E exits the truck.")
+                    .Replace("Araçla MAVİ göl halkasında dur. E bağlantıyı kurar;", "Araçla MAVİ göl halkasında dur. F bağlantıyı kurar; E araçtan indirir.")
+                    .Replace("fill its tank with E at the BLUE lake marker.", "fill its tank with F at the BLUE lake marker. E exits below 20 km/h.")
+                    .Replace("MAVİ göl işaretinde E ile depoyu doldur.", "MAVİ göl işaretinde F ile depoyu doldur. Hız 20 km/sa altındayken E ile in.");
                 if (text.text != original) EditorUtility.SetDirty(text);
             }
             EditorSceneManager.MarkSceneDirty(menu); EditorSceneManager.SaveScene(menu);
         }
         finally { EditorSceneManager.CloseScene(menu, true); }
         EditorSceneManager.SaveScene(scene);
-        File.WriteAllText("Logs/VehicleInteractionSetup.txt", "Saved: E enter/exit, exit only below 20 km/h, P lake filling, updated prompts and menu help.");
+        File.WriteAllText("Logs/VehicleInteractionSetup.txt", "Saved: E enter/exit, exit only below 20 km/h, F lake filling, updated prompts and menu help.");
     }
 }

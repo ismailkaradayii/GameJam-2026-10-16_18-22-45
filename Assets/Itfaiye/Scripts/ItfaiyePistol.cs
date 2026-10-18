@@ -35,6 +35,8 @@ namespace Itfaiye
 
         public bool Available { get; private set; } = true;
         public bool Equipped { get; private set; }
+        public bool Selected => Equipped && !holsterRequested;
+        public bool HolsterPending => holsterRequested;
         public bool IsReloading { get; private set; }
         public bool IsAiming { get; private set; }
         public float AimAmount { get; private set; }
@@ -125,7 +127,7 @@ namespace Itfaiye
         void Update()
         {
             if (!Available || player == null) return;
-            bool captured = player.InputCaptured && (!externalControl || externalCaptured);
+            bool captured = Time.timeScale > 0f && player.InputCaptured && (!externalControl || externalCaptured);
             var keys = Keyboard.current;
             var mouse = Mouse.current;
             bool aim = externalControl ? externalAim : mouse != null && mouse.rightButton.isPressed;
@@ -138,8 +140,10 @@ namespace Itfaiye
             }
             else if (captured && keys != null)
             {
-                if (keys.digit1Key.wasPressedThisFrame) Toggle();
-                if (keys.digit0Key.wasPressedThisFrame) Holster();
+                if (keys.digit1Key.wasPressedThisFrame) Equip();
+                else if (keys.digit2Key.wasPressedThisFrame || keys.digit0Key.wasPressedThisFrame) Holster();
+                else if (mouse != null && Mathf.Abs(mouse.scroll.ReadValue().y) > .01f)
+                { if (Selected) Holster(); else Equip(); }
                 if (keys.rKey.wasPressedThisFrame) Reload();
             }
             externalFire = externalToggle = externalHolster = externalReload = false;

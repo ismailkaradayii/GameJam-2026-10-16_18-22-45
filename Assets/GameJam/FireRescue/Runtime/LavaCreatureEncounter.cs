@@ -40,7 +40,7 @@ namespace GameJam.FireRescue
         [Header("Village tactics")]
         [Tooltip("Leave the lava after emerging and use independent outdoor routes.")]
         public bool disperseIntoVillage = true;
-        [Range(0f, 1f)] public float buildingAttackShare = .5f;
+        [Range(0f, 1f)] public float buildingAttackShare = .3f;
         [Header("Final-wave stragglers")]
         [Min(1f)] public float strandedSpiritSeconds = 6f;
         [Min(30f)] public float strandedSpiritDistance = 120f;
@@ -68,6 +68,8 @@ namespace GameJam.FireRescue
         readonly Collider[] emergenceContacts = new Collider[32];
         LavaCreatureActor[] templates;
         bool[] attackOrder;
+        readonly List<BurnableBuilding> assignedHouses = new List<BurnableBuilding>();
+        int nextHouse;
         GameObject templateRoot;
         int spawnedInWave, nextSpawnIndex;
         float flowingFor, nextWaveAt, spawnCooldown, waveBeganAt;
@@ -184,9 +186,9 @@ namespace GameJam.FireRescue
                 if (actor != selected.creature) Destroy(actor.gameObject);
                 return;
             }
-            spawnedInWave++; nextSpawnIndex = (index + 1) % spawns.Length;
+            spawnedInWave++; nextSpawnIndex = UnityEngine.Random.Range(0, spawns.Length);
             // Never accumulate a burst while the living limit or lava gate is holding a wave.
-            spawnCooldown = Mathf.Max(.1f, secondsBetweenSpawns);
+            spawnCooldown = Mathf.Max(.1f, secondsBetweenSpawns * UnityEngine.Random.Range(.7f, 1.3f));
         }
 
         void EnsureTemplates()
@@ -206,7 +208,7 @@ namespace GameJam.FireRescue
         bool Release(Spawn spawn, LavaCreatureActor actor)
         {
             Vector3 villagePoint = default;
-            if (spawn.descendFromLava && disperseIntoVillage && !TryVillageEmergence(spawn, out villagePoint, 1)) return false;
+            if (spawn.descendFromLava && disperseIntoVillage && !TryVillageEmergence(spawn, out villagePoint, UnityEngine.Random.Range(0, 32))) return false;
             spawn.spawned = true; SpawnedCount++; living.Add(actor);
             if (spiritVoiceClip)
             {
@@ -217,9 +219,22 @@ namespace GameJam.FireRescue
             var siege = actor.GetComponent<LavaCreatureCombat>();
             if (!siege) siege = actor.gameObject.AddComponent<LavaCreatureCombat>();
             // Shuffle a fixed roster, rather than rolling each spawn independently:
-            // the ten-spirit mission always gets exactly five of each role.
-            if (attackOrder == null) attackOrder = CreateAttackOrder(enableWaves ? PlannedCount : spawns.Length, buildingAttackShare);
+            // the ten-spirit mission always gets three house attackers and seven hunters.
+            if (attackOrder == null)
+            {
+                attackOrder = CreateAttackOrder(enableWaves ? PlannedCount : spawns.Length, buildingAttackShare);
+                foreach (var house in BurnableBuilding.ActiveBuildings)
+                    if (house && house.gameObject.scene == gameObject.scene && house.IsDefenseFireTarget && house.ignitionBounds)
+                        assignedHouses.Add(house);
+                for (int i = assignedHouses.Count - 1; i > 0; i--)
+                {
+                    int other = UnityEngine.Random.Range(0, i + 1);
+                    var house = assignedHouses[i]; assignedHouses[i] = assignedHouses[other]; assignedHouses[other] = house;
+                }
+            }
             siege.attackBuildings = attackOrder[SpawnedCount - 1];
+            siege.AssignBuilding(siege.attackBuildings && assignedHouses.Count > 0
+                ? assignedHouses[nextHouse++ % assignedHouses.Count] : null);
             if (spawn.descendFromLava)
             {
                 var path = disperseIntoVillage ? new[] { villagePoint } : DescentPath(spawn);
@@ -358,6 +373,14 @@ namespace GameJam.FireRescue
 
         bool HasEmergenceClearance(Vector3 point)
         {
+            // A tall chassis can sit above the birth capsule. Its footprint must still
+            // exclude the terrain beneath it, including when the player parks on a bank.
+            foreach (var thermal in ThermalDamage.ActiveTargets)
+            {
+                if (!thermal || !thermal.truck) continue;
+                var box = thermal.truck.GetComponent<BoxCollider>();
+                if (box && SpiritOutdoorNavigation.Inside(box, point, 1.25f)) return false;
+            }
             // House footprints alone do not cover fences, rocks and roadside props.
             // Reject a birth already embedded in one of those solid obstacles.
             int count = Physics.OverlapCapsuleNonAlloc(point + Vector3.up * .65f,

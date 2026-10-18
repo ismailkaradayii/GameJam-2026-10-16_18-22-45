@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace GameJam.FireRescue
 {
-    /// <summary>One physical palm strike commits the village warning and starts the authored siren emitters.</summary>
+    /// <summary>One reachable palm strike commits the village warning and starts its sirens.</summary>
     [DisallowMultipleComponent]
     public sealed class VillageAlarmButton : MonoBehaviour
     {
@@ -17,7 +17,8 @@ namespace GameJam.FireRescue
         public AudioClip palmImpact, switchClick;
         public AudioSource[] villageSirens = System.Array.Empty<AudioSource>();
         [Header("Palm strike")]
-        [Min(.5f)] public float maximumPressDistance = 3.5f;
+        [Tooltip("Outer horizontal limit. The animated palm must also be able to reach the button.")]
+        [Min(.5f)] public float maximumPressDistance = 1.5f;
         [Min(.35f)] public float slapSeconds = .72f;
         [Range(.2f, .7f)] public float contactFraction = .42f;
         [Min(.001f)] public float buttonTravelMetres = .045f;
@@ -34,9 +35,10 @@ namespace GameJam.FireRescue
         public bool SirenRunning { get; private set; }
         public float PressProgress => IsPressing ? Mathf.Clamp01((Time.time - pressStarted) / Mathf.Max(.35f, slapSeconds)) : 0f;
         public bool InReach => player && player.viewCamera && contactPoint &&
-            Vector3.Distance(player.viewCamera.transform.position, contactPoint.position) <= maximumPressDistance &&
-            (!hands || hands.CanReachButton(contactPoint.position));
-        public bool CanPress => isActiveAndEnabled && !Activated && !IsPressing && player && player.HasPistol &&
+            Vector3.ProjectOnPlane(player.viewCamera.transform.position - contactPoint.position, Vector3.up).sqrMagnitude <= maximumPressDistance * maximumPressDistance &&
+            Mathf.Abs(player.viewCamera.transform.position.y - contactPoint.position.y) <= 3.5f &&
+            hands && hands.isActiveAndEnabled && hands.CanReachButton(contactPoint.position);
+        public bool CanPress => Time.timeScale > 0f && isActiveAndEnabled && !Activated && !IsPressing && player && player.HasPistol &&
             !player.IsDriving && !player.GameplaySuspended && (!player.hose || !player.hose.IsCarried) &&
             (!player.pistol || !player.pistol.IsReloading) && InReach;
 
@@ -54,10 +56,11 @@ namespace GameJam.FireRescue
         public bool TryPress()
         {
             if (!CanPress || !VisibleContact()) return false;
-            reEquip = player.pistol && player.pistol.Equipped;
+            reEquip = player.pistol && player.pistol.Selected;
             IsPressing = true; pressStarted = Time.time;
             player.RefreshEquipmentState();
-            if (hands) hands.BeginButtonSlap(contactPoint.position, contactPoint.up, slapSeconds, contactFraction);
+            hands.BeginButtonSlap(contactPoint.position, contactPoint.up, slapSeconds, contactFraction);
+            if (!hands.ButtonSlapActive) { EndPress(); return false; }
             return true;
         }
         bool VisibleContact()
@@ -75,19 +78,26 @@ namespace GameJam.FireRescue
         {
             if (IsPressing)
             {
-                if (!player || player.CinematicLocked || (player.gameFlow && player.gameFlow.State != RescueGameFlow.GameState.Playing && player.gameFlow.State != RescueGameFlow.GameState.Paused))
+                if (!player || !hands || !hands.isActiveAndEnabled || !hands.ButtonSlapActive || player.CinematicLocked ||
+                    (player.gameFlow && player.gameFlow.State != RescueGameFlow.GameState.Playing && player.gameFlow.State != RescueGameFlow.GameState.Paused))
                     EndPress();
                 else if (Time.timeScale > 0)
                 {
                     float progress = PressProgress;
-                    if (!Activated && progress >= contactFraction) Strike();
+                    if (!Activated && progress >= contactFraction)
+                    {
+                        // Keep a visible contact frame even when a hitch skips over the impact time.
+                        pressStarted = Time.time - Mathf.Max(.35f, slapSeconds) * contactFraction;
+                        hands.HoldButtonSlapAtContact();
+                        progress = contactFraction;
+                        Strike();
+                    }
                     if (movingHead)
                     {
-                        float depth = progress < contactFraction ? 0 : progress < contactFraction + .08f ?
-                            Mathf.SmoothStep(0, 1, (progress - contactFraction) / .08f) :
-                            1f - Mathf.SmoothStep(0, 1, (progress - contactFraction - .08f) / .3f);
+                        float depth = progress < contactFraction ? 0 :
+                            1f - Mathf.SmoothStep(0, 1, (progress - contactFraction - .16f) / .3f);
                         movingHead.localPosition = headRest + movingHead.parent.InverseTransformVector(-contactPoint.up * buttonTravelMetres * depth);
-                        if (hands) hands.SetButtonSlapDepression(buttonTravelMetres * depth);
+                        hands.SetButtonSlapDepression(buttonTravelMetres * depth);
                     }
                     if (progress >= 1) EndPress();
                 }

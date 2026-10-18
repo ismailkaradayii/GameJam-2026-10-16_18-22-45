@@ -32,7 +32,7 @@ namespace GameJam.FireRescue
         public string pistolCollected = "Pistol collected", residentSaved = "+1 villager rescued!";
         public string objectiveComplete = "Objective complete!", fireExtinguished = "Fire extinguished!";
         public string activateAlarm = "Activate village alarm", alarmNeedsPistol = "Take the pistol first";
-        public string alarmGetCloser = "Move closer to the button", alarmReloading = "Wait until reloading is complete";
+        public string alarmGetCloser = "Move around the table and closer to the button", alarmReloading = "Wait until reloading is complete";
         public string alarmActivated = "Village alerted!";
     }
 }

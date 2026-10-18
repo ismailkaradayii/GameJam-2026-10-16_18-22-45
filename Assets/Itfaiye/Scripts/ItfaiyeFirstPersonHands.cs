@@ -21,7 +21,7 @@ namespace Itfaiye
                 if (!ButtonSlapActive) return Vector3.zero;
                 float t = ButtonSlapProgress;
                 float reach = Mathf.SmoothStep(0, 1, Mathf.InverseLerp(0, buttonContactFraction, t));
-                float recover = 1f - Mathf.SmoothStep(0, 1, Mathf.InverseLerp(buttonContactFraction + .14f, 1, t));
+                float recover = 1f - Mathf.SmoothStep(0, 1, Mathf.InverseLerp(buttonContactFraction + .16f, 1, t));
                 return buttonViewDirection * buttonViewLean * reach * recover;
             }
         }
@@ -512,15 +512,18 @@ namespace Itfaiye
 
         public bool CanReachButton(Vector3 contact)
         {
-            if (!view || !animator || !animator.isHuman) return false;
+            if (!view || !animator || !animator.isActiveAndEnabled || !animator.isHuman) return false;
             var upper = animator.GetBoneTransform(HumanBodyBones.RightUpperArm);
             var lower = animator.GetBoneTransform(HumanBodyBones.RightLowerArm);
             var hand = animator.GetBoneTransform(HumanBodyBones.RightHand);
+            if (!upper || !lower || !hand) return false;
             float length = Vector3.Distance(upper.position, lower.position) + Vector3.Distance(lower.position, hand.position);
             Vector3 direction = (contact - view.position).normalized;
-            Vector3 shoulder = ButtonShoulderPosition(false) + direction * (buttonLeanInViewMetres * view.lossyScale.y);
+            Vector3 shoulder = ButtonShoulderPosition(false) + direction * ButtonLeanDistance(contact);
             return Vector3.Distance(shoulder, contact) <= length + .12f * view.lossyScale.y;
         }
+        float ButtonLeanDistance(Vector3 contact) => Mathf.Min(buttonLeanInViewMetres * view.lossyScale.y,
+            Mathf.Max(0, Vector3.Distance(view.position, contact) - .9f));
         public void BeginButtonSlap(Vector3 contact, Vector3 normal, float seconds, float contactFraction)
         {
             if (!view || !animator || !animator.isHuman) return;
@@ -539,12 +542,16 @@ namespace Itfaiye
             Vector3 palmOffset = Vector3.Scale((indexDirection + littleDirection) * .5f, hand.lossyScale);
             buttonWrist = contact + normal * .025f - buttonPalmRotation * palmOffset;
             buttonViewDirection = (contact - view.position).normalized;
-            buttonViewLean = Mathf.Min(buttonLeanInViewMetres * view.lossyScale.y, Mathf.Max(0, Vector3.Distance(view.position, contact) - .9f));
+            buttonViewLean = ButtonLeanDistance(contact);
             buttonContactNormal = normal; buttonDepression = 0;
             buttonSlapStarted = Time.time; buttonSlapSeconds = Mathf.Max(.35f, seconds); buttonContactFraction = Mathf.Clamp(contactFraction, .2f, .7f);
             ButtonSlapActive = true;
         }
         public void CancelButtonSlap() => ButtonSlapActive = false;
+        public void HoldButtonSlapAtContact()
+        {
+            if (ButtonSlapActive) buttonSlapStarted = Time.time - buttonSlapSeconds * buttonContactFraction;
+        }
         public void SetButtonSlapDepression(float metres) => buttonDepression = Mathf.Max(0, metres);
         Vector3 ButtonShoulderPosition(bool left)
         {
@@ -564,7 +571,7 @@ namespace Itfaiye
                 float reach = Mathf.InverseLerp(windupEnd, buttonContactFraction, progress);
                 wrist = Vector3.Lerp(windup, contact, reach * reach);
             }
-            else wrist = Vector3.Lerp(contact, rest, Mathf.SmoothStep(0, 1, Mathf.InverseLerp(buttonContactFraction + .1f, 1, progress)));
+            else wrist = Vector3.Lerp(contact, rest, Mathf.SmoothStep(0, 1, Mathf.InverseLerp(buttonContactFraction + .16f, 1, progress)));
             PoseArm(false, wrist, buttonPalmRotation);
             PoseArm(true, new Vector3(-.3f, -.36f, .32f), view.rotation * LeftGripRotation);
             for (int i = 0; i < fingers.Length; i++)

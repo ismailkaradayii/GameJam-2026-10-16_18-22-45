@@ -150,8 +150,8 @@ namespace Itfaiye.Editor
                     Input(); if (elapsed < pistol.reloadDuration) break;
                     Check("Reload transfers ammo once", !pistol.IsReloading && pistol.Ammo == 12 && pistol.reserveAmmo == 47); Next(); return;
                 case 29:
-                    Input(first ? new[] { Key.Digit1 } : Array.Empty<Key>()); if (elapsed < .7f) break;
-                    Check("Second 1 holsters and restores unarmed idle", !pistol.Equipped && !pistol.weapon.activeSelf && Clip() == "Idle"); Next(); return;
+                    Input(first ? new[] { Key.Digit2 } : Array.Empty<Key>()); if (elapsed < .7f) break;
+                    Check("2 selects empty hands and restores unarmed idle", !pistol.Equipped && !pistol.weapon.activeSelf && Clip() == "Idle"); Next(); return;
                 case 30:
                     Input(first ? new[] { Key.Digit1 } : Array.Empty<Key>()); if (elapsed < .7f) break;
                     Check("Re-equipping preserves ammo", pistol.Ready && pistol.Ammo == 12 && pistol.reserveAmmo == 47); Next(); return;
@@ -170,12 +170,12 @@ namespace Itfaiye.Editor
                     Check("Can walk while aiming", player.CurrentSpeed > 1f && pistol.AimAmount > .99f);
                     CheckSightCenter(); CheckGrip(); ResetPosition(); Next(); return;
                 case 33:
-                    Input(first ? new[] { Key.Digit1 } : Array.Empty<Key>()); if (elapsed < .6f) break;
-                    Check("1 holsters from ADS", !pistol.Equipped && !pistol.weapon.activeSelf && pistol.AimAmount < .01f); Next(); return;
+                    Input(first ? new[] { Key.Digit2 } : Array.Empty<Key>()); if (elapsed < .6f) break;
+                    Check("2 holsters from ADS", !pistol.Equipped && !pistol.weapon.activeSelf && pistol.AimAmount < .01f); Next(); return;
                 case 34:
-                    Input(first || (elapsed > .10f && elapsed < .16f) ? new[] { Key.Digit1 } : Array.Empty<Key>());
+                    Input(first ? new[] { Key.Digit1 } : elapsed > .10f && elapsed < .16f ? new[] { Key.Digit2 } : Array.Empty<Key>());
                     if (elapsed < .6f) break;
-                    Check("Rapid second 1 cancels draw", !pistol.Equipped && !pistol.weapon.activeSelf && pistol.Ammo == 12 && pistol.reserveAmmo == 47); Next(); return;
+                    Check("Selecting 2 during draw returns to empty hands", !pistol.Equipped && !pistol.weapon.activeSelf && pistol.Ammo == 12 && pistol.reserveAmmo == 47); Next(); return;
                 case 35:
                     Input(first ? new[] { Key.Escape } : Array.Empty<Key>()); if (elapsed < .5f) break;
                     Check("Escape releases input", !player.InputCaptured && player.CurrentSpeed < .05f);

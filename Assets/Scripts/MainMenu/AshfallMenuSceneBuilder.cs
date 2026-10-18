@@ -11,6 +11,7 @@ using UnityEngine.Video;
 public static class AshfallMenuSceneBuilder
 {
     private const string LogoPath = "Assets/Art/UI/Volkanovski.png";
+    private const string MenuMusicPath = "Assets/Art/sesdosya/Music/Volcanic_Passage_2026-10-18T035040.mp3";
 
     [MenuItem("ASHFALL/Build VOLKANOVSKI Logo Intro")]
     public static void BuildLogoIntro()
@@ -176,6 +177,7 @@ public static class AshfallMenuSceneBuilder
         if (menuController != null)
         {
             SetPrivate(menuController, "loadingScreenClip", AssetDatabase.LoadAssetAtPath<VideoClip>("Assets/Art/BackGround/LoadingScreen.mp4"));
+            EnsureMenuMusic(scene, menuController);
             EnsureGameTitle(canvas, menuController);
             var serializedMenu = new SerializedObject(menuController);
             foreach (string field in new[] { "ambientEmbers", "eruptionSmoke", "eruptionSparks", "eruptionLight", "craterGlow", "cameraTransform" })
@@ -352,6 +354,44 @@ public static class AshfallMenuSceneBuilder
         var serializedMenu = new SerializedObject(menu);
         serializedMenu.FindProperty("titleGroup").objectReferenceValue = group;
         serializedMenu.ApplyModifiedPropertiesWithoutUndo();
+    }
+
+    private static void EnsureMenuMusic(Scene scene, AshfallMenuController menu)
+    {
+        AudioClip clip = AssetDatabase.LoadAssetAtPath<AudioClip>(MenuMusicPath);
+        if (clip == null) throw new System.Exception($"Required menu music was not found: {MenuMusicPath}");
+        GameObject emitter = FindSceneObject(scene, "VolcanoAmbience");
+        if (emitter == null)
+        {
+            emitter = new GameObject("VolcanoAmbience");
+            SceneManager.MoveGameObjectToScene(emitter, scene);
+        }
+        AudioSource music = emitter.GetComponent<AudioSource>();
+        if (music == null) music = emitter.AddComponent<AudioSource>();
+        music.clip = clip;
+        music.playOnAwake = false;
+        music.loop = true;
+        music.spatialBlend = 0f;
+        music.dopplerLevel = 0f;
+        music.volume = .22f;
+        SetPrivate(menu, "ambienceSource", music);
+        foreach (var root in scene.GetRootGameObjects())
+        foreach (var settings in root.GetComponentsInChildren<AshfallSettingsController>(true))
+        {
+            var serialized = new SerializedObject(settings);
+            var sources = serialized.FindProperty("musicSources");
+            bool assigned = false;
+            for (int i = 0; i < sources.arraySize; i++)
+                if (sources.GetArrayElementAtIndex(i).objectReferenceValue == music) assigned = true;
+            if (!assigned)
+            {
+                int index = sources.arraySize++;
+                sources.GetArrayElementAtIndex(index).objectReferenceValue = music;
+            }
+            serialized.ApplyModifiedPropertiesWithoutUndo();
+        }
+        EditorUtility.SetDirty(music);
+        EditorUtility.SetDirty(menu);
     }
 
     private static GameObject FindSceneObject(Scene scene, string objectName)

@@ -570,6 +570,8 @@ namespace GameJam.FireRescue
 
         private void ApplyDistance(float distance)
         {
+            float previousDistance = VisibleDistance;
+            bool wasVisible = surfaceRenderer.enabled && surfaceCollider.enabled && surfaceCollider.sharedMesh == revealedMesh;
             VisibleDistance = distance;
             bool visible = Length > Epsilon && distance > Epsilon;
             if (!visible)
@@ -580,6 +582,7 @@ namespace GameJam.FireRescue
                 surfaceCollider.sharedMesh = null;
                 if (ignitionSource != null)
                     ignitionSource.heatEnabled = false;
+                if (cooling) cooling.NotifySurfaceChanged();
                 return;
             }
 
@@ -644,7 +647,28 @@ namespace GameJam.FireRescue
                 ignitionSource.surfaceRenderer = surfaceRenderer;
                 ignitionSource.heatEnabled = isActiveAndEnabled;
             }
-            if (cooling) cooling.NotifySurfaceChanged();
+            if (cooling)
+            {
+                if (wasVisible && distance >= previousDistance) NotifyGrowingFront(previousDistance, distance);
+                else cooling.NotifySurfaceChanged();
+            }
+        }
+
+        private void NotifyGrowingFront(float previousDistance, float distance)
+        {
+            if (distance == previousDistance) return;
+            float a = capturedReverse ? Length - distance : previousDistance;
+            float b = capturedReverse ? Length - previousDistance : distance;
+            FindRow(a, out int firstRow, out _);
+            FindRow(b, out int lastRow, out _);
+            // Include whole source cells. The old front's partial triangles are retessellated
+            // as it moves, even where their upstream portion was already visible.
+            Bounds changed = new Bounds(source.transform.TransformPoint(fullVertices[firstRow * columnCount]), Vector3.zero);
+            for (int row = firstRow; row <= lastRow + 1; row++)
+                for (int column = 0; column < columnCount; column++)
+                    changed.Encapsulate(source.transform.TransformPoint(fullVertices[row * columnCount + column]));
+            changed.Expand(.002f);
+            cooling.NotifySurfaceChanged(changed);
         }
 
         private void AddRow(int first, int second, float fraction)

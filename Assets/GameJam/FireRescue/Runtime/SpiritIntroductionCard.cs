@@ -9,8 +9,12 @@ namespace GameJam.FireRescue
         static readonly Color Paper = new Color(.97f, .95f, .9f);
         static readonly Color Muted = new Color(.72f, .76f, .77f);
         static readonly Color Ember = new Color(1f, .45f, .19f);
+        // Use the first and third mice from the supplied sheet without altering its pixels.
+        static readonly Rect LeftMouseRegion = new Rect(15f / 700f, 13f / 211f, 108f / 700f, 168f / 211f);
+        static readonly Rect RightMouseRegion = new Rect(295f / 700f, 13f / 211f, 108f / 700f, 168f / 211f);
         GUIStyle text;
         Font font;
+        Texture2D mouseButtons;
 
         public void Draw(Texture2D frame, FireRescuePlayer player, bool canContinue)
         {
@@ -25,6 +29,7 @@ namespace GameJam.FireRescue
             {
                 font = Ashfall.UI.AshfallTypography.Regular;
                 text = new GUIStyle(GUI.skin.label) { font = font, wordWrap = true, padding = new RectOffset(), richText = false };
+                mouseButtons = Resources.Load<Texture2D>("ASHFALL/UI/Icons/TutorialMouseButtons");
             }
             Fill(new Rect(0, 0, w, h), new Color(.015f, .025f, .035f, .2f));
             Fill(new Rect(0, 0, w, 64), new Color(.015f, .022f, .03f, .96f));
@@ -38,13 +43,15 @@ namespace GameJam.FireRescue
             Label(new Rect(x, top + 122, panelW - 6, 106), ThreatText, 26, Paper);
             Fill(new Rect(x, top + 246, panelW - 8, 1), new Color(.5f, .59f, .63f, .35f));
             Label(new Rect(x, top + 269, panelW, 25), "02   /   SAVE THE TOWN", 18, Ember, true);
+            if (canContinue) DismissKeys(new Rect(x, top + 308, panelW - 6, 32), "Close briefing");
+            else Label(new Rect(x, top + 308, panelW - 6, 32), "Know the threat before continuing.", 20, Muted);
             string instruction = !player.HasPistol ? "Pick up the weapon in the bedroom. Follow the glowing blue marker." :
-                player.IsDriving ? "Press " + ExitKey(player) + " to exit. Equip your weapon and stop the spirits." : "Equip your weapon. Aim at the spirits and fire.";
-            Label(new Rect(x, top + 308, panelW - 6, 72), instruction, 25, Paper, true);
+                "Equip your weapon. Aim at the spirits and fire.";
+            Label(new Rect(x, top + 350, panelW - 6, 48), instruction, 20, Paper, true);
             float column = panelW * .5f;
             Key(new Rect(x, top + 399, column - 12, 32), "1", "Equip weapon");
-            Key(new Rect(x + column, top + 399, column, 32), "RMB", "Aim");
-            Key(new Rect(x, top + 443, column - 12, 32), "LMB", "Fire");
+            Key(new Rect(x + column, top + 399, column, 32), "RMB", "Aim", RightMouseRegion);
+            Key(new Rect(x, top + 443, column - 12, 32), "LMB", "Fire", LeftMouseRegion);
             Key(new Rect(x + column, top + 443, column, 32), ReloadKey(player), "Reload");
             Fill(new Rect(x, top + 501, panelW - 8, 1), new Color(.5f, .59f, .63f, .35f));
             Label(new Rect(x, top + 523, panelW - 6, 78), "Use the fire truck's water cannon on burning houses. If the tank is empty, follow the blue arrow to the lake.", 22, Muted);
@@ -58,18 +65,30 @@ namespace GameJam.FireRescue
 
             Fill(new Rect(0, h - 78, w, 78), new Color(.015f, .022f, .03f, .97f));
             Label(new Rect(50, h - 54, w * .4f, 30), "Protect the town when you're ready.", 22, Muted);
-            Label(new Rect(w * .51f, h - 55, w * .45f, 32), canContinue ?
-                "ESC / LEFT CLICK   ·   CONTINUE" : "Know the threat. Continue when you're ready.", 23, canContinue ? Paper : Muted, true, TextAnchor.MiddleRight);
+            if (canContinue) DismissKeys(new Rect(w * .96f - 310, h - 55, 310, 32), "Continue");
+            else Label(new Rect(w * .51f, h - 55, w * .45f, 32), "Know the threat. Continue when you're ready.", 23, Muted, true, TextAnchor.MiddleRight);
             GUI.matrix = saved; GUI.color = savedColor;
         }
-        static string ExitKey(FireRescuePlayer player) => player.contextualInteractions ? player.contextualInteractions.Label(InteractionInput.ExitVehicle) : player.exitVehicleKey.ToString();
         static string ReloadKey(FireRescuePlayer player) => player.retractHoseKey.ToString().ToUpperInvariant();
-        void Key(Rect area, string key, string action)
+        void DismissKeys(Rect area, string action)
         {
-            float width = key.Length > 3 ? 87 : 34;
+            Key(new Rect(area.x, area.y, 64, area.height), "ESC", "/");
+            Key(new Rect(area.x + 70, area.y, area.width - 70, area.height), "LMB", action, LeftMouseRegion);
+        }
+        void Key(Rect area, string key, string action, Rect? mouseRegion = null)
+        {
+            float width = key.Length > 3 ? 87 : mouseRegion.HasValue ? 46 : 34;
             Fill(new Rect(area.x, area.y, width, 30), new Color(.15f, .19f, .21f));
             Label(new Rect(area.x, area.y, width, 30), key, 16, Paper, true, TextAnchor.MiddleCenter);
-            Label(new Rect(area.x + width + 10, area.y, area.width - width - 10, 32), action, 20, Paper);
+            float actionX = area.x + width + 10;
+            if (mouseRegion.HasValue && mouseButtons)
+            {
+                const float iconHeight = 32f;
+                const float iconWidth = iconHeight * 108f / 168f;
+                GUI.DrawTextureWithTexCoords(new Rect(actionX, area.y - 1, iconWidth, iconHeight), mouseButtons, mouseRegion.Value);
+                actionX += iconWidth + 10;
+            }
+            Label(new Rect(actionX, area.y, area.xMax - actionX, 32), action, 20, Paper);
         }
         void Label(Rect rect, string value, int size, Color tint, bool bold = false, TextAnchor alignment = TextAnchor.UpperLeft)
         {

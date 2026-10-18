@@ -106,6 +106,7 @@ public sealed class EnglishMenuCapture : MonoBehaviour
             new[] { "NEW GAME", "SETTINGS", "HOW TO PLAY", "EXIT" }.Contains(t.text.ToUpperInvariant())).ToArray();
         EnglishReleaseChecks.Check(report, primaryLabels.Length == 4 && primaryLabels.All(t => t.font && t.font.HasCharacter('I')), "All four primary menu labels retain a font with uppercase I");
         EnglishReleaseChecks.Check(report, texts.Any(t => t.text.Equals("New game", StringComparison.OrdinalIgnoreCase)), "English main menu buttons survive");
+        CheckMenuMusic(report);
         yield return new WaitForEndOfFrame();
         Directory.CreateDirectory(EnglishReleaseChecks.Folder);
         var pixels = ScreenCapture.CaptureScreenshotAsTexture();
@@ -113,5 +114,35 @@ public sealed class EnglishMenuCapture : MonoBehaviour
         EnglishReleaseChecks.Write("menu.json", report);
         Application.runInBackground = oldBackground;
         EditorApplication.ExitPlaymode();
+    }
+
+    static void CheckMenuMusic(EnglishReleaseChecks.Report report)
+    {
+        var clip = AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Art/sesdosya/Music/Volcanic_Passage_2026-10-18T035040.mp3");
+        var sources = Object.FindObjectsByType<AudioSource>(FindObjectsSortMode.None).Where(s => s.clip == clip).ToArray();
+        var music = sources.FirstOrDefault();
+        EnglishReleaseChecks.Check(report, clip && clip.length > 1 && clip.loadType == AudioClipLoadType.Streaming,
+            "Volcanic Passage is a playable streaming recording: " + (clip ? clip.length.ToString("F2") + " seconds" : "missing"));
+        EnglishReleaseChecks.Check(report, sources.Length == 1 && music && music.isPlaying && music.loop && music.spatialBlend == 0 &&
+            music.gameObject.scene.name == "MainMenu", "One scene-owned 2D source loops Volcanic Passage in the menu");
+        if (!music) return;
+        bool hadMusic = PlayerPrefs.HasKey("Ashfall.MusicVolume");
+        float savedMusic = PlayerPrefs.GetFloat("Ashfall.MusicVolume", .75f);
+        var settings = Object.FindFirstObjectByType<Ashfall.MainMenu.AshfallSettingsController>();
+        EnglishReleaseChecks.Check(report, settings && Mathf.Abs(music.volume - .22f * Mathf.Clamp01(savedMusic)) < .001f,
+            "Menu music begins at the saved music-volume setting");
+        if (!settings) return;
+        try
+        {
+            settings.SetMusicVolume(.5f);
+            EnglishReleaseChecks.Check(report, Mathf.Abs(music.volume - .11f) < .001f, "Music slider changes the playing menu track immediately");
+            settings.SetMusicVolume(0);
+            EnglishReleaseChecks.Check(report, music.volume == 0 && music.isPlaying, "Music mute silences the menu track without restarting it");
+        }
+        finally
+        {
+            settings.SetMusicVolume(savedMusic);
+            if (!hadMusic) { PlayerPrefs.DeleteKey("Ashfall.MusicVolume"); PlayerPrefs.Save(); }
+        }
     }
 }

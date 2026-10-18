@@ -201,7 +201,7 @@ namespace GameJam.FireRescue
                     MissionPhase.Evacuate => evacuation && evacuation.groupRescue ? evacuation.GroupDetail : "Villagers are leaving their houses. Press " + InputLabel(InteractionInput.CallVillagers, "Q") + " to call them, then follow the green marker to the shelter.",
                     MissionPhase.Truck => "Find the truck behind your house. Approach the driver's door and press " +
                         (player.contextualInteractions ? player.contextualInteractions.Label(InteractionInput.Interact) : "E") + ".",
-                    MissionPhase.Refill => "Follow the blue arrows to the lake and park in the blue parking bay. Press " + InputLabel(InteractionInput.Pump, "P") + " to connect the intake and fill the tank. " + InputLabel(InteractionInput.ExitVehicle, "E") + " exits the truck.",
+                    MissionPhase.Refill => "Follow the blue arrows to the lake and park in the blue parking bay. Press " + InputLabel(InteractionInput.Pump, "F") + " to connect the intake and fill the tank. " + InputLabel(InteractionInput.ExitVehicle, "E") + " exits the truck.",
                     MissionPhase.Ready => story && story.defensePosition ? "Follow the road back to town. Prepare for the lava at the marked defense point." : "Return to the village. Keep the pistol and water tank ready.",
                     _ => "Wake up. The volcano is stirring."
                 };

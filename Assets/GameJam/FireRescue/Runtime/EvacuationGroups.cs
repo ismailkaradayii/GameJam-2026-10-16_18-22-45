@@ -16,7 +16,12 @@ namespace GameJam.FireRescue
         public bool EscortStarted { get; private set; }
         public int GroupsDelivered { get; private set; }
         public RescueDialogue dialogue;
-        public const float AssemblyExteriorReach = 3f;
+        public const float AssemblyExteriorReach = 4f;
+        public const float CloseGroupInteractionReach = 4f;
+        public bool DepartureRequested { get; private set; }
+        public bool CanRequestDeparture => CanAct && PlayerAtAssembly && !EscortStarted && ActiveGroup < 0 &&
+            NextRecruitGroup < 0 && (AllAtAssembly || IsDepositing);
+        readonly RaycastHit[] recruitmentSightHits = new RaycastHit[48];
         AssemblyPointMarker assemblyMarker;
 
         public int AssembledCount
@@ -72,17 +77,19 @@ namespace GameJam.FireRescue
             AllAtAssembly ? "Everyone is assembled" : ActiveGroup >= 0 ? "Bring the group to the assembly point" :
             IsDepositing && NextRecruitGroup < 0 ? "The group is assembling" : "Gather the townspeople";
         public string GroupDetail => IsComplete ? "Everyone is safe." : EscortStarted ? "Follow the green marker. Wait for everyone to enter the shelter." :
+            DepartureRequested ? "Departure requested. Everyone will follow when the last group reaches its places." :
             AllAtAssembly ? "Press " + InteractLabel + " at the assembly point to gather everyone, then follow the green marker to the shelter." :
-            ActiveGroup >= 0 ? "Come within 3 m of the yellow boundary. Press " + InteractLabel + " to send the group in, then find the next group." :
-            IsDepositing ? NextRecruitGroup >= 0 ? "The group is heading to its places. Find the next group marked (!)." : "The last group is heading to its places. Gather everyone here when they arrive." :
+            ActiveGroup >= 0 ? "Come within 4 m of the yellow boundary. Press " + InteractLabel + " to send the group in, then find the next group." :
+            IsDepositing ? NextRecruitGroup >= 0 ? "The group is heading to its places. Find the next group marked (!)." : "Press " + InteractLabel + " near the yellow boundary to prepare everyone to leave." :
             "Approach the group marked (!) and press " + InteractLabel + " to recruit them. Bring them to the yellow assembly point.";
         public string GroupStatus => EscortStarted || IsComplete ? "Sheltered: " + RescuedCount + " / " + TotalCount :
             "Assembled: " + AssembledCount + " / " + TotalCount + "  ·  Following: " + FollowingCount;
         public string GroupHint => player && player.IsDriving ? InteractLabel + " · Exit the truck" : IsComplete ? "Everyone is safe" : EscortStarted ? "Follow the green marker" :
+            DepartureRequested ? "Departure ready · Waiting for the last group" :
             AllAtAssembly ? PlayerAtAssembly ? InteractLabel + " · Lead everyone to the shelter" : "Return to the assembly point" :
             ActiveGroup >= 0 ?
-                !PlayerAtAssembly ? "Come within 3 m of the yellow boundary" : CanDepositGroup ? InteractLabel + " · Send the group in" : "Help the group before leaving them here" :
-                IsDepositing && NextRecruitGroup < 0 ? "The last group is taking its places" :
+                !PlayerAtAssembly ? "Come within 4 m of the yellow boundary" : CanDepositGroup ? InteractLabel + " · Send the group in" : "Help the group before leaving them here" :
+                IsDepositing && NextRecruitGroup < 0 ? PlayerAtAssembly ? InteractLabel + " · Prepare to leave for shelter" : "Come within 4 m of the yellow boundary" :
                 InteractLabel + " · Recruit the group marked (!)";
 
         void InitializeGroups()
@@ -111,14 +118,31 @@ namespace GameJam.FireRescue
             return true;
         }
 
+        public Vector3 RecruitmentFocus(EvacuationResident resident) => resident.transform.TransformPoint(Vector3.up * 1.65f);
+
+        public bool CanSeeRecruitGroup(EvacuationResident resident)
+        {
+            if (!resident || !PlayerTransform) return false;
+            Vector3 from = player.viewCamera ? player.viewCamera.transform.position : PlayerTransform.position + Vector3.up * 2f;
+            Vector3 delta = RecruitmentFocus(resident) - from;
+            int count = Physics.RaycastNonAlloc(from, delta.normalized, recruitmentSightHits, Mathf.Max(0f, delta.magnitude - .08f), ~0, QueryTriggerInteraction.Ignore);
+            if (count == recruitmentSightHits.Length) return false;
+            for (int i = 0; i < count; i++)
+            {
+                var hit = recruitmentSightHits[i];
+                if (!hit.collider || hit.transform.IsChildOf(PlayerTransform) || hit.transform.IsChildOf(player.transform)) continue;
+                if (player.hose && player.hose.IsCarried && player.hose.nozzle && hit.transform.IsChildOf(player.hose.nozzle)) continue;
+                // A crowded group must not block its own call, but buildings still do.
+                var other = hit.collider.GetComponentInParent<EvacuationResident>();
+                if (other && other.mission == this && other.rescueGroup == resident.rescueGroup) continue;
+                return false;
+            }
+            return true;
+        }
+
         public bool TryRecruitGroup(EvacuationResident resident)
         {
-            if (!CanRecruitGroup(resident)) return false;
-            // The action API also checks visibility, so callers cannot recruit through a wall.
-            Vector3 from = player.viewCamera ? player.viewCamera.transform.position : PlayerTransform.position + Vector3.up * 2f;
-            Vector3 to = resident.transform.position + Vector3.up * 2.4f;
-            if (Physics.Linecast(from, to, out var obstruction, ~0, QueryTriggerInteraction.Ignore) &&
-                !obstruction.transform.IsChildOf(resident.transform) && !obstruction.transform.IsChildOf(PlayerTransform)) return false;
+            if (!CanRecruitGroup(resident) || !CanSeeRecruitGroup(resident)) return false;
             int count = 0;
             foreach (var r in residents)
                 if (r && r.rescueGroup == resident.rescueGroup && !r.IsDead && !r.IsSafe && r.CallOutside()) count++;
@@ -150,10 +174,17 @@ namespace GameJam.FireRescue
             if (!CanAct || !PlayerAtAssembly) return false;
             if (AllAtAssembly && !EscortStarted)
             {
+                DepartureRequested = false;
                 EscortStarted = true; ActiveGroup = -1;
                 trail.Clear(); trail.Add(PlayerTransform.position);
                 foreach (var r in residents) if (r && r.IsAtAssembly) r.ResumeFollowing();
                 Speak("depart", null, true);
+                return true;
+            }
+            if (CanRequestDeparture)
+            {
+                // Remember an early E while the final residents are walking to their slots.
+                DepartureRequested = true;
                 return true;
             }
             if (!CanDepositGroup) return false;
@@ -176,6 +207,13 @@ namespace GameJam.FireRescue
 
         void TickGroups()
         {
+            if (DepartureRequested)
+            {
+                if (!PlayerAtAssembly || (player && player.IsDriving) || IsComplete || EscortStarted)
+                    DepartureRequested = false;
+                else if (AllAtAssembly && CanAct)
+                    TryAssemblyInteraction();
+            }
             if (ActiveGroup >= 0)
             {
                 bool any = false;

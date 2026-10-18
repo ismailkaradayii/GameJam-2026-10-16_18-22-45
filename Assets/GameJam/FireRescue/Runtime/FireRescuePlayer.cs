@@ -22,7 +22,7 @@ namespace GameJam.FireRescue
         public VolcanoMissionDirector mission;
         public ContextualInteractionUI contextualInteractions;
         [Header("Interaction keys (Input System)")]
-        public Key interactKey = Key.E, retractHoseKey = Key.R, pumpKey = Key.P;
+        public Key interactKey = Key.E, retractHoseKey = Key.R, pumpKey = Key.F;
         // Entry and exit always share the same interaction binding.
         public Key exitVehicleKey => interactKey;
         public const float MaximumExitSpeedKph = 20f;
@@ -33,6 +33,9 @@ namespace GameJam.FireRescue
         public bool requiresWeaponPickup;
         [Min(0f)] public float vehicleCameraBlendSeconds = .6f;
         public bool HasPistol { get; private set; }
+        public int SelectedEquipmentSlot => HasPistol && pistol && pistol.Selected ? 1 : 2;
+        public bool CanSelectEquipment => Time.timeScale > 0f && !GameplaySuspended && !InteractionBusy &&
+            !IsDriving && (!hose || !hose.IsCarried) && (!firstPerson || !firstPerson.IsSwimming);
         bool equippedBeforeCinema, equippedBeforeDriving;
         Vector3 transitionPosition;
         Quaternion transitionRotation;
@@ -71,7 +74,7 @@ namespace GameJam.FireRescue
         {
             if (CinematicLocked == locked) return;
             if (pistolAimAssist) pistolAimAssist.Release();
-            if (locked) equippedBeforeCinema = pistol && pistol.Equipped;
+            if (locked) equippedBeforeCinema = pistol && pistol.Selected;
             CinematicLocked = locked;
             SetCannonActive(false);
             if (drive) drive.SetInput(0, 0, true);
@@ -170,7 +173,7 @@ namespace GameJam.FireRescue
             if (focused && Cursor.lockState != CursorLockMode.Locked && mouse != null && mouse.leftButton.wasPressedThisFrame)
                 SetCursor(true);
 
-            bool inputEnabled = focused && Cursor.lockState == CursorLockMode.Locked && keyboard != null;
+            bool inputEnabled = Time.timeScale > 0f && focused && Cursor.lockState == CursorLockMode.Locked && keyboard != null;
             RefreshEquipmentState();
             lookAngularVelocity = Vector2.zero;
             if (!inputEnabled)
@@ -240,10 +243,13 @@ namespace GameJam.FireRescue
             if (hose && pumpKey != Key.None && keyboard[pumpKey].wasPressedThisFrame) hose.TogglePump();
             RefreshEquipmentState();
             if (retractHoseKey != Key.None && keyboard[retractHoseKey].wasPressedThisFrame) ReloadOrRetract();
+            if (keyboard.digit1Key.wasPressedThisFrame) SelectEquipmentSlot(1);
+            else if (keyboard.digit2Key.wasPressedThisFrame || keyboard.digit0Key.wasPressedThisFrame) SelectEquipmentSlot(2);
+            else if (mouse != null && Mathf.Abs(mouse.scroll.ReadValue().y) > .01f) CycleEquipmentSlot();
             if (pistol)
                 pistol.SetExternalInput(true, mouse != null && mouse.rightButton.isPressed,
                     mouse != null && mouse.leftButton.wasPressedThisFrame,
-                    keyboard.digit1Key.wasPressedThisFrame, keyboard.digit0Key.wasPressedThisFrame, false);
+                    false, false, false);
         }
 
         void LateUpdate()
@@ -299,6 +305,21 @@ namespace GameJam.FireRescue
             if (HasPistol || !pistol) return false;
             HasPistol = true; RefreshEquipmentState(); pistol.Equip(); return true;
         }
+
+        /// <summary>Slot 1 is the collected pistol; slot 2 leaves both hands empty.</summary>
+        public bool SelectEquipmentSlot(int slot)
+        {
+            if (!CanSelectEquipment || (slot != 1 && slot != 2)) return false;
+            if (slot == 1)
+            {
+                if (!HasPistol || !pistol || !pistol.Available) return false;
+                pistol.Equip();
+            }
+            else if (pistol) pistol.Holster();
+            return true;
+        }
+
+        public bool CycleEquipmentSlot() => HasPistol && SelectEquipmentSlot(SelectedEquipmentSlot == 1 ? 2 : 1);
         public bool EnterVehicle()
         {
             if (GameplaySuspended) return false;
@@ -339,6 +360,9 @@ namespace GameJam.FireRescue
             verticalVelocity = 0f;
             if (mission && mission.fillStation) mission.fillStation.Cancel();
             SetDriving(false);
+            // A real, validated exit always prepares the owned pistol for the fight.
+            // Setup and story calls to SetDriving(false) keep their existing selection.
+            if (HasPistol && pistol && pistol.Available) pistol.Equip();
             transitionLeft = 0f;
             UpdateFootCamera();
             return true;
@@ -347,6 +371,7 @@ namespace GameJam.FireRescue
         /// <summary>Initial setup / test entry point; interactive entry also checks the door and hose.</summary>
         public void SetDriving(bool driving)
         {
+            bool wasDriving = IsDriving;
             if (pistolAimAssist) pistolAimAssist.Release();
             cannonViewBlend = 0;
             if (drivingInitialized && viewCamera)
@@ -354,7 +379,7 @@ namespace GameJam.FireRescue
                 transitionPosition = viewCamera.transform.position; transitionRotation = viewCamera.transform.rotation;
                 transitionLeft = vehicleCameraBlendSeconds;
             }
-            if (driving && !IsDriving) equippedBeforeDriving = pistol && pistol.Equipped;
+            if (driving && !IsDriving) equippedBeforeDriving = pistol && pistol.Selected;
             drivingInitialized = true;
             SetCannonActive(false);
             IsDriving = driving && drive;
@@ -372,7 +397,7 @@ namespace GameJam.FireRescue
                 if (firstPerson && viewCamera) viewCamera.fieldOfView = firstPerson.fieldOfView;
             }
             RefreshEquipmentState();
-            if (!IsDriving && equippedBeforeDriving && pistol && pistol.Available) pistol.Equip();
+            if (wasDriving && !IsDriving && equippedBeforeDriving && pistol && pistol.Available) pistol.Equip();
             snapCamera = true;
         }
 
@@ -651,6 +676,8 @@ namespace GameJam.FireRescue
             float extraHeight = bodyBox ? bodyBox.size.y * drive.transform.lossyScale.y * 1.8f : 12f;
             Vector3 cannonView = drive.transform.position + drive.transform.forward * cabForward +
                 Vector3.up * (followHeight + cannonCameraLift + extraHeight);
+            // Keep the same aim direction with a little more room around the water impact.
+            cannonView -= cannonRotation * Vector3.forward * 1.25f;
             // The long truck hides enemies just beyond its bumper from a rear chase camera.
             // RMB blends to an elevated cab view with free mouse aim; ordinary driving retains its orbit.
             Vector3 desired = Vector3.Lerp(target + rotation * Vector3.back * followDistance, cannonView, cannonViewBlend);
@@ -783,7 +810,7 @@ namespace GameJam.FireRescue
             GUI.color = Color.white;
             GUI.Label(new Rect(32f, 102f, 315f, 33f), GetWaterStatus(), textStyle);
             GUI.Label(new Rect(32f, 137f, 315f, 54f), IsDriving ? "WASD Drive  ·  Space Brake  ·  E Exit\nRight click Water  ·  Mouse Aim  ·  Esc Cursor" :
-                "WASD Move  ·  Shift Sprint  ·  E Enter\nE Hose  ·  P Pump  ·  R " + (pistol && pistol.Equipped ? "Reload" : "Retract"), textStyle);
+                "WASD Move  ·  Shift Sprint  ·  E Enter\nE Hose  ·  F Pump  ·  R " + (pistol && pistol.Equipped ? "Reload" : "Retract"), textStyle);
 
             string prompt = GetPrompt();
             if (Cursor.lockState != CursorLockMode.Locked) prompt = "Click the game screen to continue.";
@@ -824,20 +851,20 @@ namespace GameJam.FireRescue
                 var station = mission ? mission.fillStation : null;
                 if (station && station.InRange)
                 {
-                    if (station.IsFilling) return "FILLING WATER TANK...  |  P: Disconnect  |  E: Exit";
+                    if (station.IsFilling) return "FILLING WATER TANK...  |  F: Disconnect  |  E: Exit";
                     if (hose && hose.Tank01 >= .999f) return "TANK FULL  |  Return to the village";
-                    return drive.SpeedKph > station.maximumFillSpeedKph ? "SPACE: Stop in the blue parking bay to refill" : "P: Fill water tank  |  E: Exit";
+                    return drive.SpeedKph > station.maximumFillSpeedKph ? "SPACE: Stop in the blue parking bay to refill" : "F: Fill water tank  |  E: Exit";
                 }
                 return "WASD: Drive  |  SPACE: Brake  |  RMB: Water cannon  |  E: Exit below 20 km/h";
             }
-            if (hose && hose.IsCarried) return "E: Drop intake in water  |  P: Pump";
+            if (hose && hose.IsCarried) return "E: Drop intake in water  |  F: Pump";
             if (TryGetDoorTarget(out InteractiveDoor door)) return door.Prompt;
             if (NearVehicleEntry()) return "E: Enter fire truck";
-            if (hose && Near(hose.hoseSocket, interactionDistance)) return hose.IsDeployed ? "R: Retract hose  |  P: Pump" : "E: Take intake hose";
-            if (hose && hose.IsDeployed && Near(hose.nozzle, interactionDistance)) return "E: Take intake  |  P: Pump";
+            if (hose && Near(hose.hoseSocket, interactionDistance)) return hose.IsDeployed ? "R: Retract hose  |  F: Pump" : "E: Take intake hose";
+            if (hose && hose.IsDeployed && Near(hose.nozzle, interactionDistance)) return "E: Take intake  |  F: Pump";
             if (mission && mission.evacuation && mission.evacuation.IsActive && !mission.evacuation.IsComplete)
                 return mission.evacuation.groupRescue ? mission.evacuation.GroupHint : "Q: Call villagers  |  Lead them to the GREEN shelter ring";
-            if (HasPistol && pistol) return pistol.Equipped ? "LMB: Shoot  |  RMB: Aim  |  R: Reload  |  0: Holster" : "1: Select pistol  |  SHIFT: Sprint";
+            if (HasPistol && pistol) return pistol.Selected ? "LMB: Shoot  |  RMB: Aim  |  R: Reload  |  2: Empty hands  |  Wheel: Switch" : "1: Pistol  |  Wheel: Switch  |  SHIFT: Sprint";
             return "WASD: Move  |  SHIFT: Sprint  |  E: Interact";
         }
         string GetWaterStatus()
@@ -856,7 +883,7 @@ namespace GameJam.FireRescue
                 }
                 return "Spray fires or lava\nWater forms obsidian";
             }
-            return IsDriving ? "Hold RMB to spray water" : hose.IsDeployed ? "P: Pump  |  R: Retract" : "Water tank ready";
+            return IsDriving ? "Hold RMB to spray water" : hose.IsDeployed ? "F: Pump  |  R: Retract" : "Water tank ready";
         }
     }
 }

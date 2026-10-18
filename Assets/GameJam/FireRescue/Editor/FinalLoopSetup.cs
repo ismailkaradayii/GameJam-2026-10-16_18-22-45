@@ -67,7 +67,7 @@ public static class FinalLoopSetup
         mission.cinematic.startOffset = new Vector3(340, 320, -610); mission.cinematic.endOffset = new Vector3(240, 250, -470);
         foreach (var house in houses) { house.startBurning = false; house.secondsToCollapse = 85; Dirty(house); }
         encounter.waveSizes = new[] { 10 }; encounter.secondsBetweenWaves = 20; encounter.secondsBetweenSpawns = 2.2f; encounter.maximumAlive = 10;
-        encounter.buildingAttackShare = .5f;
+        encounter.buildingAttackShare = .3f;
         mission.gameFlow.defenseFireBuildings = mission.gameFlow.targetBuildings.Where(h => h).Take(3).ToArray();
         Dirty(mission.gameFlow);
         var approach = sequence.routes.Select(r => r.flow).First(f => f && f.name == "Town Approach");

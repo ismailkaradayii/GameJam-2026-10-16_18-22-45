@@ -1,0 +1,6 @@
+{
+  "generator": "Built-in image_gen",
+  "asset": "Assets/Resources/ASHFALL/UI/Icons/PistolSlot.png",
+  "prompt": "Use case: stylized-concept. Asset type: transparent game inventory UI icon. Primary request: create one isolated semi-realistic 3D-rendered compact semi-automatic pistol, matching the weapon in the reference game screenshot: matte dark charcoal polymer grip and frame, subtly warm gunmetal/bronze slide, compact rectangular reflex sight above the rear slide. The screenshot is a design reference only, do not reproduce its hands, scene or interface. Composition: full gun visible in a clean side view with slight three-quarter depth, barrel horizontal pointing left, centered and filling about 82% of a square canvas, generous transparent padding, unmistakable readable silhouette at 72px. Soft neutral studio lighting with a thin pale edge highlight for readability on a dark HUD. Realistic functional proportions, textured grip, no added attachments. Background: genuine alpha transparency, no backdrop or ground shadow. No hands, bullets, muzzle flash, smoke, frame, UI, letters, labels, logos, watermark, or decorative fire.",
+  "transparentBackground": true
+}

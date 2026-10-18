@@ -134,7 +134,7 @@ namespace Itfaiye.Editor
                     Check("Empty magazine holds slide back", pistol.Ammo == 0 && pistol.SlideAmount > .99f && !pistol.Fire());
                     Next(); return;
                 case 9:
-                    Input(first ? new[] { Key.R } : elapsed > .5f && elapsed < .6f ? new[] { Key.Digit1 } : Array.Empty<Key>());
+                    Input(first ? new[] { Key.R } : elapsed > .5f && elapsed < .6f ? new[] { Key.Digit2 } : Array.Empty<Key>());
                     if (pistol.IsReloading && pistol.ReloadProgress > .70f && pistol.ReloadProgress < .78f)
                         CheckOnce("Empty reload keeps slide locked until hand reaches it", pistol.SlideAmount > .99f);
                     if (elapsed < pistol.reloadDuration + .5f) break;
