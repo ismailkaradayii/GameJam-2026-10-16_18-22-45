@@ -16,7 +16,6 @@ namespace GameJam.FireRescue
         public bool EscortStarted { get; private set; }
         public int GroupsDelivered { get; private set; }
         public RescueDialogue dialogue;
-        bool readyAnnounced;
         bool depositingGroup;
 
         public int AssembledCount
@@ -46,20 +45,20 @@ namespace GameJam.FireRescue
                 return next == int.MaxValue ? -1 : next;
             }
         }
-        public string GroupObjective => IsComplete ? "Herkes sığınakta" : EscortStarted ? "İnsanları sığınağa götür" :
-            AllAtAssembly ? "Herkes toplandı" : depositingGroup ? "Grup alana yerleşiyor" : ActiveGroup >= 0 ? "Grubu toplanma alanına getir" : "İnsanları topla";
-        public string GroupDetail => IsComplete ? "Tüm insanlar güvende." : EscortStarted ? "Yeşil işareti takip et. Herkesin sığınağa girmesini bekle." :
-            AllAtAssembly ? "Toplanma alanında " + InteractLabel + " ile herkesi yanına al. Ardından yeşil işareti takip ederek sığınağa götür." :
-            depositingGroup ? "Grup yerleşirken bekle. Sonra sıradaki ünlem işaretli gruba git." :
-            ActiveGroup >= 0 ? "Grubu sarı halkaya getir. Alanda " + InteractLabel + " ile burada bırak, sonra diğer grubu al." :
-            "Ünlem (!) işaretli gruba yaklaş ve " + InteractLabel + " ile yanına al. Ardından sarı toplanma alanına getir.";
-        public string GroupStatus => EscortStarted || IsComplete ? "Sığınakta: " + RescuedCount + " / " + TotalCount :
-            "Toplanan: " + AssembledCount + " / " + TotalCount + "  ·  Yanında: " + FollowingCount;
-        public string GroupHint => player && player.IsDriving ? InteractLabel + " · Araçtan in" : IsComplete ? "Tüm insanlar güvende" : EscortStarted ? "Yeşil işareti takip et" :
-            AllAtAssembly ? PlayerAtAssembly ? InteractLabel + " · Herkesi yanına al" : "Toplanma alanına dön" :
-            depositingGroup ? "Grubun yerleşmesini bekle" : ActiveGroup >= 0 ?
-                !PlayerAtAssembly ? "Grubu sarı halkaya getir" : CanDepositGroup ? InteractLabel + " · Grubu burada bırak" : "Grubun yanına gelmesini bekle" :
-                InteractLabel + " · Ünlem işaretli grubu yanına al";
+        public string GroupObjective => IsComplete ? "Everyone is sheltered" : EscortStarted ? "Lead everyone to the shelter" :
+            AllAtAssembly ? "Everyone is assembled" : depositingGroup ? "The group is assembling" : ActiveGroup >= 0 ? "Bring the group to the assembly point" : "Gather the townspeople";
+        public string GroupDetail => IsComplete ? "Everyone is safe." : EscortStarted ? "Follow the green marker. Wait for everyone to enter the shelter." :
+            AllAtAssembly ? "Press " + InteractLabel + " at the assembly point to gather everyone, then follow the green marker to the shelter." :
+            depositingGroup ? "Wait for the group to assemble, then find the next group marked (!)." :
+            ActiveGroup >= 0 ? "Bring the group into the yellow ring. Press " + InteractLabel + " to leave them here, then find the next group." :
+            "Approach the group marked (!) and press " + InteractLabel + " to recruit them. Bring them to the yellow assembly point.";
+        public string GroupStatus => EscortStarted || IsComplete ? "Sheltered: " + RescuedCount + " / " + TotalCount :
+            "Assembled: " + AssembledCount + " / " + TotalCount + "  ·  Following: " + FollowingCount;
+        public string GroupHint => player && player.IsDriving ? InteractLabel + " · Exit the truck" : IsComplete ? "Everyone is safe" : EscortStarted ? "Follow the green marker" :
+            AllAtAssembly ? PlayerAtAssembly ? InteractLabel + " · Lead everyone to the shelter" : "Return to the assembly point" :
+            depositingGroup ? "Wait for the group to assemble" : ActiveGroup >= 0 ?
+                !PlayerAtAssembly ? "Bring the group to the yellow ring" : CanDepositGroup ? InteractLabel + " · Leave the group here" : "Wait for the group to catch up" :
+                InteractLabel + " · Recruit the group marked (!)";
 
         void InitializeGroups()
         {
@@ -102,7 +101,6 @@ namespace GameJam.FireRescue
             depositingGroup = false;
             trail.Clear(); trail.Add(PlayerTransform.position);
             Speak("recruit_" + Mathf.Clamp(GroupsDelivered, 0, 2), null, true);
-            Speak("reply_" + Mathf.Clamp(resident.rescueGroup, 0, 2), resident.transform);
             return true;
         }
 
@@ -139,7 +137,6 @@ namespace GameJam.FireRescue
             foreach (var r in residents)
                 if (r && !r.IsDead && !r.IsSafe && r.rescueGroup == ActiveGroup)
                     r.WaitAtAssembly(AssemblySlot(r));
-            Speak("wait_" + Mathf.Clamp(GroupsDelivered, 0, 2));
             return true;
         }
 
@@ -163,8 +160,6 @@ namespace GameJam.FireRescue
                 }
                 if (!any || arrived) { ActiveGroup = -1; depositingGroup = false; if (any) GroupsDelivered++; }
             }
-            if (!EscortStarted && AllAtAssembly && !readyAnnounced)
-            { readyAnnounced = true; Speak("ready"); }
         }
 
         public void Speak(string id, Transform speaker = null, bool replace = false)
@@ -187,9 +182,9 @@ namespace GameJam.FireRescue
         public Transform GroupNavigationTarget(out string label)
         {
             if (EscortStarted)
-            { label = "SIĞINAK | GRUBU GÖTÜR"; return ShelterOpened ? shelterEntrance : shelterApproach; }
+            { label = "SHELTER | LEAD THE GROUP"; return ShelterOpened ? shelterEntrance : shelterApproach; }
             if (ActiveGroup >= 0 || AllAtAssembly)
-            { label = AllAtAssembly ? "TOPLANMA ALANI | " + InteractLabel + ": HERKESİ YANINA AL" : "TOPLANMA ALANI | " + AssembledCount + "/" + TotalCount; return assemblyPoint; }
+            { label = AllAtAssembly ? "ASSEMBLY POINT | " + InteractLabel + ": LEAD EVERYONE TO SHELTER" : "ASSEMBLY POINT | " + AssembledCount + "/" + TotalCount; return assemblyPoint; }
             Transform nearest = null; float distance = float.PositiveInfinity;
             foreach (var r in residents)
             {
@@ -198,7 +193,7 @@ namespace GameJam.FireRescue
                 if (d >= distance) continue;
                 distance = d; nearest = r.panicGroupAnchor ? r.panicGroupAnchor : r.transform;
             }
-            label = "ÜNLEM (!) İŞARETLİ GRUP | " + InteractLabel + ": YANINA AL";
+            label = "GROUP MARKED (!) | " + InteractLabel + ": RECRUIT";
             return nearest;
         }
 

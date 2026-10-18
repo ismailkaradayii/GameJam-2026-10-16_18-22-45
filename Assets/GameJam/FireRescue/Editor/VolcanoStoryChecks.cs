@@ -219,8 +219,8 @@ public static class VolcanoStoryChecks
             case 19:
                 if (player.hose.Tank01 < .999f || mission.fillStation.IsFilling || !mission.PreparationComplete) return;
                 Check("real water filling completes and retrieves the intake", !player.hose.IsDeployed && player.hose.TankLitres >= 1998 && mission.Phase == VolcanoMissionDirector.MissionPhase.Ready);
-                if (story.CurrentThought != VolcanoStorySequence.Thought.Return) return;
-                Check("full tank triggers the return thought", story.CurrentLine.Contains("prepare where the lava will reach the town"));
+                Check("truck entry and full tank keep guidance without extra monologue",
+                    !story.HasSpoken(VolcanoStorySequence.Thought.Lake) && !story.HasSpoken(VolcanoStorySequence.Thought.Return));
                 if (!fixture.PhotoReady("05-return-guidance.png")) return;
                 previousTimer = mission.PreparationRemaining; player.gameFlow.Pause(); Next(20); return;
             case 20:

@@ -172,17 +172,17 @@ public static class AshfallSettingsSceneBuilder
 
         ScrollRect scroll = CreateScrollView("HowToScrollView", panel, new Vector2(44f, 100f), new Vector2(-44f, -164f));
         Transform content = scroll.content;
-        Text status = MakeInfoCard(content, "VOLCANO DEMO — DEFEND THE TOWN", "Take the pistol and activate the village alarm with E. Follow the ! marker to collect groups of 2, 2 and 3 with E. Bring each group to the AMBER assembly area and press E to leave them there. The ! then moves to the next group. Once all seven are assembled, press E at the assembly area and lead everyone to the GREEN shelter. Enter the fire truck and fill its tank with P at the BLUE lake marker. You have 240 seconds to prepare. Stop the fire spirits and extinguish burning houses. Stay away from hot lava.");
+        Text status = MakeInfoCard(content, "VOLKANOVSKI — Defend the town", "Take the pistol and activate the village alarm with E. Follow the ! marker to collect groups of 2, 2 and 3 with E. Bring each group to the AMBER assembly area and press E to leave them there. The ! then moves to the next group. Once all seven are assembled, press E at the assembly area and lead everyone to the GREEN shelter. Enter the fire truck and fill its tank with P at the BLUE lake parking bay. You have 120 seconds to prepare. Stop the fire spirits and extinguish burning houses. Stay away from hot lava.");
         status.fontSize = 17;
         var missionCardLayout = status.transform.parent.GetComponent<LayoutElement>();
         missionCardLayout.preferredHeight = -1f; missionCardLayout.minHeight = 138f;
         AddSectionTitle(content, "MOVEMENT AND VEHICLE");
         AddControlRow(content, "MOVE", "WASD", "Move on foot or drive. Look around with the mouse.", true);
         AddControlRow(content, "SPRINT", "SHIFT", "Sprint on foot.", false);
-        AddControlRow(content, "ENTER / EXIT", "E / F", "Press E at the driver's door to enter; stop and press F to exit.", false);
+        AddControlRow(content, "ENTER / EXIT", "E", "Press E at the driver's door to enter. Press E to exit below 20 km/h.", false);
         AddControlRow(content, "BRAKE / JUMP", "SPACE", "Brake in the vehicle; jump on foot with the weapon drawn.", false);
         AddSectionTitle(content, "HOSE AND WATER");
-        AddControlRow(content, "FILL TANK", "E", "Stop in the BLUE lake ring and press E to connect. The hose retracts when the tank is full.", false);
+        AddControlRow(content, "FILL TANK", "P", "Stop in the BLUE lake parking bay and press P to connect. E exits the truck. The hose retracts when the tank is full.", false);
         AddControlRow(content, "MANUAL HOSE", "E / P", "On foot, take the hose from the rear of the truck, drop its intake in the lake, and press P to start the pump.", false);
         AddControlRow(content, "RETRACT", "R", "Retract the hose at the rear before entering the truck.", false);
         AddControlRow(content, "WATER CANNON", "RMB", "Hold right click in the truck to extinguish houses, cool lava, and spray spirits. The marker shows the predicted impact point; allow time for the water to reach it.", false);

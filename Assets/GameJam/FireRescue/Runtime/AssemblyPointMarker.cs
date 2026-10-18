@@ -20,8 +20,10 @@ namespace GameJam.FireRescue
                 label.gameObject.SetActive(visible);
                 if (visible)
                 {
-                    label.text = "TOPLANMA ALANI\n" + mission.AssembledCount + " / " + mission.TotalCount +
-                        (mission.AllAtAssembly ? "\n" + mission.InteractLabel + " HERKESİ YANINA AL" : "\nGRUPLARI BURAYA GETİR");
+                    label.text = "ASSEMBLY POINT\n" + mission.AssembledCount + " / " + mission.TotalCount +
+                        (mission.AllAtAssembly ? "\n" + mission.InteractLabel + " LEAD EVERYONE TO SHELTER" :
+                         mission.IsDepositing ? "\nWAIT FOR THE GROUP" :
+                         mission.CanDepositGroup ? "\n" + mission.InteractLabel + " LEAVE THE GROUP HERE" : "\nBRING THE GROUPS HERE");
                     label.color = mission.AllAtAssembly ? readyColor : waitingColor;
                     if (mission.player && mission.player.viewCamera)
                         label.transform.rotation = Quaternion.LookRotation(label.transform.position - mission.player.viewCamera.transform.position);

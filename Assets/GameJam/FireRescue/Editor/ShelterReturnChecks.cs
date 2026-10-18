@@ -16,6 +16,8 @@ public static class ShelterReturnChecks
 {
     const string Pending = "ShelterReturnChecks.Pending";
     static readonly List<string> report = new List<string>();
+    static readonly HashSet<int> heardThoughts = new HashSet<int>();
+    static readonly HashSet<AudioClip> heardRecordings = new HashSet<AudioClip>();
     static VolcanoMissionDirector mission;
     static VolcanoSurvivalObjective survival;
     static RescueHUD hud;
@@ -26,7 +28,7 @@ public static class ShelterReturnChecks
     static ShelterReturnCaptureFixture photos;
     static int phase = -1, frame = -1, oldMission;
     static float phaseAt, previousShotAt, maximumStep, previousScale;
-    static Vector3 entryPosition, previousShot;
+    static Vector3 entryPosition, previousShot, fixedStart;
     static Quaternion entryRotation;
     static bool oldBackground, oldMaximized, sawPreparation, sawWarning, visualOnly;
     static double deadline, nextReport;
@@ -52,14 +54,14 @@ public static class ShelterReturnChecks
     public static void ReviewVisuals() { SessionState.SetBool(Pending + ".VisualOnly", true); Run(); }
     static void Start()
     {
-        report.Clear(); runtimeError = null; maximumStep = 0; sawPreparation = sawWarning = false;
+        report.Clear(); heardThoughts.Clear(); heardRecordings.Clear(); runtimeError = null; maximumStep = 0; sawPreparation = sawWarning = false;
         visualOnly = SessionState.GetBool(Pending + ".VisualOnly", false); SessionState.SetBool(Pending + ".VisualOnly", false);
         Bind(); oldMission = mission.GetInstanceID();
         oldBackground = SessionState.GetBool(Pending + ".Background", false); previousScale = Time.timeScale;
         game = EditorWindow.GetWindow(typeof(EditorWindow).Assembly.GetType("UnityEditor.GameView")); oldMaximized = game.maximized; game.Focus(); game.maximized = true;
         report.Add("Started UTC: " + DateTime.UtcNow.ToString("O"));
         report.Add(visualOnly ? "Visual review: full closing journey and success screen; restart/defeat are covered in full-checks.txt." : "Full closing, restart and defeat integration.");
-        report.Add("Real-frame closing integration in the authored scene. Existing house-water APIs, finite-wave release/bullet-damage APIs and the real survival evaluator earn victory. NPC agents are arranged at their actual shelter slots; this is not a repeat of the complete manual battle/evacuation. The continuous camera journey is observed without scene loading or camera teleports.");
+        report.Add("Real-frame closing integration in the authored scene. Existing house-water APIs, finite-wave release/bullet-damage APIs and the real survival evaluator earn victory. NPC agents are arranged at their assembly and shelter slots through normal departure APIs; this is not a repeat of the complete manual battle/evacuation. A covered relocation leads into the same bounded walk from both a remote victory and a nearby truck.");
         Application.logMessageReceived += Log; Next(0, 45);
         photos = flow.gameObject.AddComponent<ShelterReturnCaptureFixture>();
     }
@@ -92,7 +94,17 @@ public static class ShelterReturnChecks
                 if (!mission.story.OpeningComplete) return;
                 Check("existing opening finishes before gameplay and does not trigger a closing shot", !ending.IsPlaying && !flow.HasResult && !player.CinematicLocked);
                 player.AcquirePistol(); mission.enabled = false; survival.enabled = false;
-                mission.evacuation.BeginMission(); mission.evacuation.Shout();
+                mission.evacuation.BeginMission();
+                foreach (var resident in mission.evacuation.residents)
+                {
+                    resident.CallOutside(); resident.WaitAtAssembly(mission.evacuation.AssemblySlot(resident));
+                    resident.Agent.Warp(mission.evacuation.AssemblySlot(resident).position);
+                }
+                player.PlaceOnFoot(mission.evacuation.assemblyPoint.position + Vector3.back * 5f, 235);
+                Next(90, 20); return;
+            case 90:
+                if (!mission.evacuation.AllAtAssembly) return;
+                Check("the ending fixture uses the existing group departure action", mission.evacuation.TryAssemblyInteraction() && mission.evacuation.EscortStarted);
                 foreach (var resident in mission.evacuation.residents) resident.Agent.Warp(resident.safePlace.position);
                 foreach (var house in flow.targetBuildings) { house.Ignite(); house.ApplyWater(house.litresToExtinguish); }
                 Check("saving houses alone cannot start the cinematic while enemies remain", flow.targetBuildings.All(h => h.IsRescued) && !ending.IsPlaying && !flow.HasResult);
@@ -111,26 +123,44 @@ public static class ShelterReturnChecks
                     flow.targetBuildings.All(h => !h.IsBurning && !h.IsBurnedOut) && mission.evacuation.RescuedCount == 7);
                 var weather = Object.FindFirstObjectByType<VolcanoWeatherTransition>();
                 for (int i = 0; i < 110; i++) weather.TickWeather(.1f);
-                player.PlaceOnFoot(new Vector3(-22, 1.05f, -545), 235);
+                player.PlaceOnFoot(new Vector3(300, 20, -100), 235);
                 entryPosition = player.viewCamera.transform.position; entryRotation = player.viewCamera.transform.rotation;
                 survival.enabled = true; survival.TickObjective();
                 Check("the existing survival evaluator starts the return instead of an immediate result", flow.IsVictoryCinematic && ending.IsPlaying && !flow.HasResult && !survival.IsFinished && Time.timeScale == 1);
                 Check("the first closing frame exactly preserves the live camera", Vector3.Distance(entryPosition, mission.cinematic.ShotCamera.transform.position) < .001f &&
                     Quaternion.Angle(entryRotation, mission.cinematic.ShotCamera.transform.rotation) < .01f);
-                previousShot = entryPosition; previousShotAt = Time.unscaledTime; Next(2, 100); return;
+                fixedStart = ending.Route[0];
+                Check("remote victory uses the bounded fixed shelter route", Vector3.Distance(fixedStart, entryPosition) > 300f &&
+                    ending.RouteLength <= ending.maximumRouteLength + .01f && ending.RouteLength > 70f);
+                Check("walk duration includes all six complete recordings", ending.PlannedWalkSeconds >= ending.thoughts.Sum(t => t.Duration));
+                previousShot = entryPosition; previousShotAt = Time.unscaledTime; Next(2, ending.PlannedWalkSeconds + 30f); return;
             case 2:
                 if (flow.HasResult) throw new InvalidOperationException("Result appeared before observing the sheltered survivors.");
                 Check("closing holds gameplay and the result curtain while the world remains visible", player.CinematicLocked && player.GameplaySuspended && !hud.VictoryVisible &&
                     !Object.FindFirstObjectByType<AshfallSceneFade>().endingCurtain.gameObject.activeSelf);
                 Vector3 current = mission.cinematic.ShotCamera.transform.position;
                 float dt = Time.unscaledTime - previousShotAt;
-                if (dt > 0 && ending.Elapsed > .15f) maximumStep = Mathf.Max(maximumStep, Vector3.Distance(current, previousShot) / dt);
+                if (dt > 0 && !ending.IsRelocating) maximumStep = Mathf.Max(maximumStep, Vector3.Distance(current, previousShot) / dt);
+                if (Vector3.Distance(current, previousShot) > 50f)
+                    Check("distant relocation is hidden under the black transition", ending.IsRelocating && ending.TransitionOpacity >= .999f && ending.ThoughtIndex < 0);
                 previousShot = current; previousShotAt = Time.unscaledTime;
-                sawPreparation |= ending.CurrentLine.Contains("tahliye planımızı"); sawWarning |= ending.CurrentLine.Contains("uyarı");
+                sawPreparation |= ending.CurrentLine.Contains("evacuation plan"); sawWarning |= ending.CurrentLine.Contains("warning");
+                if (ending.ThoughtIndex >= 0 && ending.ThoughtIndex < ending.thoughts.Length)
+                {
+                    heardThoughts.Add(ending.ThoughtIndex);
+                    var recording = ending.thoughts[ending.ThoughtIndex].voice;
+                    if (recording && ending.GetComponents<AudioSource>().Any(s => s.clip == recording && s.isPlaying)) heardRecordings.Add(recording);
+                    Check("the journey narration finishes before shelter arrival", !ending.AtShelter);
+                }
                 if (ending.Elapsed > 12 && !File.Exists(ShelterReturnSetup.Folder + "/02-returning.png")) Capture("02-returning.png");
                 if (!ending.AtShelter || ending.ObservedSeconds < 2f) return;
                 Check("continuous camera route arrives inside the real shelter", mission.evacuation.IsInsideShelter(player.transform.position) && ending.DistanceTravelled > 70 && maximumStep < 12f, "peak camera speed=" + maximumStep.ToString("F2"));
                 Check("prevention and awareness thoughts played on the way", sawPreparation && sawWarning);
+                Check("all six closing thoughts and recordings play during the walk", heardThoughts.Count == ending.thoughts.Length &&
+                    ending.thoughts.Where(t => t.voice).All(t => heardRecordings.Contains(t.voice)));
+                Check("the return remains bounded regardless of victory distance", ending.Elapsed <= ending.PlannedWalkSeconds + ending.relocationFadeSeconds * 2f + 8f);
+                Check("the arrival recording plays while viewing the survivors", ending.CurrentLine == ending.arrivalThought.text &&
+                    (!ending.arrivalThought.voice || ending.GetComponents<AudioSource>().Any(s => s.clip == ending.arrivalThought.voice && s.isPlaying)));
                 if (!photos.Ready("03-sheltered-survivors.png")) return;
                 Check("the cinematic lens focuses on the survivors instead of the volcano", Vector3.Distance(mission.cinematic.FocusPosition, ending.shelterFocus.position) < 10f);
                 Check("the closing camera actually sees the real sheltered people", ending.VisibleSurvivors >= 5, "visible=" + ending.VisibleSurvivors);
@@ -162,6 +192,7 @@ public static class ShelterReturnChecks
                 flow.FinishMission(true);
                 Check("winning from the truck also starts without a cut", ending.IsPlaying && !player.IsDriving && Vector3.Distance(entryPosition, mission.cinematic.ShotCamera.transform.position) < .001f &&
                     Quaternion.Angle(entryRotation, mission.cinematic.ShotCamera.transform.rotation) < .01f);
+                Check("nearby truck victory starts at exactly the same fixed route", Vector3.Distance(fixedStart, ending.Route[0]) < .01f);
                 Next(7, 12); return;
             case 7:
                 if (age < 4) return;

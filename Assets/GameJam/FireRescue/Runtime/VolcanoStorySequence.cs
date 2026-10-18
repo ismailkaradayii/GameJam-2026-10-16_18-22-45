@@ -16,7 +16,11 @@ namespace GameJam.FireRescue
         public Transform[] windowRoute = System.Array.Empty<Transform>();
         [Tooltip("A small lean toward the lower window pane; blended out before returning control.")]
         public Vector3 windowEyeOffset = new Vector3(-2.2f, -2.2f, 0);
-        [Range(35f, 80f)] public float windowFieldOfView = 50f;
+        [Header("Mountain focus during the window observation")]
+        [Range(15f, 80f)] public float windowFieldOfView = 28f;
+        [Min(.1f)] public float windowZoomSeconds = 2.4f;
+        [Range(1f, 32f)] public float windowAperture = 1.8f;
+        [Range(1f, 300f)] public float windowFocalLength = 160f;
         [Min(.1f)] public float approachSpeed = 2.8f;
         [Min(1f)] public float approachTimeout = 12f;
         [Min(.1f)] public float arrivalRadius = .28f;
@@ -46,6 +50,9 @@ namespace GameJam.FireRescue
         public float OmenAt => Mathf.Max(omenDelay, VoiceDuration(Thought.Unease));
         public float RecognitionAt => Mathf.Max(recognitionDelay, OmenAt + VoiceDuration(Thought.Omen));
         public float ObservationDuration => Mathf.Max(observationSeconds, RecognitionAt + VoiceDuration(Thought.Foreseen));
+        public float WindowFocusBlend => IsOpening && AtWindow && ownsMovement && !VolcanoCinematic.IsPlayingAny ?
+            Mathf.SmoothStep(0, 1, ObservationElapsed / Mathf.Max(.1f, windowZoomSeconds)) *
+            (1f - Mathf.SmoothStep(0, 1, Mathf.InverseLerp(ObservationDuration - 1.2f, ObservationDuration, ObservationElapsed))) : 0f;
 
         struct Line
         {
@@ -112,10 +119,8 @@ namespace GameJam.FireRescue
         {
             if (!IsOpening || !ownsMovement || !Player || !Player.viewCamera || VolcanoCinematic.IsPlayingAny) return;
             if (!AtWindow) return;
-            float approach = AtWindow ? Mathf.SmoothStep(0, 1, ObservationElapsed / 1.6f) : 0f;
-            float leave = 1f - Mathf.SmoothStep(0, 1, Mathf.InverseLerp(ObservationDuration - 1.2f, ObservationDuration, ObservationElapsed));
             var view = Player.viewCamera;
-            float blend = approach * leave;
+            float blend = WindowFocusBlend;
             view.transform.SetPositionAndRotation(Vector3.Lerp(windowBasePosition, windowEyePosition, blend),
                 Quaternion.Slerp(windowBaseRotation, windowEyeRotation, blend));
             view.fieldOfView = Mathf.Lerp(openingFov, windowFieldOfView, blend);
@@ -153,7 +158,9 @@ namespace GameJam.FireRescue
                     windowBasePosition = Player.viewCamera.transform.position;
                     windowBaseRotation = Player.viewCamera.transform.rotation;
                     windowEyePosition = windowViewPose ? windowViewPose.position : windowBasePosition + windowEyeOffset;
-                    windowEyeRotation = windowViewPose ? windowViewPose.rotation : Quaternion.LookRotation(volcanoLookTarget.position - windowEyePosition);
+                    // The authored pose supplies the clear pane position; aim the close-up
+                    // at the crater itself rather than retaining a wide-shot downward bias.
+                    windowEyeRotation = Quaternion.LookRotation(volcanoLookTarget.position - windowEyePosition);
                 }
                 else
                 {
@@ -206,15 +213,12 @@ namespace GameJam.FireRescue
 
         void TickThoughts()
         {
-            if (mission.WarningCompleted && !Player.InteractionBusy)
+            if (mission.WarningCompleted && !Player.InteractionBusy && (!mission.evacuation || !mission.evacuation.groupRescue))
                 Speak(Thought.Shelter, "I must lead the townspeople to the shelter.", 4.8f);
             if (mission.evacuation && mission.evacuation.IsComplete)
                 Speak(Thought.Truck, "Everyone is safe. I should take the fire truck and check its water.", 5.5f);
-            if (mission.Phase == VolcanoMissionDirector.MissionPhase.Refill)
-                Speak(Thought.Lake, "I need to refill the tank. I should drive the truck to the lake.", 5f);
             if (mission.PreparationComplete)
             {
-                Speak(Thought.Return, "I should head back and prepare where the lava will reach the town.", 6.5f, true);
                 if (defensePosition && EvacuationResident.FlatDistance(Player.IsDriving && Player.drive ?
                     Player.drive.transform.position : Player.transform.position, defensePosition.position) <= defenseRadius)
                     Speak(Thought.Hold, "I'll wait here. I'm ready to protect the town.", 4.5f);

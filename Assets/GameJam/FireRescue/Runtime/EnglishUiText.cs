@@ -27,9 +27,9 @@ namespace Ashfall.UI
         {"Arka hortum etkileşimi yokken şarjör değiştir.", "Reload when the rear hose interaction is unavailable."},
         {"Silah çekiliyken çömel / kalk.", "Crouch or stand with the weapon drawn."},
         {"Oyunu duraklat; Devam Et ile sürdür veya ana menüye dön.", "Pause the game; resume or return to the main menu."},
-        {"Evlerin yakınında 'Herkes dışarıya!' diye seslen. Halkı sığınağa götür.", "Call out near the houses and lead the villagers to shelter."},
-        {"Araçla MAVİ göl halkasında dur. E bağlantıyı kurar; depo dolunca hortum otomatik toplanır.", "Stop in the BLUE lake ring and press P to connect. E exits the truck. The hose retracts when the tank is full."},
-        {"Araçla MAVİ göl halkasında dur. P bağlantıyı kurar; E araçtan indirir. Depo dolunca hortum otomatik toplanır.", "Stop in the BLUE lake ring and press P to connect. E exits the truck. The hose retracts when the tank is full."},
+        {"Evlerin yakınında 'Herkes dışarıya!' diye seslen. Halkı sığınağa götür.", "Use E to recruit each marked group, assemble everyone, and lead them to shelter."},
+        {"Araçla MAVİ göl halkasında dur. E bağlantıyı kurar; depo dolunca hortum otomatik toplanır.", "Stop in the BLUE lake parking bay and press P to connect. E exits the truck. The hose retracts when the tank is full."},
+        {"Araçla MAVİ göl halkasında dur. P bağlantıyı kurar; E araçtan indirir. Depo dolunca hortum otomatik toplanır.", "Stop in the BLUE lake parking bay and press P to connect. E exits the truck. The hose retracts when the tank is full."},
         {"İstersen yaya halde aracın arkasından hortumu al, ucunu göle bırak ve P ile pompayı aç.", "On foot, take the hose from the rear of the truck, drop its intake in the lake, and press P to start the pump."},
         {"Araçtayken sağ tık basılı tut. Evleri söndür, lavları soğut ve ruhlara su sık. İşaret suyun tahmini çarpma noktasını gösterir; suyun hedefe ulaşmasını bekle.", "Hold right click in the truck to extinguish houses, cool lava, and spray spirits. The marker shows the predicted impact point; allow time for the water to reach it."},
         {"Komodindeki tabancayı E ile al. 1 silahı çek/kaldır, 0 silahı kaldır. Araçtan inince silah geri gelir.", "Press E to take the bedside pistol. Press 1 to draw or holster it, or 0 to holster. Your weapon returns after exiting the truck."},
@@ -49,7 +49,7 @@ namespace Ashfall.UI
         {"Hortum ucunu suya bırak, P ile pompayı aç. R ile hortumu topla.", "Place the hose intake in water and press P to pump. Press R to retract it."},
         {"Araçtayken fareyle nişan al; sağ tık basılı tutarak su püskürt.", "In the truck, aim with the mouse and hold right click to spray water."},
         {"Lav akışlarından ve çöken evlerden uzak dur.", "Stay away from lava flows and collapsing houses."},
-        {"Evlerin yanına yaklaş, Q ile seslen ve halkı SHELTER tabelalı sığınağa götür.", "Approach the houses, call with Q and lead villagers to the shelter."},
+        {"Evlerin yanına yaklaş, Q ile seslen ve halkı SHELTER tabelalı sığınağa götür.", "Approach each marked group and press E. Bring them to the yellow assembly point, then lead everyone to the shelter."},
         {"E ile yakındaki kapı veya hortumla etkileş. F ile itfaiye aracına bin ya da in.", "Press E to interact, enter the truck, or exit below 20 km/h. Press P at the lake to refill."},
         {"E ile etkileş ve araca bin. Hız 20 km/sa altındayken E ile in. Göldeki su dolumu P.", "Press E to interact, enter the truck, or exit below 20 km/h. Press P at the lake to refill."},
         {"Q  HERKES DIŞARIYA!  ·  EN YAKIN EV: 212 m", "Q  CALL VILLAGERS  ·  NEAREST HOUSE: 212 m"},
@@ -87,7 +87,8 @@ namespace Ashfall.UI
             string translated;
             if (Exact.TryGetValue(label.text, out translated)) label.text = translated;
             else if (label.text.StartsWith("Yatak odasındaki tabancayı"))
-                label.text = "Take the pistol from your bedroom with E and leave the house. Call villagers with Q and lead them to the GREEN shelter ring. Enter the fire truck with E and fill its tank with P at the BLUE lake marker. Press E to exit below 20 km/h. The volcano erupts after 120 seconds, even if preparations are incomplete. Stop three waves of fire spirits and extinguish burning houses. You win if at least one house survives; you lose if all are destroyed. Stay away from hot lava.";
+                label.text = "Take the bedside pistol with E and activate the village alarm. Approach each marked group and press E, then bring them to the yellow assembly point. Press E there to leave each group. Once everyone has assembled, press E to lead them to the green shelter marker. Enter or exit the truck with E and fill its tank with P in the blue lake parking bay. Prepare within 120 seconds, then defend the village from fire spirits and burning lava.";
+            label.text = label.text.Replace("ASHFALL", "VOLKANOVSKI");
             previous = label.text;
         }
     }

@@ -18,7 +18,7 @@ namespace GameJam.FireRescue
         public AudioClip eruptionSound;
         [Min(.5f)] public float introSeconds = 2.2f;
         [Min(3f)] public float eruptionSeconds = 7f;
-        [Tooltip("Minimum reading time. The first spirit card then waits for Space / Enter.")]
+        [Tooltip("Minimum reading time. The first spirit card then waits for Esc or left click.")]
         [Min(1f)] public float spiritSeconds = 2.6f;
         [Range(.1f, 1f)] public float spiritTimeScale = .35f;
         [Min(.1f)] public float transitionSeconds = 1.2f;
@@ -157,7 +157,8 @@ namespace GameJam.FireRescue
                 {
                     if (briefingVisible) spiritReadingElapsed += dt;
                     var keyboard = Keyboard.current;
-                    if ((keyboard != null && (keyboard.spaceKey.wasPressedThisFrame || keyboard.enterKey.wasPressedThisFrame)) ||
+                    if ((keyboard != null && keyboard.escapeKey.wasPressedThisFrame) ||
+                        (Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame) ||
                         (Gamepad.current != null && Gamepad.current.buttonSouth.wasPressedThisFrame)) ContinueSpiritIntroduction();
                     return;
                 }
@@ -334,8 +335,8 @@ namespace GameJam.FireRescue
             caption.fontSize = Mathf.RoundToInt(Mathf.Clamp(Screen.height / 40f, 14, 30));
             caption.normal.textColor = new Color(1, .83f, .6f);
             GUI.color = Color.white;
-            string message = Kind == ShotKind.ShelterReturn ? ReturnNarration : Kind == ShotKind.Intro ? "ASHFALL  |  EVERY SECOND COUNTS" : Kind == ShotKind.Spirits ?
-                "NEW THREAT / FIRE SPIRIT" : "The Volcano has awakened";
+            string message = Kind == ShotKind.ShelterReturn ? ReturnNarration : Kind == ShotKind.Intro ? "VOLKANOVSKI  |  EVERY SECOND COUNTS" : Kind == ShotKind.Spirits ?
+                "NEW THREAT / FIRE SPIRIT" : "The volcano has awakened";
             GUI.Label(new Rect(Screen.width * .08f, Screen.height - bar, Screen.width * .84f, bar), message, caption);
             GUI.color = color; GUI.depth = depth;
         }

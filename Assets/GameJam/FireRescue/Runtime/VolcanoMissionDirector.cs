@@ -169,7 +169,7 @@ namespace GameJam.FireRescue
         }
         public string ObjectiveTitle => EruptionTriggered ? (!player.HasPistol ? "TAKE YOUR WEAPON FIRST" : "DEFEND THE VILLAGE") : Phase switch
         {
-            MissionPhase.Intro => "ASHFALL",
+            MissionPhase.Intro => "VOLKANOVSKI",
             MissionPhase.Window => "LOOK AT THE VOLCANO FROM THE WINDOW",
             MissionPhase.Weapon => villageAlarm ? "TAKE YOUR WEAPON" : "TAKE YOUR WEAPON AND LEAVE THE HOUSE",
             MissionPhase.WarnVillage => villageAlarm ? "ACTIVATE THE VILLAGE ALARM" : "WARN THE VILLAGE",

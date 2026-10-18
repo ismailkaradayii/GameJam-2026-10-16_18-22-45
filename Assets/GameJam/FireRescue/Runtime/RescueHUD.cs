@@ -119,6 +119,7 @@ namespace GameJam.FireRescue
             ApplySavedSettings();
             ConfigureReadableHudText();
             if (VolcanicHudTheme.Current) VolcanicHudTheme.Current.Apply(this);
+            VolcanicHudTheme.ConfigurePauseMenu(this);
             HideTransientCenterNotifications();
             SetPanel(pausePanel, false);
             SetPanel(victoryPanel, false);
@@ -423,7 +424,7 @@ namespace GameJam.FireRescue
                 (flow.DefeatReason == RescueGameFlow.LossReason.AllVillagersLost || flow.DefeatReason == RescueGameFlow.LossReason.VillageBurned))
             {
                 bool villageBurned = flow.DefeatReason == RescueGameFlow.LossReason.VillageBurned;
-                if (victoryTitleText) victoryTitleText.text = villageBurned ? "VILLAGE DESTROYED" : "ALL VILLAGERS LOST";
+                OutcomeTitleGlow.SetResult(victoryTitleText, villageBurned ? "VILLAGE DESTROYED" : "ALL VILLAGERS LOST", false);
                 if (victoryDetailText) victoryDetailText.text = villageBurned ? "All houses burned down. The village was lost." : "All villagers were lost in the fire.";
                 int standing = 0;
                 foreach (var house in flow.targetBuildings) if (house && !house.IsBurnedOut) standing++;
@@ -438,7 +439,7 @@ namespace GameJam.FireRescue
                 bool won = flow.State == RescueGameFlow.GameState.Won;
                 int saved = 0;
                 foreach (var house in flow.targetBuildings) if (house && !house.IsBurnedOut) saved++;
-                if (victoryTitleText) victoryTitleText.text = "Final Result: " + (won ? "SUCCESS" : "FAILED");
+                OutcomeTitleGlow.SetResult(victoryTitleText, "Final Result: " + (won ? "SUCCESS" : "FAILED"), won);
                 if (victoryDetailText) victoryDetailText.text = won ? (evacuation && evacuation.DeadCount > 0 ? "The spirits were stopped. " + evacuation.DeadCount + " villagers were lost." : "The spirits were stopped. The village is safe.") :
                     saved == 0 ? "All houses burned down. Extinguish fires before the buildings collapse." : "Try again to save the village.";
                 if (victoryStatsText) victoryStatsText.text = "Saved Villagers   " + (evacuation ? evacuation.RescuedCount + " / " + evacuation.TotalCount : "0") +
@@ -448,7 +449,7 @@ namespace GameJam.FireRescue
                 return;
             }
             bool survivalWon = survivalFinished && survivalObjective.State == VolcanoSurvivalObjective.MissionState.Won;
-            if (victoryTitleText) victoryTitleText.text = survivalFinished ? (survivalWon ? "Area secure" : "Mission failed") : "Town secure";
+            OutcomeTitleGlow.SetResult(victoryTitleText, survivalFinished ? (survivalWon ? "Area secure" : "Mission failed") : "Town secure", !survivalFinished || survivalWon);
             if (victoryDetailText) victoryDetailText.text = survivalFinished
                 ? (survivalWon ? "The spirits were stopped and you returned to the truck." : "You ran out of health. Prepare and defend the town again.")
                 : "All five houses were saved. The evacuees are safe.";

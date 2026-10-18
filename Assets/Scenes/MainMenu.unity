@@ -4923,8 +4923,8 @@ MonoBehaviour:
     and press E to collect the next group. Bring them to the AMBER assembly area
     and press E to leave them there. Repeat for all seven, then press E and lead
     everyone to the GREEN shelter. Enter the fire truck behind the house and fill
-    its tank with P at the BLUE lake marker. E exits below 20 km/h. The volcano erupts
-    after 240 seconds, even if preparations are incomplete. Stop three waves of fire
+    its tank with P at the BLUE lake parking bay. E exits below 20 km/h. The volcano erupts
+    after 120 seconds, even if preparations are incomplete. Stop three waves of fire
     spirits and extinguish burning houses. You win if at least one house survives;
     you lose if all are destroyed. Stay away from hot lava.
 --- !u!222 &357138007
@@ -14550,7 +14550,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c34ce0af7c8a492fb5847078155b8a31, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  titleGroup: {fileID: 0}
+  titleGroup: {fileID: 7110180002}
   menuGroups:
   - {fileID: 722570599}
   - {fileID: 1172566560}
@@ -14581,6 +14581,7 @@ MonoBehaviour:
   ambienceSource: {fileID: 872602614}
   eruptionSource: {fileID: 716298909}
   gameplaySceneName: Volcano_Demo
+  loadingScreenClip: {fileID: 32900000, guid: 241d690584274919b4767f0aa2033a57, type: 3}
   settingsController: {fileID: 348292298}
 --- !u!4 &1173332693
 Transform:
@@ -15046,7 +15047,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 1
     m_LineSpacing: 1.15
-  m_Text: Stop in the BLUE lake ring and press P to connect. E exits the truck. The
+  m_Text: Stop in the BLUE lake parking bay and press P to connect. E exits the truck. The
     hose retracts when the tank is full.
 --- !u!222 &1209084851
 CanvasRenderer:
@@ -16586,6 +16587,7 @@ RectTransform:
   - {fileID: 1194186840}
   - {fileID: 1862022892}
   - {fileID: 703147573}
+  - {fileID: 7110180001}
   - {fileID: 445636066}
   - {fileID: 2117284146}
   - {fileID: 134789329}
@@ -23832,7 +23834,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 1
     m_LineSpacing: 1.05
-  m_Text: "Volcano demo \u2014 defend the town"
+  m_Text: "VOLKANOVSKI \u2014 Defend the town"
 --- !u!222 &1886718488
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -24903,7 +24905,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 1
     m_LineSpacing: 1.15
-  m_Text: You have 240 seconds to prepare. Then defend the village.
+  m_Text: You have 120 seconds to prepare. Then defend the village.
 --- !u!222 &1949299727
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -28122,6 +28124,98 @@ MonoBehaviour:
   m_EffectColor: {r: 0.55, g: 0.64, b: 0.7, a: 0.3}
   m_EffectDistance: {x: 1, y: -1}
   m_UseGraphicAlpha: 1
+--- !u!1 &7110180000
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 7110180001}
+  - component: {fileID: 7110180002}
+  - component: {fileID: 7110180003}
+  - component: {fileID: 7110180004}
+  m_Layer: 5
+  m_Name: GameTitle
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!224 &7110180001
+RectTransform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7110180000}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1370809673}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_AnchorMin: {x: 0.055, y: 0.66}
+  m_AnchorMax: {x: 0.6, y: 0.83}
+  m_AnchoredPosition: {x: 0, y: 0}
+  m_SizeDelta: {x: 0, y: 0}
+  m_Pivot: {x: 0, y: 0.5}
+--- !u!225 &7110180002
+CanvasGroup:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7110180000}
+  m_Enabled: 1
+  m_Alpha: 1
+  m_Interactable: 0
+  m_BlocksRaycasts: 0
+  m_IgnoreParentGroups: 0
+--- !u!222 &7110180003
+CanvasRenderer:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7110180000}
+  m_CullTransparentMesh: 1
+--- !u!114 &7110180004
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7110180000}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5f7201a12d95ffc409449d95f23cf332, type: 3}
+  m_Name:
+  m_EditorClassIdentifier:
+  m_Material: {fileID: 0}
+  m_Color: {r: 0.96, g: 0.92, b: 0.84, a: 1}
+  m_RaycastTarget: 0
+  m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
+  m_Maskable: 1
+  m_OnCullStateChanged:
+    m_PersistentCalls:
+      m_Calls: []
+  m_FontData:
+    m_Font: {fileID: 12800000, guid: f36cd3255cd9ff74faa8f545d462060a, type: 3}
+    m_FontSize: 80
+    m_FontStyle: 0
+    m_BestFit: 0
+    m_MinSize: 10
+    m_MaxSize: 80
+    m_Alignment: 3
+    m_AlignByGeometry: 0
+    m_RichText: 0
+    m_HorizontalOverflow: 0
+    m_VerticalOverflow: 0
+    m_LineSpacing: 1
+  m_Text: "VOLKANOVSKI"
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0

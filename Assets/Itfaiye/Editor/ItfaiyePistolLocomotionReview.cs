@@ -79,15 +79,15 @@ namespace Itfaiye.Editor
                     Input(Key.W); Mouse(false); if (elapsed > .5f) Sample(); if (elapsed < 2.4f) return;
                     walkWidth = maximum.x - minimum.x;
                     Check("Walking uses actual grounded movement", player.IsGrounded && Mathf.Abs(player.CurrentSpeed - player.walkSpeed) < .1f);
-                    Check("Walking visibly sways side to side", walkWidth > .027f);
-                    Check("Walking also follows the vertical step", maximum.y - minimum.y > .015f);
+                    Check("Walking has a small, readable wrist sway", walkWidth > .004f && walkWidth < .025f);
+                    Check("Walking vertical movement stays gentle", maximum.y - minimum.y > .001f && maximum.y - minimum.y < .012f);
                     Check("Walking lowers the weapon only slightly", Mathf.Abs((sum / samples).y + hands.walkLowerDistance) < .012f && hands.SprintLowering < .001f);
                     Record("walk"); Capture("walking"); Next(2); return;
                 case 2:
                     Input(Key.W, Key.LeftShift); Mouse(false); if (elapsed > .6f) Sample(); if (elapsed < 2.4f) return;
                     runWidth = maximum.x - minimum.x;
                     Check("Running reaches the configured speed", player.IsSprinting && Mathf.Abs(player.CurrentSpeed - player.runSpeed) < .1f);
-                    Check("Running has a larger swing than walking", runWidth > walkWidth * 1.4f);
+                    Check("Running visibly increases the arm swing", runWidth > walkWidth * 1.4f && runWidth < .04f);
                     Check("Running uses the configured lowering distance", hands.SprintLowering > .98f && Mathf.Abs((sum / samples).y + hands.sprintLowerDistance) < .018f);
                     Check("Running angles the muzzle gently down", hands.CurrentLocomotionEuler.x > 4f);
                     Record("run"); Capture("running"); PistolGripWorkbench.CaptureViews(player, Folder + "/run-grip"); Next(3); return;
@@ -99,7 +99,7 @@ namespace Itfaiye.Editor
                     Capture("stopped"); Next(4); return;
                 case 4:
                     Input(Key.D); Mouse(false); if (elapsed > .4f) Sample(); if (elapsed < 1.6f) return;
-                    Check("Sideways walking also has a step rhythm", maximum.x - minimum.x > .025f && player.LocalVelocity.x > 1.5f);
+                    Check("Sideways walking also has a restrained step rhythm", maximum.x - minimum.x > .004f && maximum.x - minimum.x < .025f && player.LocalVelocity.x > 1.5f);
                     Capture("strafe"); Next(5); return;
                 case 5:
                     Input(Key.W); Mouse(true); if (elapsed > .5f) Sample(); if (elapsed < 1.6f) return;

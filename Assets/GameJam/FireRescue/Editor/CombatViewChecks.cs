@@ -230,7 +230,9 @@ public static class CombatViewChecks
         var index=Reference(HumanBodyBones.RightIndexDistal);
         Check("Index finger reaches inside the trigger guard",index.x>0f && index.x<.025f && index.y>.008f && index.y<.032f && index.z>-.025f && index.z<.012f,index.ToString("F4"));
         var thumb=Reference(HumanBodyBones.RightThumbDistal);
-        Check("Right thumb stays alongside the frame",thumb.x>-.035f && thumb.x<-.005f && thumb.y>.015f,thumb.ToString("F4"));
+        Check("Right thumb stays back and outside the frame",thumb.x>-.035f && thumb.x<-.020f && thumb.y>.015f && thumb.y<.035f && thumb.z<-.075f && thumb.z>-.095f,thumb.ToString("F4"));
+        var supportThumb=Reference(HumanBodyBones.LeftThumbDistal);
+        Check("Support thumb rests lower against the frame",supportThumb.x>-.026f && supportThumb.x<-.014f && supportThumb.y>.012f && supportThumb.y<.03f && supportThumb.z>-.05f && supportThumb.z<-.03f,supportThumb.ToString("F4"));
         var hands = a.GetComponent<ItfaiyeFirstPersonHands>();
         Check("Authored hip position is closer to centre and less tilted", hands.pistolHipPosition.x <= .06f && Mathf.Abs(hands.pistolHipEuler.z) <= 2.1f, $"hip={hands.pistolHipPosition} roll={hands.pistolHipEuler.z}");
     }

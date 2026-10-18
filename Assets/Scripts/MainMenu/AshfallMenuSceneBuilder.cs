@@ -109,6 +109,8 @@ public static class AshfallMenuSceneBuilder
         AshfallMenuController menuController = Object.FindFirstObjectByType<AshfallMenuController>();
         if (menuController != null)
         {
+            SetPrivate(menuController, "loadingScreenClip", AssetDatabase.LoadAssetAtPath<VideoClip>("Assets/Art/BackGround/LoadingScreen.mp4"));
+            EnsureGameTitle(canvas, menuController);
             var serializedMenu = new SerializedObject(menuController);
             foreach (string field in new[] { "ambientEmbers", "eruptionSmoke", "eruptionSparks", "eruptionLight", "craterGlow", "cameraTransform" })
             {
@@ -239,6 +241,38 @@ public static class AshfallMenuSceneBuilder
         foreach (Transform child in parent.GetComponentsInChildren<Transform>(true))
             if (child.name == childName) return child;
         return null;
+    }
+
+    private static void EnsureGameTitle(Transform canvas, AshfallMenuController menu)
+    {
+        Transform existing = FindChild(canvas, "GameTitle");
+        GameObject titleObject = existing != null ? existing.gameObject
+            : new GameObject("GameTitle", typeof(RectTransform), typeof(CanvasGroup), typeof(CanvasRenderer), typeof(UnityEngine.UI.Text));
+        titleObject.transform.SetParent(canvas, false);
+        Transform menuGroup = FindChild(canvas, "MainMenuGroup");
+        if (menuGroup != null) titleObject.transform.SetSiblingIndex(menuGroup.GetSiblingIndex());
+        RectTransform rect = titleObject.GetComponent<RectTransform>();
+        rect.anchorMin = new Vector2(.055f, .66f);
+        rect.anchorMax = new Vector2(.60f, .83f);
+        rect.anchoredPosition = Vector2.zero;
+        rect.sizeDelta = Vector2.zero;
+        rect.pivot = new Vector2(0f, .5f);
+        UnityEngine.UI.Text title = titleObject.GetComponent<UnityEngine.UI.Text>();
+        title.text = "VOLKANOVSKI";
+        title.font = Ashfall.UI.AshfallTypography.Semibold;
+        title.fontSize = 80;
+        title.alignment = TextAnchor.MiddleLeft;
+        title.color = new Color(.96f, .92f, .84f, 1f);
+        title.raycastTarget = false;
+        title.supportRichText = false;
+        title.horizontalOverflow = HorizontalWrapMode.Wrap;
+        title.verticalOverflow = VerticalWrapMode.Truncate;
+        CanvasGroup group = titleObject.GetComponent<CanvasGroup>();
+        group.interactable = false;
+        group.blocksRaycasts = false;
+        var serializedMenu = new SerializedObject(menu);
+        serializedMenu.FindProperty("titleGroup").objectReferenceValue = group;
+        serializedMenu.ApplyModifiedPropertiesWithoutUndo();
     }
 
     private static GameObject FindSceneObject(Scene scene, string objectName)

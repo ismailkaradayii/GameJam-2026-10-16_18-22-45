@@ -33,6 +33,8 @@ namespace GameJam.FireRescue
         private float stepTimer;
         private AudioClip currentClip;
 
+        public AudioSource FootstepSource => footstepSource;
+
         private void Awake()
         {
             if (player == null) player = GetComponent<FireRescuePlayer>();

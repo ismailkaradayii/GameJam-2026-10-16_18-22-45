@@ -5,7 +5,7 @@ namespace GameJam.FireRescue
     /// <summary>Responsive first-contact briefing over a still captured from the actual game.</summary>
     public sealed class SpiritIntroductionCard
     {
-        public const string ThreatText = "Çatılara sıçrar, dokundukları evleri ateşe verirler. Onları evlere ulaşmadan indir.";
+        public const string ThreatText = "They leap onto rooftops and set houses on fire. Stop them before they reach the houses.";
         static readonly Color Paper = new Color(.97f, .95f, .9f);
         static readonly Color Muted = new Color(.72f, .76f, .77f);
         static readonly Color Ember = new Color(1f, .45f, .19f);
@@ -28,38 +28,38 @@ namespace GameJam.FireRescue
             }
             Fill(new Rect(0, 0, w, h), new Color(.015f, .025f, .035f, .2f));
             Fill(new Rect(0, 0, w, 64), new Color(.015f, .022f, .03f, .96f));
-            Label(new Rect(50, 19, w - 100, 28), "ASHFALL     /     İLK TEMAS", 20, Paper, true);
+            Label(new Rect(50, 19, w - 100, 28), "VOLKANOVSKI     /     FIRST CONTACT", 20, Paper, true);
             float x = w * .585f, panelW = w * .375f;
             float top = h * .16f;
             Fill(new Rect(x - 30, top - 24, panelW + 56, 650), new Color(.025f, .04f, .052f, .96f));
             Fill(new Rect(x - 30, top - 24, 4, 650), Ember);
-            Label(new Rect(x, top, panelW, 26), "01   /   TEHLİKEYİ TANI", 18, Ember, true);
-            Label(new Rect(x - 3, top + 32, panelW, 77), "ATEŞ RUHU", 60, Paper, true);
+            Label(new Rect(x, top, panelW, 26), "01   /   KNOW THE THREAT", 18, Ember, true);
+            Label(new Rect(x - 3, top + 32, panelW, 77), "FIRE SPIRIT", 60, Paper, true);
             Label(new Rect(x, top + 122, panelW - 6, 106), ThreatText, 26, Paper);
             Fill(new Rect(x, top + 246, panelW - 8, 1), new Color(.5f, .59f, .63f, .35f));
-            Label(new Rect(x, top + 269, panelW, 25), "02   /   KASABAYI KURTAR", 18, Ember, true);
-            string instruction = !player.HasPistol ? "Yatak odasındaki silahı al. Parlayan mavi işareti takip et." :
-                player.IsDriving ? ExitKey(player) + " ile araçtan in. Silahını kuşan ve ruhları durdur." : "Silahını kuşan. Ruhlara nişan al ve ateş et.";
+            Label(new Rect(x, top + 269, panelW, 25), "02   /   SAVE THE TOWN", 18, Ember, true);
+            string instruction = !player.HasPistol ? "Pick up the weapon in the bedroom. Follow the glowing blue marker." :
+                player.IsDriving ? "Press " + ExitKey(player) + " to exit. Equip your weapon and stop the spirits." : "Equip your weapon. Aim at the spirits and fire.";
             Label(new Rect(x, top + 308, panelW - 6, 72), instruction, 25, Paper, true);
             float column = panelW * .5f;
-            Key(new Rect(x, top + 399, column - 12, 32), "1", "Silahı kuşan");
-            Key(new Rect(x + column, top + 399, column, 32), "SAĞ TIK", "Nişan al");
-            Key(new Rect(x, top + 443, column - 12, 32), "SOL TIK", "Ateş et");
-            Key(new Rect(x + column, top + 443, column, 32), ReloadKey(player), "Şarjör değiştir");
+            Key(new Rect(x, top + 399, column - 12, 32), "1", "Equip weapon");
+            Key(new Rect(x + column, top + 399, column, 32), "RMB", "Aim");
+            Key(new Rect(x, top + 443, column - 12, 32), "LMB", "Fire");
+            Key(new Rect(x + column, top + 443, column, 32), ReloadKey(player), "Reload");
             Fill(new Rect(x, top + 501, panelW - 8, 1), new Color(.5f, .59f, .63f, .35f));
-            Label(new Rect(x, top + 523, panelW - 6, 78), "Ev yanıyorsa itfaiyenin su topuyla söndür. Tank boşsa göldeki mavi oka git.", 22, Muted);
+            Label(new Rect(x, top + 523, panelW - 6, 78), "Use the fire truck's water cannon on burning houses. If the tank is empty, follow the blue arrow to the lake.", 22, Muted);
 
             // Open corner marks frame the actual airborne enemy without covering its silhouette.
             Rect photo = new Rect(w * .055f, top + 18, w * .465f, 533);
             Corners(photo);
-            Label(new Rect(photo.x + 18, photo.y + 16, photo.width - 36, 26), "GÖRÜNTÜ DURDURULDU", 17, Paper, true);
+            Label(new Rect(photo.x + 18, photo.y + 16, photo.width - 36, 26), "FRAME PAUSED", 17, Paper, true);
             Fill(new Rect(photo.x + 18, photo.yMax - 55, 230, 34), new Color(.02f, .03f, .04f, .85f));
-            Label(new Rect(photo.x + 30, photo.yMax - 51, 210, 28), "HEDEF  /  ATEŞ RUHU", 18, Ember, true);
+            Label(new Rect(photo.x + 30, photo.yMax - 51, 210, 28), "TARGET  /  FIRE SPIRIT", 18, Ember, true);
 
             Fill(new Rect(0, h - 78, w, 78), new Color(.015f, .022f, .03f, .97f));
-            Label(new Rect(50, h - 54, w * .4f, 30), "Hazır olduğunda kasabayı koru.", 22, Muted);
+            Label(new Rect(50, h - 54, w * .4f, 30), "Protect the town when you're ready.", 22, Muted);
             Label(new Rect(w * .51f, h - 55, w * .45f, 32), canContinue ?
-                "SPACE / ENTER   ·   DEVAM ET" : "Tehlikeyi tanı. Oyun seni bekliyor.", 23, canContinue ? Paper : Muted, true, TextAnchor.MiddleRight);
+                "ESC / LEFT CLICK   ·   CONTINUE" : "Know the threat. Continue when you're ready.", 23, canContinue ? Paper : Muted, true, TextAnchor.MiddleRight);
             GUI.matrix = saved; GUI.color = savedColor;
         }
         static string ExitKey(FireRescuePlayer player) => player.contextualInteractions ? player.contextualInteractions.Label(InteractionInput.ExitVehicle) : player.exitVehicleKey.ToString();

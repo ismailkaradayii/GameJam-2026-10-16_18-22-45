@@ -18082,24 +18082,26 @@ MonoBehaviour:
   rightRestPosition: {x: 0.28, y: -0.26, z: 0.43}
   pistol: {fileID: 715022985661234336}
   buttonLeanInViewMetres: 0.4
-  unarmedSprintSwing: {x: 0.04, y: 0.09, z: 0.17}
-  unarmedSprintBlendSeconds: 0.12
+  unarmedWalkSwing: {x: 0.012, y: 0.025, z: 0.045}
+  unarmedMovementLowering: 0.035
+  unarmedSprintSwing: {x: 0.025, y: 0.06, z: 0.11}
+  unarmedSprintBlendSeconds: 0.18
   pistolHipPosition: {x: 0.055, y: -0.155, z: 0.38}
   pistolHipEuler: {x: 0, y: 0, z: -2}
   pistolAimDistance: 0.35
   pistolSight: {fileID: 7717766100114634616}
   pistolViewZoom: 5
   weaponSway: 1
-  swayAmount: 1.1
-  swaySmoothTime: 0.075
+  swayAmount: 0.55
+  swaySmoothTime: 0.14
   aimSwayMultiplier: 0.06
-  walkBobAmount: 0.8
-  walkLowerAngle: 4
-  walkLowerDistance: 0.006
-  runBobAmount: 1.45
-  sprintLowerDistance: 0.025
-  sprintLowerAngle: 22
-  locomotionSmoothTime: 0.16
+  walkBobAmount: 0.55
+  walkLowerAngle: 1.5
+  walkLowerDistance: 0.004
+  runBobAmount: 0.85
+  sprintLowerDistance: 0.018
+  sprintLowerAngle: 8
+  locomotionSmoothTime: 0.22
   sprintRaiseSmoothTime: 0.1
   leftGripTightness: 0.45
   magazineWeaponEuler: {x: -12, y: -12, z: 24}

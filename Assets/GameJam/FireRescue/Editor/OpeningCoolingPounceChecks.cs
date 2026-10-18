@@ -24,6 +24,7 @@ public static class OpeningCoolingPounceChecks
     static readonly List<AudioClip> heardVoices = new List<AudioClip>();
     static int frame, phase = -1;
     static float began, nextSample, oldCapture, blockedSeconds, maxViewStep;
+    static float gameplayFov;
     static bool oldBackground, captured;
     static double deadline;
     static Vector3 previousPosition, previousEye;
@@ -120,6 +121,7 @@ public static class OpeningCoolingPounceChecks
     static void Start()
     {
         player = Object.FindFirstObjectByType<FireRescuePlayer>(); story = player.mission.story;
+        gameplayFov = player.viewCamera.fieldOfView;
         oldCapture = Time.captureDeltaTime; oldBackground = Application.runInBackground;
         Application.runInBackground = true; Time.captureDeltaTime = SessionState.GetBool(Pending + ".Coarse", false) ? 1f / 12f : 1f / 60f;
         trace.Clear(); began = Time.time; phase = 0; nextSample = 0; captured = false;
@@ -144,7 +146,7 @@ public static class OpeningCoolingPounceChecks
             if (voice && voice.isPlaying && voice.clip && (heardVoices.Count == 0 || heardVoices[heardVoices.Count - 1] != voice.clip)) heardVoices.Add(voice.clip);
             float moved = Vector3.Distance(previousPosition, player.transform.position);
             if (story.IsOpening && !story.AtWindow && moved < .001f) blockedSeconds += Time.deltaTime;
-            if (story.AtWindow && story.ObservationElapsed > 2 && story.ObservationElapsed < story.ObservationDuration - 1.5f)
+            if (story.AtWindow && story.ObservationElapsed > story.windowZoomSeconds + .2f && story.ObservationElapsed < story.ObservationDuration - 1.5f)
                 maxViewStep = Mathf.Max(maxViewStep, Vector3.Distance(previousEye, player.viewCamera.transform.position));
             previousPosition = player.transform.position; previousEye = player.viewCamera.transform.position;
             if (Time.time >= nextSample)
@@ -153,7 +155,23 @@ public static class OpeningCoolingPounceChecks
                 trace.Add($"t={Time.time-began:F3} opening={story.IsOpening} atWindow={story.AtWindow} locked={player.CinematicLocked} body={player.transform.position:F4} eye={player.viewCamera.transform.position:F4} rot={player.viewCamera.transform.eulerAngles:F3} wall={probe.lastWall}");
             }
             if (story.AtWindow && story.ObservationElapsed > 3.5f && !captured)
-            { Capture(player.viewCamera, "window.png"); captured = true; }
+            {
+                var view = player.viewCamera;
+                Vector3 crater = view.WorldToViewportPoint(story.volcanoLookTarget.position);
+                Check("Opening close-up centers the crater and visibly magnifies the mountain", crater.z > 0 &&
+                    Vector2.Distance(new Vector2(crater.x, crater.y), new Vector2(.5f, .5f)) < .01f &&
+                    view.fieldOfView <= 30f && Mathf.Abs(view.fieldOfView - story.windowFieldOfView) < .1f,
+                    "crater=" + crater + " fov=" + view.fieldOfView);
+                var atmosphere = Object.FindFirstObjectByType<VolcanoAtmospherePolish>();
+                DepthOfField lens = null;
+                bool focused = atmosphere && atmosphere.cinematicVolume && atmosphere.cinematicVolume.weight > .99f &&
+                    atmosphere.cinematicVolume.profile.TryGet(out lens);
+                Check("Mountain stays on the bokeh focus plane while the foreground is defocused", focused &&
+                    lens.mode.value == DepthOfFieldMode.Bokeh && lens.aperture.value <= 2f && lens.focalLength.value >= 150f &&
+                    Mathf.Abs(lens.focusDistance.value - crater.z) < 1f && view.GetUniversalAdditionalCameraData().renderPostProcessing,
+                    focused ? "focus=" + lens.focusDistance.value + " craterDepth=" + crater.z : "missing active focus lens");
+                Capture(view, "window.png"); captured = true;
+            }
             if (story.OpeningComplete && (!voice || !voice.isPlaying)) Finish(null);
         }
         catch (Exception ex) { Finish(ex.ToString()); }
@@ -176,6 +194,10 @@ public static class OpeningCoolingPounceChecks
     {
         if (error != null) errors.Add(error);
         Check("Saved opening finishes and releases movement", story.OpeningComplete && !player.CinematicLocked);
+        Check("Normal field of view returns after the observation", Mathf.Abs(player.viewCamera.fieldOfView - gameplayFov) < .1f);
+        var atmosphere = Object.FindFirstObjectByType<VolcanoAtmospherePolish>();
+        Check("Opening depth of field clears when control returns", atmosphere && atmosphere.cinematicVolume &&
+            atmosphere.cinematicVolume.weight == 0 && story.WindowFocusBlend == 0);
         Check("All five opening voices actually play in their authored order", heardVoices.SequenceEqual(story.openingVoiceClips.Take(5)),
             string.Join(",", heardVoices.Select(c => c ? c.name : "missing")));
         Check("Full capsule reaches the authored stop", EvacuationResident.FlatDistance(player.transform.position, story.windowStop.position) <= story.arrivalRadius + .01f);

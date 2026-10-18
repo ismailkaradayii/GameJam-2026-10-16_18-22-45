@@ -105,8 +105,8 @@ public static class GroupRescueSetup
         var director = Object.FindFirstObjectByType<VolcanoMissionDirector>();
         if (director)
         {
-            Undo.RecordObject(director, "Allow time for three collection trips");
-            director.preparationSeconds = Mathf.Max(240f, director.preparationSeconds); Dirty(director);
+            Undo.RecordObject(director, "Restore two-minute eruption countdown");
+            director.preparationSeconds = 120f; Dirty(director);
         }
         Dirty(mission);
         AssetDatabase.SaveAssets(); EditorSceneManager.MarkSceneDirty(mission.gameObject.scene); EditorSceneManager.SaveScene(mission.gameObject.scene);
@@ -143,9 +143,8 @@ public static class GroupRescueSetup
         serialized.ApplyModifiedProperties();
         foreach (var ending in Object.FindObjectsByType<ShelterReturnCinematic>(FindObjectsInactive.Include, FindObjectsSortMode.None))
         {
-            Undo.RecordObject(ending, "Keep ending text without recorded speech");
-            foreach (var thought in ending.thoughts) if (thought != null) thought.voice = null;
-            if (ending.arrivalThought != null) ending.arrivalThought.voice = null;
+            Undo.RecordObject(ending, "Preserve recorded shelter return narration");
+            ending.LoadVoiceClips();
             Dirty(ending);
         }
     }

@@ -89,6 +89,35 @@ namespace GameJam.FireRescue
             Notification(hud.toastText, 460, 36, 28);
         }
 
+        public static void ConfigurePauseMenu(RescueHUD hud)
+        {
+            if (!hud || !hud.pauseMenuGroup || !hud.resumeButton || !hud.pauseSettingsButton || !hud.quitButton) return;
+            // Keep the authored references for existing setup tools; only the three pause actions are exposed.
+            foreach (var removed in new[] { hud.pauseHowToPlayButton, hud.restartButton, hud.pauseMenuButton })
+                if (removed) removed.gameObject.SetActive(false);
+
+            var page = (RectTransform)hud.pauseMenuGroup.transform;
+            page.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, 500f);
+            var sizer = page.GetComponent<VolcanicRockFrameSizer>();
+            if (sizer) { sizer.minHeight = 500f; sizer.bottomPadding = 54f; }
+
+            var buttons = new[] { hud.resumeButton, hud.pauseSettingsButton, hud.quitButton };
+            for (int i = 0; i < buttons.Length; i++)
+            {
+                buttons[i].gameObject.SetActive(true);
+                Top((RectTransform)buttons[i].transform, (page.rect.width - 420f) * .5f, 220f + i * 78f, 420f, 62f);
+                // Controller/keyboard focus visits the same three visible actions as the mouse.
+                buttons[i].navigation = new Navigation
+                {
+                    mode = Navigation.Mode.Explicit,
+                    selectOnUp = buttons[(i + buttons.Length - 1) % buttons.Length],
+                    selectOnDown = buttons[(i + 1) % buttons.Length]
+                };
+            }
+            var quitLabel = hud.quitButton.GetComponentInChildren<UnityEngine.UI.Text>(true);
+            if (quitLabel) quitLabel.text = "Quit";
+        }
+
         void LayoutResources(RescueHUD hud)
         {
             float waterTop = 60;

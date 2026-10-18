@@ -1,8 +1,8 @@
 using System.Collections;
 using UnityEngine;
 using UnityEngine.EventSystems;
-using UnityEngine.SceneManagement;
 using UnityEngine.UI;
+using UnityEngine.Video;
 
 namespace Ashfall.MainMenu
 {
@@ -37,6 +37,7 @@ namespace Ashfall.MainMenu
 
         [Header("Navigation")]
         [SerializeField] private string gameplaySceneName = "Volcano_Demo";
+        [SerializeField] private VideoClip loadingScreenClip;
         [SerializeField] private AshfallSettingsController settingsController;
 
         public string GameplaySceneName => gameplaySceneName;
@@ -151,6 +152,10 @@ namespace Ashfall.MainMenu
             {
                 startingGame = true;
                 Time.timeScale = 1f;
+                StopAllCoroutines();
+                if (EventSystem.current) EventSystem.current.SetSelectedGameObject(null);
+                foreach (var button in menuButtons)
+                    if (button) button.interactable = false;
                 StartCoroutine(LoadGameplayWithFade());
             }
             else
@@ -159,8 +164,7 @@ namespace Ashfall.MainMenu
         bool startingGame;
         private IEnumerator LoadGameplayWithFade()
         {
-            yield return GameJam.FireRescue.AshfallSceneFade.Cover();
-            SceneManager.LoadScene(gameplaySceneName);
+            yield return AshfallLoadingScreen.Load(gameplaySceneName, loadingScreenClip);
         }
 
         public void OpenSettings() => OpenPanel(settingsPanel);
@@ -172,6 +176,7 @@ namespace Ashfall.MainMenu
 
         private void Update()
         {
+            if (startingGame) return;
             // Both input backends are enabled in this project. One legacy poll here
             // avoids delivering duplicate ESC actions from two input APIs.
             if (!Input.GetKeyDown(KeyCode.Escape)) return;
@@ -190,6 +195,7 @@ namespace Ashfall.MainMenu
 
         private void OpenPanel(CanvasGroup panel)
         {
+            if (startingGame) return;
             if (panel == null || panelOpen || (panel != settingsPanel && panel != howToPlayPanel)) return;
             previousSelectedObject = EventSystem.current != null ? EventSystem.current.currentSelectedGameObject : null;
             panelOpen = true;

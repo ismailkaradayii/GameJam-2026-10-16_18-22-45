@@ -30,10 +30,12 @@ namespace Itfaiye
         Vector3 buttonViewDirection, buttonContactNormal;
         Vector3 buttonWrist;
         Quaternion buttonPalmRotation;
-        [Header("Unarmed sprint")]
-        [Tooltip("Camera-space arm swing, synchronized to the existing running clip.")]
-        public Vector3 unarmedSprintSwing = new Vector3(.04f, .09f, .17f);
-        [Range(.05f, .3f)] public float unarmedSprintBlendSeconds = .12f;
+        [Header("Walking and running arm swing")]
+        [Tooltip("Camera-space arm swing. Running alternates the arms forward and back below the sightline.")]
+        public Vector3 unarmedWalkSwing = new Vector3(.012f, .025f, .045f);
+        public Vector3 unarmedSprintSwing = new Vector3(.025f, .06f, .11f);
+        [Range(0f, .06f)] public float unarmedMovementLowering = .035f;
+        [Range(.05f, .3f)] public float unarmedSprintBlendSeconds = .18f;
         public float UnarmedSprintWeight { get; private set; }
         public static readonly Vector3 DefaultPistolHipPosition = new Vector3(0f, -.15f, .58f);
         [Header("Normal Tutus - Kamera")]
@@ -52,27 +54,27 @@ namespace Itfaiye
         [Header("Silah - Salinim")]
         public bool weaponSway = true;
         [Tooltip("Donuste gecikme ve yana yururken hafif yatis. 0 kapali; 1 varsayilan.")]
-        [Range(0f, 2f)] public float swayAmount = 1.35f;
+        [Range(0f, 2f)] public float swayAmount = .55f;
         [Tooltip("Salinimin yumusama suresi (saniye). Kucuk deger daha hizli toparlar.")]
-        [Range(.03f, .3f)] public float swaySmoothTime = .09f;
+        [Range(.03f, .3f)] public float swaySmoothTime = .14f;
         [Tooltip("Nisan alirken kalan salinim orani.")]
         [Range(0f, 1f)] public float aimSwayMultiplier = .12f;
 
         [Header("Silah - Yuruyus ve Kosu")]
         [Tooltip("Adimlarla uyumlu yatay/dikey hareketin yuruyusteki siddeti. 0 kapali.")]
-        [Range(0f, 3f)] public float walkBobAmount = 1f;
+        [Range(0f, 3f)] public float walkBobAmount = .55f;
         [Tooltip("Normal yuruyuste hafif namlu egimi (derece). Dururken, nisanda ve ateste sifirlanir.")]
-        [Range(0f, 12f)] public float walkLowerAngle = 4f;
+        [Range(0f, 12f)] public float walkLowerAngle = 1.5f;
         [Tooltip("Yuruyuste eklenen hafif alcalma (metre).")]
-        [Range(0f, .03f)] public float walkLowerDistance = .006f;
+        [Range(0f, .03f)] public float walkLowerDistance = .004f;
         [Tooltip("Kosudaki adim saliniminin siddeti. Yuruyusten daha belirgin tutulur.")]
-        [Range(0f, 3f)] public float runBobAmount = 1.8f;
+        [Range(0f, 3f)] public float runBobAmount = .85f;
         [Tooltip("Kosarken eklenen asagi hareket (metre). Durunca sifirlanir; normal tutusu degistirmez.")]
-        [Range(0f, .15f)] public float sprintLowerDistance = .025f;
+        [Range(0f, .15f)] public float sprintLowerDistance = .018f;
         [Tooltip("Kosarken namlunun asagi egimi (derece).")]
-        [Range(0f, 85f)] public float sprintLowerAngle = 22f;
+        [Range(0f, 85f)] public float sprintLowerAngle = 8f;
         [Tooltip("Kosu pozuna giris ve normal tutusa donus yumusakligi (saniye).")]
-        [Range(.06f, .3f)] public float locomotionSmoothTime = .16f;
+        [Range(.06f, .3f)] public float locomotionSmoothTime = .22f;
         [Tooltip("Kosarken ates istendiginde silahin dogrulma yumusakligi (saniye). Mermi dogrulduktan sonra cikar.")]
         [Range(.04f, .2f)] public float sprintRaiseSmoothTime = .10f;
 
@@ -113,13 +115,16 @@ namespace Itfaiye
         public static readonly Vector3 FrontSight = new Vector3(0f, 1.53f, 1.91f);
         Animator animator;
         Transform[] fingers;
-        Quaternion[] gripRotations, openRotations, magazineRotations, slideRotations, triggerRotations;
+        Quaternion[] gripRotations, openRotations, magazineRotations, slideRotations, triggerRotations, relaxedRotations, runningRotations;
         Vector3 animatedMotion;
         Vector3 swayPosition, swayEuler, swayPositionVelocity, swayRotationVelocity;
         public Vector3 CurrentSwayOffset { get; private set; }
         public Vector3 CurrentSwayEuler { get; private set; }
         Vector3 bobPosition, bobEuler, bobPositionVelocity, bobRotationVelocity;
         float gaitWeight, gaitVelocity, sprintWeight, sprintVelocity, gaitPhase;
+        float unarmedGaitWeight, unarmedGaitVelocity, unarmedSprintVelocity, unarmedPhase;
+        Vector3 leftUnarmedMotion, rightUnarmedMotion, leftUnarmedVelocity, rightUnarmedVelocity;
+        float unarmedSwingRotation, unarmedSwingRotationVelocity;
         float sprintLowering, sprintLowerVelocity, walkLowering, walkLowerVelocity, movementPitch;
         public Vector3 CurrentLocomotionOffset { get; private set; }
         public Vector3 CurrentLocomotionEuler { get; private set; }
@@ -156,6 +161,8 @@ namespace Itfaiye
                 magazineRotations = CacheFingerPose(handler, original, 2);
                 slideRotations = CacheFingerPose(handler, original, 3);
                 triggerRotations = CacheFingerPose(handler, original, 4);
+                relaxedRotations = CacheFingerPose(handler, original, 5);
+                runningRotations = CacheFingerPose(handler, original, 6);
                 handler.SetHumanPose(ref original);
             }
         }
@@ -169,7 +176,11 @@ namespace Itfaiye
                 if (!TryGripMuscle(name, out float value)) continue;
                 bool thumb = name.Contains("Thumb"), spread = name.Contains("Spread");
                 bool first = name.Contains("1 Stretched"), second = name.Contains("2 Stretched");
-                if (name.StartsWith("Left"))
+                if (poseIndex == 6)
+                    value = spread ? (thumb ? .05f : -.2f) : thumb ? (first ? -.55f : second ? -.2f : .05f) : first ? -.55f : second ? -.65f : -.35f;
+                else if (poseIndex == 5)
+                    value = spread ? (thumb ? .1f : -.15f) : thumb ? (first ? -.4f : second ? .1f : .35f) : first ? -.3f : second ? -.4f : .05f;
+                else if (name.StartsWith("Left"))
                 {
                     if ((poseIndex == 0 || poseIndex == 4) && !thumb && !spread)
                         value = Mathf.Clamp(value - leftGripTightness * (first ? .035f : second ? .22f : .28f), -1f, 1f);
@@ -189,11 +200,10 @@ namespace Itfaiye
             handler.SetHumanPose(ref pose);
             if (poseIndex == 0 || poseIndex == 4)
             {
-                // Rest the thumb alongside the left frame, below the slide,
-                // rather than crossing over the support hand's thumb.
-                var thumb = animator.GetBoneTransform(HumanBodyBones.RightThumbProximal);
-                var frameRotation = Quaternion.Euler(5f, 0f, 0f) * Quaternion.LookRotation(Vector3.down, Vector3.left);
-                thumb.localRotation = Quaternion.Inverse(RightGripRotation) * frameRotation * thumb.localRotation;
+                // Route the firing thumb behind the backstrap before it rests
+                // against the frame. The support thumb lies lower and farther forward.
+                PoseGripThumb(false, new Vector3(-.028f, .025f, -.080f), new Vector3(-.018f, .010f, -.120f));
+                PoseGripThumb(true, new Vector3(-.020f, .022f, -.040f), new Vector3(-.050f, .025f, -.070f));
             }
             if (poseIndex == 3)
             {
@@ -204,6 +214,32 @@ namespace Itfaiye
             var rotations = new Quaternion[fingers.Length];
             for (int i = 0; i < rotations.Length; i++) if (fingers[i] != null) rotations[i] = fingers[i].localRotation;
             return rotations;
+        }
+
+        void PoseGripThumb(bool left, Vector3 distalTarget, Vector3 bendHint)
+        {
+            var hand = animator.GetBoneTransform(left ? HumanBodyBones.LeftHand : HumanBodyBones.RightHand);
+            var upper = animator.GetBoneTransform(left ? HumanBodyBones.LeftThumbProximal : HumanBodyBones.RightThumbProximal);
+            var middle = animator.GetBoneTransform(left ? HumanBodyBones.LeftThumbIntermediate : HumanBodyBones.RightThumbIntermediate);
+            var distal = animator.GetBoneTransform(left ? HumanBodyBones.LeftThumbDistal : HumanBodyBones.RightThumbDistal);
+            if (!hand || !upper || !middle || !distal) return;
+            var grip = left ? LeftGrip : RightGrip;
+            var intoHand = Quaternion.Inverse(left ? LeftGripRotation : RightGripRotation);
+            Vector3 target = hand.TransformPoint(intoHand * (distalTarget - grip));
+            Vector3 hint = hand.TransformPoint(intoHand * (bendHint - grip));
+            float first = Vector3.Distance(upper.position, middle.position);
+            float second = Vector3.Distance(middle.position, distal.position);
+            Vector3 direction = (target - upper.position).normalized;
+            float distance = Mathf.Clamp(Vector3.Distance(upper.position, target), .0001f, first + second - .0001f);
+            target = upper.position + direction * distance;
+            Vector3 bend = Vector3.ProjectOnPlane(hint - upper.position, direction).normalized;
+            float along = (first * first - second * second + distance * distance) / (2f * distance);
+            Vector3 joint = upper.position + direction * along + bend * Mathf.Sqrt(Mathf.Max(0f, first * first - along * along));
+            upper.rotation = Quaternion.FromToRotation(middle.position - upper.position, joint - upper.position) * upper.rotation;
+            middle.rotation = Quaternion.FromToRotation(distal.position - middle.position, target - middle.position) * middle.rotation;
+            // Keep the fingertip along the barrel instead of curling through the frame.
+            Vector3 forward = hand.TransformDirection(intoHand * Vector3.forward);
+            distal.rotation = Quaternion.FromToRotation(distal.TransformDirection(left ? Vector3.left : Vector3.right), forward) * distal.rotation;
         }
 
         public static bool TryGripMuscle(string name, out float value)
@@ -247,10 +283,16 @@ namespace Itfaiye
                     Mathf.Clamp(relative.z - .414f, -.12f, .12f) * .06f);
                 animator.SetIKPositionWeight(AvatarIKGoal.LeftHand, 0f);
                 animator.SetIKPositionWeight(AvatarIKGoal.RightHand, 0f);
+                animator.SetIKRotationWeight(AvatarIKGoal.LeftHand, 0f);
+                animator.SetIKRotationWeight(AvatarIKGoal.RightHand, 0f);
                 return;
             }
-            PresentHand(AvatarIKGoal.LeftHand, HumanBodyBones.LeftHand, leftRestPosition);
-            PresentHand(AvatarIKGoal.RightHand, HumanBodyBones.RightHand, rightRestPosition);
+            // The first-person wrist solver runs after the avatar animation.
+            // Humanoid IK goal rotations differ from this mesh's actual wrist axes.
+            animator.SetIKPositionWeight(AvatarIKGoal.LeftHand, 0f);
+            animator.SetIKPositionWeight(AvatarIKGoal.RightHand, 0f);
+            animator.SetIKRotationWeight(AvatarIKGoal.LeftHand, 0f);
+            animator.SetIKRotationWeight(AvatarIKGoal.RightHand, 0f);
         }
 
         void LateUpdate()
@@ -258,7 +300,10 @@ namespace Itfaiye
             UpdateSway();
             UpdateLocomotion();
             if (ButtonSlapActive) { PoseButtonSlap(); return; }
-            if (swimmingPlayer && swimmingPlayer.Swimming && swimmingPlayer.Swimming.Blend > .001f && view && animator && animator.isHuman)
+            bool unarmed = pistol == null || pistol.DrawAmount <= .001f;
+            bool swimmingPresentation = swimmingPlayer && swimmingPlayer.Swimming && swimmingPlayer.Swimming.Blend > .001f;
+            if (unarmed && !swimmingPresentation && view && animator && animator.isHuman) PresentUnarmedHands();
+            if (swimmingPresentation && view && animator && animator.isHuman)
             {
                 PresentSwimmingAnimation();
                 if (swimmingPlayer.IsSwimming) return;
@@ -273,7 +318,7 @@ namespace Itfaiye
             breathPhase += Mathf.Min(Time.deltaTime, .05f) * 1.65f;
             float breathing = (1f - aim) * (1f - gaitWeight) * (pistol.IsReloading ? 0f : 1f) * pistol.DrawAmount;
             var breath = new Vector3(Mathf.Sin(breathPhase * .5f) * .0006f, Mathf.Sin(breathPhase) * .0012f, 0f) * breathing;
-            var position = Vector3.Lerp(pistolHipPosition, aimPosition, aim) + animatedMotion * (.35f * (1f - aim))
+            var position = Vector3.Lerp(pistolHipPosition, aimPosition, aim) + animatedMotion * (.12f * (1f - aim))
                 + pistol.PoseOffset + CurrentSwayOffset + CurrentLocomotionOffset + inertiaPosition * Mathf.Lerp(1f, .15f, aim) + breath;
             var heldRotation = pistol.PoseRotation * Quaternion.Slerp(Quaternion.Euler(pistolHipEuler), Quaternion.identity, aim);
             var motionEuler = CurrentSwayEuler + CurrentLocomotionEuler;
@@ -321,8 +366,9 @@ namespace Itfaiye
                 // The clamp prevents a fast flick from throwing the weapon offscreen.
                 var turn = Vector2.ClampMagnitude(player.LookAngularVelocity / 160f, 1f);
                 float strafe = Mathf.Clamp(player.LocalVelocity.x / Mathf.Max(.1f, player.walkSpeed), -1f, 1f);
-                targetPosition = new Vector3(-turn.x * .014f - strafe * .006f, turn.y * .009f, 0f) * swayAmount;
-                targetEuler = new Vector3(-turn.y * 1.1f, -turn.x * 2f, turn.x * .8f + strafe * 1.25f) * swayAmount;
+                float amount = Mathf.Clamp(swayAmount, 0f, .65f);
+                targetPosition = new Vector3(-turn.x * .014f - strafe * .006f, turn.y * .009f, 0f) * amount;
+                targetEuler = new Vector3(-turn.y * 1.1f, -turn.x * 2f, turn.x * .8f + strafe * 1.25f) * amount;
             }
             float dt = Time.deltaTime;
             if (dt > 0f)
@@ -339,13 +385,11 @@ namespace Itfaiye
 
         void UpdateLocomotion()
         {
-            var player = pistol != null ? pistol.player : null;
+            var player = pistol != null ? pistol.player : swimmingPlayer;
             float dt = Time.deltaTime;
             if (player == null || animator == null || dt <= 0f) return;
-            bool unarmedSprint = !pistol.Equipped && player.InputCaptured && player.IsSprinting &&
-                player.IsGrounded && player.CurrentSpeed > player.walkSpeed * .65f;
-            UnarmedSprintWeight = Mathf.MoveTowards(UnarmedSprintWeight, unarmedSprint ? 1f : 0f,
-                dt / Mathf.Max(.05f, unarmedSprintBlendSeconds));
+            UpdateUnarmedLocomotion(player, dt);
+            if (pistol == null) return;
             bool moving = weaponSway && player.InputCaptured && pistol.Equipped && !pistol.IsReloading
                 && player.IsGrounded && !player.IsKneeling && player.CurrentSpeed > .08f;
             float speed = player.CurrentSpeed;
@@ -383,21 +427,49 @@ namespace Itfaiye
             }
             float side = Mathf.Sin(gaitPhase);
             float step = Mathf.Cos(gaitPhase * 2f);
-            float amplitude = Mathf.Lerp(walkBobAmount, runBobAmount, sprintWeight) * gaitWeight;
-            var targetPosition = new Vector3(side * .018f, -step * .011f, Mathf.Sin(gaitPhase * 2f) * .004f) * amplitude;
-            var targetEuler = new Vector3(step * .8f, side * .65f, -side * 1.65f) * amplitude;
-            bobPosition = Vector3.SmoothDamp(bobPosition, targetPosition, ref bobPositionVelocity, .035f, Mathf.Infinity, dt);
-            bobEuler = Vector3.SmoothDamp(bobEuler, targetEuler, ref bobRotationVelocity, .035f, Mathf.Infinity, dt);
+            // Both hands keep their grip while the running stride visibly carries
+            // the weapon. Aiming and firing still damp this movement below.
+            float amplitude = Mathf.Lerp(Mathf.Clamp(walkBobAmount, 0f, .65f), Mathf.Clamp(runBobAmount, 0f, .95f), sprintWeight) * gaitWeight;
+            Vector3 stride = Vector3.Lerp(new Vector3(.01f, .0045f, .002f), new Vector3(.024f, .014f, .009f), sprintWeight);
+            Vector3 tilt = Vector3.Lerp(new Vector3(.3f, .2f, .3f), new Vector3(1.6f, .65f, .8f), sprintWeight);
+            var targetPosition = new Vector3(side * stride.x, -step * stride.y, Mathf.Sin(gaitPhase * 2f) * stride.z) * amplitude;
+            var targetEuler = new Vector3(step * tilt.x, side * tilt.y, -side * tilt.z) * amplitude;
+            bobPosition = Vector3.SmoothDamp(bobPosition, targetPosition, ref bobPositionVelocity, .085f, Mathf.Infinity, dt);
+            bobEuler = Vector3.SmoothDamp(bobEuler, targetEuler, ref bobRotationVelocity, .085f, Mathf.Infinity, dt);
             float aim = Mathf.SmoothStep(0f, 1f, pistol.AimAmount);
             float visible = weaponSway ? pistol.DrawAmount : 0f;
             float bobWeight = visible * Mathf.Lerp(1f, aimSwayMultiplier, aim);
             if (raisingForShot) bobWeight *= .35f;
             float lowerWeight = visible * sprintLowering * (1f - aim);
             float walkWeight = visible * walkLowering * (1f - aim);
-            movementPitch = sprintLowerAngle * lowerWeight + walkLowerAngle * walkWeight;
-            CurrentLocomotionOffset = bobPosition * bobWeight + new Vector3(0f, -sprintLowerDistance, -.02f) * lowerWeight
-                + Vector3.down * (walkLowerDistance * walkWeight);
+            movementPitch = Mathf.Clamp(sprintLowerAngle, 0f, 10f) * lowerWeight + Mathf.Clamp(walkLowerAngle, 0f, 2f) * walkWeight;
+            CurrentLocomotionOffset = bobPosition * bobWeight + new Vector3(0f, -Mathf.Clamp(sprintLowerDistance, 0f, .025f), -.006f) * lowerWeight
+                + Vector3.down * (Mathf.Clamp(walkLowerDistance, 0f, .008f) * walkWeight);
             CurrentLocomotionEuler = bobEuler * bobWeight + Vector3.right * movementPitch;
+        }
+
+        void UpdateUnarmedLocomotion(ItfaiyeFirstPersonController player, float dt)
+        {
+            bool moving = (pistol == null || !pistol.Equipped) && player.InputCaptured && player.IsGrounded
+                && !player.IsSwimming && !player.IsKneeling && !ButtonSlapActive && player.CurrentSpeed > .08f;
+            float gait = moving ? Mathf.Clamp01(player.CurrentSpeed / Mathf.Max(.1f, player.walkSpeed)) : 0f;
+            float sprint = moving && player.IsSprinting ? 1f : 0f;
+            float blend = Mathf.Max(.12f, unarmedSprintBlendSeconds);
+            unarmedGaitWeight = Mathf.SmoothDamp(unarmedGaitWeight, gait, ref unarmedGaitVelocity, blend, Mathf.Infinity, dt);
+            UnarmedSprintWeight = Mathf.SmoothDamp(UnarmedSprintWeight, sprint, ref unarmedSprintVelocity, blend, Mathf.Infinity, dt);
+            if (moving)
+                unarmedPhase = Mathf.Repeat(unarmedPhase + dt * Mathf.PI * 2f * Mathf.Lerp(1.05f, 1.65f, UnarmedSprintWeight), Mathf.PI * 2f);
+            Vector3 walk = Vector3.Min(Vector3.Max(unarmedWalkSwing, Vector3.zero), new Vector3(.025f, .04f, .07f));
+            Vector3 run = Vector3.Min(Vector3.Max(unarmedSprintSwing, Vector3.zero), new Vector3(.04f, .08f, .14f));
+            Vector3 swing = Vector3.Lerp(walk, run, UnarmedSprintWeight) * unarmedGaitWeight;
+            float cycle = Mathf.Sin(unarmedPhase);
+            Vector3 lower = Vector3.down * (Mathf.Clamp(unarmedMovementLowering, 0f, .06f) * unarmedGaitWeight);
+            var left = new Vector3(swing.x * cycle, swing.y * cycle, swing.z * cycle) + lower;
+            var right = new Vector3(swing.x * cycle, -swing.y * cycle, -swing.z * cycle) + lower;
+            leftUnarmedMotion = Vector3.SmoothDamp(leftUnarmedMotion, left, ref leftUnarmedVelocity, .055f, Mathf.Infinity, dt);
+            rightUnarmedMotion = Vector3.SmoothDamp(rightUnarmedMotion, right, ref rightUnarmedVelocity, .055f, Mathf.Infinity, dt);
+            unarmedSwingRotation = Mathf.SmoothDamp(unarmedSwingRotation, cycle * unarmedGaitWeight,
+                ref unarmedSwingRotationVelocity, .055f, Mathf.Infinity, dt);
         }
 
         void UpdateInertia()
@@ -485,7 +557,7 @@ namespace Itfaiye
             // Camera-space shoulders keep the viewmodel within reach during kneeling and jumps.
             bool swimming = swimmingPlayer && swimmingPlayer.IsSwimming;
             var reach = !ButtonSlapActive && !swimming && left && pistol && pistol.IsReloading ? new Vector3(-.015f, .015f, .035f) * pistol.ReloadPose.weaponWeight : Vector3.zero;
-            upper.position = ButtonSlapActive ? ButtonShoulderPosition(left) : view.TransformPoint(new Vector3(side * .17f, -.18f, -.06f) + (pistol && !swimming ? pistol.PoseOffset * .4f : Vector3.zero) + reach);
+            upper.position = ButtonSlapActive ? ButtonShoulderPosition(left) : view.TransformPoint(new Vector3(side * .17f, -.18f, -.06f) + (pistol && pistol.DrawAmount > .001f && !swimming ? pistol.PoseOffset * .4f : Vector3.zero) + reach);
             Vector3 target = view.TransformPoint(wrist);
             Vector3 direction = target - upper.position;
             // Let the shoulder follow a small forward reach instead of letting the
@@ -530,27 +602,23 @@ namespace Itfaiye
             }
         }
 
-        void PresentHand(AvatarIKGoal goal, HumanBodyBones bone, Vector3 rest)
+        void PresentUnarmedHands()
         {
-            var hand = animator.GetBoneTransform(bone);
-            if (hand == null) return;
-            var animated = transform.InverseTransformPoint(hand.position);
-            var motion = new Vector3(
-                Mathf.Clamp(animated.x - Mathf.Sign(rest.x) * .28f, -.12f, .12f) * .3f,
-                Mathf.Clamp(animated.y - .93f, -.22f, .28f) * .45f,
-                Mathf.Clamp(animated.z, -.3f, .5f) * .3f);
-            float side = Mathf.Sign(rest.x);
-            float cycle = animator.GetCurrentAnimatorStateInfo(0).normalizedTime * Mathf.PI * 2f;
-            float swing = Mathf.Sin(cycle + (side < 0 ? 0 : Mathf.PI));
-            var sprintMotion = new Vector3(-side * unarmedSprintSwing.x * swing,
-                unarmedSprintSwing.y * swing, unarmedSprintSwing.z * swing);
-            motion = Vector3.Lerp(motion, sprintMotion, UnarmedSprintWeight);
-            animator.SetIKPositionWeight(goal, presentationWeight);
-            animator.SetIKPosition(goal, view.TransformPoint(rest + motion));
-            animator.SetIKRotationWeight(goal, 0f);
-            var elbow = goal == AvatarIKGoal.LeftHand ? AvatarIKHint.LeftElbow : AvatarIKHint.RightElbow;
-            animator.SetIKHintPositionWeight(elbow, .85f);
-            animator.SetIKHintPosition(elbow, view.TransformPoint(new Vector3(Mathf.Sign(rest.x) * .48f, -.5f, .05f)));
+            if (presentationWeight <= 0f) return;
+            if (fingerPoseDirty) CacheGrip();
+            // The forward arm rises as the opposite arm pulls back. The wrists
+            // follow that swing instead of remaining frozen in a two-handed pose.
+            float pump = unarmedSwingRotation * Mathf.Lerp(.35f, 1f, UnarmedSprintWeight);
+            PoseArm(true, leftRestPosition + leftUnarmedMotion,
+                view.rotation * Quaternion.Euler(18f - pump * 11f, 8f + pump * 5f, -pump * 4f) * LeftGripRotation);
+            PoseArm(false, rightRestPosition + rightUnarmedMotion,
+                view.rotation * Quaternion.Euler(18f + pump * 11f, -8f + pump * 5f, pump * 4f) * RightGripRotation);
+            for (int i = 0; i < fingers.Length; i++)
+                if (fingers[i])
+                {
+                    var pose = Quaternion.Slerp(relaxedRotations[i], runningRotations[i], UnarmedSprintWeight);
+                    fingers[i].localRotation = Quaternion.Slerp(fingers[i].localRotation, pose, presentationWeight);
+                }
         }
     }
 }

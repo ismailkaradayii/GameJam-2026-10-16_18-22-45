@@ -80,10 +80,10 @@ namespace Itfaiye.Editor
                     if (elapsed > .4f) { minX = Mathf.Min(minX, hands.CurrentLocomotionOffset.x); maxX = Mathf.Max(maxX, hands.CurrentLocomotionOffset.x); }
                     if (elapsed < 1.2f) return;
                     Check("Running reaches its existing speed", player.IsSprinting && Mathf.Abs(player.CurrentSpeed - player.runSpeed) < .1f);
-                    Check("Running uses a moderate 22 degree tilt", hands.SprintLowering > .98f && hands.MovementLowerAngle > 21f && hands.MovementLowerAngle < 23f && LocalMuzzle().y > -.5f && LocalMuzzle().y < -.22f);
+                    Check("Running uses a shallow comfortable tilt", hands.SprintLowering > .98f && hands.MovementLowerAngle > 6f && hands.MovementLowerAngle <= 10f && LocalMuzzle().y > -.21f && LocalMuzzle().y < -.07f);
                     var runWrist = player.playerCamera.transform.InverseTransformPoint(player.handsAnimator.GetBoneTransform(HumanBodyBones.RightHand).position);
                     Check("Running keeps the hands near their normal height", runWrist.y > idleWrist.y - .075f && runWrist.y < idleWrist.y + .015f && runWrist.z < idleWrist.z + .015f);
-                    Check("Lowered gun still swings with running", maxX - minX > .04f);
+                    Check("Lowered gun keeps a visible controlled running rhythm", maxX - minX > .018f && maxX - minX < .04f);
                     PistolGripWorkbench.CaptureViews(player, Folder + "/lowered"); Next(2); return;
                 case 2:
                     Input(true, true);
@@ -93,7 +93,7 @@ namespace Itfaiye.Editor
                         Check("Click queues a raise without consuming ammo", pistol.ShotsFired == 0 && pistol.Ammo == 12);
                     }
                     if (pistol.ShotsFired == 0) return;
-                    Check("A real mouse click raises before firing", observedQueue && elapsed > .12f && elapsed < .6f);
+                    Check("A real mouse click raises before firing", observedQueue && elapsed > .04f && elapsed < .6f);
                     Check("Shot occurs only after the lowered pose clears", hands.IsMovementPoseRaised);
                     Check("Raised shot points forward", Vector3.Angle(pistol.LastShotRay.direction, player.playerCamera.transform.forward) < 8f);
                     Check("Shot hits the forward target instead of the floor", pistol.LastShotCollider == target.GetComponent<Collider>());
@@ -103,7 +103,7 @@ namespace Itfaiye.Editor
                 case 3:
                     Input(true, true); if (elapsed < 1.1f) return;
                     Check("Holding the click does not create automatic fire", pistol.ShotsFired == 1);
-                    Check("After firing the gun returns to the moderate running tilt", hands.SprintLowering > .98f && LocalMuzzle().y > -.5f && LocalMuzzle().y < -.22f);
+                    Check("After firing the gun returns to the shallow running tilt", hands.SprintLowering > .98f && LocalMuzzle().y > -.21f && LocalMuzzle().y < -.07f);
                     Capture("lowered-again"); Next(4); return;
                 case 4:
                     Input(true, false); if (elapsed < .1f) return; Next(5); return;
@@ -146,7 +146,7 @@ namespace Itfaiye.Editor
                 case 13:
                     Input(false, false, true); if (elapsed < 1.2f) return;
                     Check("Walking retains the configured speed", !player.IsSprinting && Mathf.Abs(player.CurrentSpeed - player.walkSpeed) < .1f);
-                    Check("Walking adds only four degrees of tilt", hands.MovementLowerAngle > 3.8f && hands.MovementLowerAngle < 4.2f && LocalMuzzle().y > -.12f && LocalMuzzle().y < 0f);
+                    Check("Walking adds only a slight downward tilt", hands.MovementLowerAngle > 1f && hands.MovementLowerAngle <= 2f && LocalMuzzle().y > -.06f && LocalMuzzle().y < 0f);
                     Check("Walking crosshair still follows the barrel", Vector3.Angle(pistol.AimRay.direction, pistol.muzzle.forward) < .05f);
                     Capture("walking"); Next(14); return;
                 case 14:

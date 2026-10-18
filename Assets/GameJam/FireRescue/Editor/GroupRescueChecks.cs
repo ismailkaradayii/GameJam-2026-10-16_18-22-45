@@ -64,7 +64,7 @@ public sealed class GroupRescueProbe : MonoBehaviour
     InputSettings.BackgroundBehavior oldInput;
     EditorWindow game;
     bool oldBackground, finished, reloadLocked;
-    int phase, groupIndex, calledBefore, stagedBefore;
+    int phase, groupIndex, calledBefore, stagedBefore, spokenAtCompletion;
     float phaseAt, began, nextSave;
     string pausedSubtitle;
     double deadline;
@@ -100,8 +100,7 @@ public sealed class GroupRescueProbe : MonoBehaviour
             foreach (var r in mission.residents) previous[r] = r.transform.position;
             CheckThat("seven existing villagers form groups of two, two and three", mission.residents.Length == 7 &&
                 mission.residents.GroupBy(r => r.rescueGroup).OrderBy(g => g.Key).Select(g => g.Count()).SequenceEqual(new[] { 2, 2, 3 }));
-            CheckThat("recorded dialogue is removed and written dialogue is restored", NoSpeech() && !AssetDatabase.IsValidFolder("Assets/GameJam/FireRescue/Audio/RescueDialogue") &&
-                mission.dialogue && mission.dialogue.lines.Length == 16 && mission.dialogue.lines.All(l => !string.IsNullOrEmpty(l.text)));
+            CheckThat("only three identical recruitment cues and one departure cue are configured", NoSpeech() && CanonicalDialogue());
             CheckThat("one exclamation marker is configured", marker && marker.symbol && marker.symbol.text == "!" && Object.FindObjectsByType<RescueGroupMarker>(FindObjectsSortMode.None).Length == 1);
             CheckThat("Q and global alarm recruitment are disabled", mission.callKey == Key.None && !mission.villageWideCall && !mission.callAllAlarmedVillagers && !mission.Shout());
             CheckThat("inactive mission rejects recruitment", !mission.TryRecruitGroup(mission.residents[0]));
@@ -144,7 +143,8 @@ public sealed class GroupRescueProbe : MonoBehaviour
                     if (age < .25f) return;
                     InputSystem.QueueStateEvent(testKeyboard, new KeyboardState());
                     CheckThat("real Q key input recruits nobody", mission.CalledCount == 0 && mission.ActiveGroup == -1);
-                    CheckThat("alarm keeps its written dialogue and clear objectives", NoSpeech() && mission.dialogue.PlayedLines > 0 && !string.IsNullOrEmpty(mission.CurrentMessage) && mission.GroupDetail.Contains("Ünlem (!)") && mission.GroupDetail.Contains("toplanma alanına"));
+                    CheckThat("alarm stays silent and keeps clear English objectives", NoSpeech() && mission.dialogue.PlayedLines == 0 && string.IsNullOrEmpty(mission.CurrentMessage) &&
+                        PendingLines().Length == 0 && mission.GroupObjective == "Gather the townspeople" && mission.GroupDetail.Contains("group marked (!)") && mission.GroupDetail.Contains("yellow assembly point"));
                     MoveToGroup(); Next(2); break;
                 case 2:
                     if (!NearLeader(GroupLeader().panicGroupAnchor.position, 2f)) return;
@@ -155,13 +155,18 @@ public sealed class GroupRescueProbe : MonoBehaviour
                     if (groupIndex == 0)
                     {
                         Capture("00-next-group-marker", candidate.panicGroupAnchor.position + new Vector3(12, 11, -16), candidate.panicGroupAnchor.position + Vector3.up * 4);
-                        mission.Speak("panic_0", candidate.transform, true);
+                        foreach (var obsolete in new[] { "dispatch", "panic_0", "reply_0", "wait_0", "ready", "safe" }) mission.Speak(obsolete, candidate.transform, true);
+                        CheckThat("old dispatch and villager exchanges cannot enter the dialogue queue", mission.dialogue.PlayedLines == 0 &&
+                            string.IsNullOrEmpty(mission.CurrentMessage) && PendingLines().Length == 0 && CanonicalDialogue());
+                        // Exercise subtitle pausing with a real player cue without recruiting the NPCs yet.
+                        mission.Speak("recruit_0", null, true);
                         Next(21); return;
                     }
                     Recruit(candidate); break;
                 case 21:
                     if (age < .25f) return;
                     pausedSubtitle = mission.CurrentMessage;
+                    CheckThat("the pause fixture shows only the short English player cue", pausedSubtitle == "Come here, follow me." && mission.dialogue.CurrentId == "recruit_0" && PendingLines().Length == 0);
                     Time.timeScale = 0f;
                     CheckThat("pause rejects group recruitment", !mission.TryRecruitGroup(GroupLeader()));
                     Next(20); break;
@@ -173,6 +178,12 @@ public sealed class GroupRescueProbe : MonoBehaviour
                         .OrderBy(r => EvacuationResident.FlatDistance(r.transform.position, player.transform.position)).FirstOrDefault();
                     if (!first) { Next(2); return; }
                     Recruit(first); break;
+                case 31:
+                    if (age < .15f) return;
+                    CheckThat("group " + (groupIndex + 1) + " hears exactly the short recruitment cue without a villager reply", mission.dialogue.CurrentId == "recruit_" + groupIndex &&
+                        mission.CurrentMessage == "Come here, follow me." && PendingLines().Length == 0 && CanonicalDialogue() && NoSpeech());
+                    leader.SetDestination(mission.assemblyPoint.position + new Vector3(0, 0, -6));
+                    Next(3); break;
                 case 3:
                     if (!mission.CanDepositGroup) return;
                     CheckThat("group marker hides while leading group " + (groupIndex + 1), !marker.IsVisible && mission.NextRecruitGroup == -1);
@@ -205,12 +216,13 @@ public sealed class GroupRescueProbe : MonoBehaviour
                     UseContext(ContextualInteractionKind.AssemblyPoint, mission.assemblyPoint, null);
                     CheckThat("final E takes all seven from assembly", mission.EscortStarted && mission.FollowingCount == 7 && mission.AssembledCount == 0);
                     CheckThat("departure is idempotent", !mission.TryAssemblyInteraction());
-                    CheckThat("escort keeps guidance and its written departure line", mission.GroupObjective == "İnsanları sığınağa götür" && mission.GroupDetail.Contains("Yeşil") &&
-                        mission.dialogue.lines.Any(l => l.id == "depart" && l.text.Contains("hazırladığım sığınağa")) && !marker.IsVisible);
+                    CheckThat("escort keeps English guidance and its single departure cue", mission.GroupObjective == "Lead everyone to the shelter" && mission.GroupDetail.Contains("green marker") &&
+                        PendingLines().Length == 1 && PendingLines()[0].id == "depart" && PendingLines()[0].text == "Follow me. I'll take you to the shelter." && !marker.IsVisible);
                     leader.SetDestination(mission.shelterApproach.position); Next(6); break;
                 case 6:
                     if (!NearLeader(mission.shelterApproach.position, 2f)) return;
                     CheckThat("shelter opens after the assembled group is escorted", mission.ShelterOpened && mission.EscortStarted);
+                    CheckThat("departure speech adds no NPC replies or extra exchanges", PendingLines().Length == 0 && CanonicalDialogue());
                     Capture("05-shelter-escort", mission.shelterApproach.position + new Vector3(13, 12, -20), mission.shelterApproach.position + Vector3.up * 3);
                     leader.SetDestination(mission.residents[5].safePlace.position); Next(7); break;
                 case 7:
@@ -219,18 +231,20 @@ public sealed class GroupRescueProbe : MonoBehaviour
                     int rescued = mission.RescuedCount; mission.ResidentArrived(mission.residents[0]);
                     CheckThat("duplicate arrival cannot increase rescue count", mission.RescuedCount == rescued);
                     CheckThat("residents never pass through walls", report.wallCrossings == 0, "torso-height physics sweep for every moving frame");
+                    spokenAtCompletion = mission.dialogue.PlayedLines;
                     Capture("06-safely-inside", mission.shelterEntrance.position + new Vector3(6, 10, -4), mission.residents[4].transform.position + Vector3.up * 3);
                     Next(8); break;
                 case 8:
                     if (age < .7f) return;
-                    var hud = Object.FindFirstObjectByType<RescueHUD>();
-                    CheckThat("completion shows written dialogue without recorded speech", NoSpeech() && mission.dialogue.CurrentId == "safe" && mission.CurrentMessage.Contains("güvendesiniz") &&
-                        hud && hud.subtitleText && hud.subtitleText.gameObject.activeInHierarchy && hud.subtitleText.text.Contains("güvendesiniz"));
+                    CheckThat("completion adds no extra safe speech or NPC replies", NoSpeech() && mission.dialogue.CurrentId != "safe" &&
+                        mission.dialogue.PlayedLines == spokenAtCompletion && PendingLines().Length == 0 && CanonicalDialogue() &&
+                        mission.GroupObjective == "Everyone is sheltered" && mission.GroupDetail == "Everyone is safe.");
                     var ending = Object.FindFirstObjectByType<ShelterReturnCinematic>();
                     if (ending)
                     {
-                        CheckThat("written closing narration and optional recorded voices remain intact", ending.thoughts.Length == 6 && ending.thoughts.All(t => !string.IsNullOrEmpty(t.text) && (!t.voice || t.Duration >= t.voice.length)) &&
-                            !string.IsNullOrEmpty(ending.arrivalThought.text) && (!ending.arrivalThought.voice || ending.arrivalThought.Duration >= ending.arrivalThought.voice.length));
+                        CheckThat("English closing narration and optional recorded voices remain intact", ending.thoughts.Length == 6 && ending.thoughts.All(t => !string.IsNullOrEmpty(t.text) && IsEnglish(t.text) && (!t.voice || t.Duration >= t.voice.length)) &&
+                            ending.thoughts[0].text.StartsWith("It's over...", StringComparison.Ordinal) && ending.arrivalThought.text.StartsWith("There they are...", StringComparison.Ordinal) &&
+                            IsEnglish(ending.arrivalThought.text) && (!ending.arrivalThought.voice || ending.arrivalThought.Duration >= ending.arrivalThought.voice.length));
                         CheckThat("existing closing sequence can begin after group evacuation", ending.Begin(player.gameFlow));
                         var firstThought = ending.thoughts[0];
                         var closingVoice = ending.GetComponents<AudioSource>().FirstOrDefault(s => s.clip == firstThought.voice);
@@ -254,9 +268,16 @@ public sealed class GroupRescueProbe : MonoBehaviour
         var other = mission.residents.FirstOrDefault(r => !r.IsCalled && !r.IsDead);
         if (other) CheckThat("group " + (groupIndex + 1) + " must be deposited before recruiting another", !mission.TryRecruitGroup(other));
         CheckThat("waiting people remain at assembly during collection " + (groupIndex + 1), waiting.All(p => Vector3.Distance(p.Key.transform.position, p.Value) < .3f));
-        leader.SetDestination(mission.assemblyPoint.position + new Vector3(0, 0, -6));
-        Next(3);
+        var pending = PendingLines();
+        CheckThat("recruiting group " + (groupIndex + 1) + " queues one player cue and no NPC response", CanonicalDialogue() && pending.Length == 1 &&
+            pending[0].id == "recruit_" + groupIndex && pending[0].text == "Come here, follow me." && !pending[0].villager);
+        Next(31);
     }
+    bool CanonicalDialogue() => mission.dialogue && mission.dialogue.lines != null && mission.dialogue.lines.Length == 4 &&
+        mission.dialogue.lines.Select(l => l.id).SequenceEqual(new[] { "recruit_0", "recruit_1", "recruit_2", "depart" }) &&
+        mission.dialogue.lines.All(l => !l.villager && l.text == (l.id == "depart" ? "Follow me. I'll take you to the shelter." : "Come here, follow me."));
+    RescueDialogue.Line[] PendingLines() => ((Queue<RescueDialogue.Line>)typeof(RescueDialogue).GetField("pending", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(mission.dialogue)).ToArray();
+    static bool IsEnglish(string value) => !string.IsNullOrEmpty(value) && value.IndexOfAny("çğıöşüÇĞİÖŞÜ".ToCharArray()) < 0;
     bool NoSpeech() => Object.FindObjectsByType<AudioSource>(FindObjectsInactive.Include, FindObjectsSortMode.None).All(s => s.name != "Rescue dialogue voice" &&
         (!s.clip || !AssetDatabase.GetAssetPath(s.clip).StartsWith("Assets/GameJam/FireRescue/Audio/RescueDialogue/", StringComparison.Ordinal)));
     void UseContext(ContextualInteractionKind kind, Transform anchor, EvacuationResident resident)

@@ -66,14 +66,14 @@ public static class OpeningCinematicSetup
         }
         story.windowRoute = waypoints.ToArray();
         story.approachSpeed = 2.6f; story.approachTimeout = 16f; story.arrivalRadius = .08f;
-        story.windowFieldOfView = 50f;
+        story.windowFieldOfView = 28f;
         var lens = story.windowViewPose ? story.windowViewPose : parent.Find("Clear window observation camera");
         if (!lens) { lens = new GameObject("Clear window observation camera").transform; lens.SetParent(parent, false); Undo.RegisterCreatedObjectUndo(lens.gameObject, "Clear window framing"); }
         Undo.RecordObject(lens, "Clear window framing");
         Vector3 localEye = player.transform.InverseTransformPoint(player.viewCamera.transform.position);
         Vector3 eye = story.windowStop.position + story.windowStop.rotation * Vector3.Scale(localEye, player.transform.lossyScale);
         lens.position = eye + new Vector3(-3.2f, -1.4f, 1.1f);
-        lens.rotation = Quaternion.LookRotation(story.volcanoLookTarget.position + Vector3.down * 60 - lens.position);
+        lens.rotation = Quaternion.LookRotation(story.volcanoLookTarget.position - lens.position);
         story.windowViewPose = lens;
         story.windowEyeOffset = Vector3.zero;
         // Wake vertically in the same clear capsule footprint. The old sideways move
@@ -106,6 +106,22 @@ public static class OpeningCinematicSetup
         EditorSceneManager.SaveScene(story.gameObject.scene);
         File.WriteAllLines(Folder + "/applied-route.txt", route.Select(p => p.ToString("F3")));
         OpeningCoolingPounceChecks.Audit();
+    }
+    [MenuItem("GameJam/Final Loop/Apply opening mountain focus")]
+    public static void ApplyMountainFocus()
+    {
+        var story = Bind();
+        Undo.RecordObject(story, "Focus opening on the mountain");
+        story.windowFieldOfView = 28f; story.windowZoomSeconds = 2.4f;
+        story.windowAperture = 1.8f; story.windowFocalLength = 160f;
+        if (story.windowViewPose)
+        {
+            Undo.RecordObject(story.windowViewPose, "Center the opening crater close-up");
+            story.windowViewPose.rotation = Quaternion.LookRotation(story.volcanoLookTarget.position - story.windowViewPose.position);
+        }
+        EditorUtility.SetDirty(story);
+        EditorSceneManager.MarkSceneDirty(story.gameObject.scene);
+        EditorSceneManager.SaveScene(story.gameObject.scene);
     }
     static void Capsule(Vector3 feet, out Vector3 lower, out Vector3 upper)
     {

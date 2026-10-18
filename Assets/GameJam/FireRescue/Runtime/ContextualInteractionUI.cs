@@ -244,12 +244,12 @@ namespace GameJam.FireRescue
                     {
                         var r = target.resident;
                         if (r.IsAtAssembly || r.IsMovingToAssembly)
-                        { offer.title = "Toplanma alanında bekliyor"; offer.detail = evacuation.GroupStatus; return true; }
+                        { offer.title = "Waiting at the assembly point"; offer.detail = evacuation.GroupStatus; return true; }
                         if (r.IsCalled)
-                        { offer.title = "Seni takip ediyor"; offer.detail = evacuation.EscortStarted ? "Yeşil işareti takip et" : "Grubu sarı halkaya getir"; return true; }
+                        { offer.title = "Following you"; offer.detail = evacuation.EscortStarted ? "Follow the green marker" : "Bring the group to the yellow ring"; return true; }
                         if (!evacuation.CanRecruitGroup(r)) return false;
-                        offer.title = "Grubu yanına al";
-                        offer.detail = "Bu grubu toplanma alanına götür";
+                        offer.title = "Recruit the group";
+                        offer.detail = "Lead this group to the assembly point";
                         offer.input = InteractionInput.Interact;
                         return true;
                     }
@@ -277,13 +277,13 @@ namespace GameJam.FireRescue
                     offer.detail = shelterDetail; return true;
                 case ContextualInteractionKind.AssemblyPoint:
                     if (player.IsDriving || !evacuation || !evacuation.groupRescue || !evacuation.IsActive || evacuation.EscortStarted) return false;
-                    offer.title = evacuation.AllAtAssembly ? "Herkesi yanına al" : evacuation.ActiveGroup >= 0 ? "Grubu burada bırak" : "Toplanma alanı";
-                    offer.detail = evacuation.GroupStatus;
+                    // The authored yellow world marker already carries this copy.
+                    // Keep the E offer for the existing interaction coordinator.
+                    if (evacuation.ActiveGroup < 0 && !evacuation.AllAtAssembly) return false;
                     if (evacuation.ActiveGroup >= 0 || evacuation.AllAtAssembly)
                     {
                         offer.input = InteractionInput.Interact;
                         offer.blocked = !evacuation.PlayerAtAssembly || !evacuation.AllAtAssembly && !evacuation.CanDepositGroup;
-                        if (offer.blocked) offer.detail += evacuation.IsDepositing ? "\nGrup yerini alıyor" : "\nGrubu sarı alanın içine getir";
                     }
                     return true;
                 case ContextualInteractionKind.LakeFill:

@@ -28,7 +28,7 @@ public static class SpiritIntroductionChecks
     static SpiritIntroductionCapture capture;
     static int phase = -1, frame, originalMission;
     static float phaseAt, worldTime, fixedStep, health, water;
-    static Vector3 frozenPosition, entryPosition, truckVelocity, truckAngularVelocity;
+    static Vector3 frozenPosition, entryPosition;
     static Quaternion entryRotation;
     static float entryFov;
     static bool oldBackground, oldMaximized, previousKinematic;
@@ -40,6 +40,16 @@ public static class SpiritIntroductionChecks
     static bool sampledEye, capturedWindow;
     static float maximumEyeSpeed;
     static int wallContacts, lensContacts;
+    static VolcanoMusicDirector music;
+    static AudioSource frozenScore;
+    static AudioClip frozenScoreClip;
+    static float frozenScoreTime, previousMusicSetting;
+    static bool hadMusicSetting;
+    static int shotsBeforeConfirmation;
+    static Keyboard testKeyboard, previousKeyboard;
+    static Mouse testMouse, previousMouse;
+    static bool testMouseHeld;
+    static string authoredQuestFontGuid;
 
     static SpiritIntroductionChecks()
     {
@@ -73,8 +83,17 @@ public static class SpiritIntroductionChecks
         oldMaximized = game.maximized; game.maximized = true; game.Focus();
         Application.logMessageReceived += Log;
         mission = Object.FindFirstObjectByType<VolcanoMissionDirector>(); player = mission.player;
+        music = Object.FindFirstObjectByType<VolcanoMusicDirector>();
+        hadMusicSetting = PlayerPrefs.HasKey("Ashfall.MusicVolume");
+        previousMusicSetting = PlayerPrefs.GetFloat("Ashfall.MusicVolume", .75f);
+        PlayerPrefs.SetFloat("Ashfall.MusicVolume", 1f);
+        Check("authored score is available for the real freeze frame", music && music.mission == mission && music.passage && music.horizon,
+            "Both existing recordings are bound to the mission's adaptive music director.");
         originalMission = mission.GetInstanceID(); cinema = mission.cinematic;
         nav = Object.FindFirstObjectByType<ObjectiveNavigation>();
+        authoredQuestFontGuid = QuestFontGuid(Object.FindFirstObjectByType<RescueHUD>());
+        Check("active quest typography uses an authored font asset", !string.IsNullOrEmpty(authoredQuestFontGuid),
+            "Runtime HUD font asset GUID=" + authoredQuestFontGuid);
         fixedStep = Time.fixedDeltaTime;
         capture = player.gameObject.AddComponent<SpiritIntroductionCapture>();
         sampledEye = capturedWindow = false; maximumEyeSpeed = 0; wallContacts = lensContacts = 0;
@@ -167,22 +186,41 @@ public static class SpiritIntroductionChecks
                     "Airborne progress=" + combat.IntroductionJumpProgress + "; screenshot=" + cinema.HasCapturedSpiritFrame);
                 Check("held input cannot skip the first frame", !cinema.ContinueSpiritIntroduction(), "Minimum reading time has not elapsed.");
                 frozenPosition = actor.transform.position; worldTime = Time.time; health = player.GetComponent<CreatureCombatPlayer>().Health; water = mission.tank.TankLitres;
+                frozenScore = music.IsHorizon ? music.HorizonSource : music.PassageSource;
+                frozenScoreClip = frozenScore.clip; frozenScoreTime = frozenScore.time;
+                shotsBeforeConfirmation = player.pistol.ShotsFired;
                 capture.Photo("02-frozen-spirit-no-weapon"); Next(3); return;
             case 3:
                 if (age < 4.3f || capture.Busy) return;
                 Check("briefing waits for the player without advancing hazards", cinema.SpiritFrozen && cinema.CanContinueSpirit && Time.time == worldTime && Vector3.Distance(actor.transform.position, frozenPosition) < .001f &&
                     player.GetComponent<CreatureCombatPlayer>().Health == health && mission.tank.TankLitres == water,
                     "World time, enemy position, player health and truck water are unchanged while reading.");
+                float musicAdvance = Mathf.Repeat(frozenScore.time - frozenScoreTime, frozenScoreClip.length);
+                Check("frozen briefing keeps the same recording advancing at normal pitch", frozenScore == (music.IsHorizon ? music.HorizonSource : music.PassageSource) &&
+                    frozenScore.clip == frozenScoreClip && frozenScore.isPlaying && Mathf.Abs(frozenScore.pitch - 1f) < .001f &&
+                    musicAdvance > 1f && musicAdvance < age + 1.5f && Time.time == worldTime,
+                    "Actual frozen world; audio advanced=" + musicAdvance.ToString("F2") + " s in " + age.ToString("F2") + " real seconds.");
+                float calmVolume = music.IsHorizon ? music.horizonVolume : music.passageVolume;
+                Check("briefing music recovers its regular level despite frozen foreground sounds", music.TargetDuck > .999f && music.CurrentDuck > .98f &&
+                    frozenScore.volume > calmVolume * .92f,
+                    "Gain=" + frozenScore.volume.ToString("F3") + "; calm=" + calmVolume.ToString("F3") + "; duck=" + music.CurrentDuck.ToString("F3") + "/" + music.TargetDuck.ToString("F3"));
+                capture.Photo("02b-ready-controls"); Next(30); return;
+            case 30:
+                if (capture.Busy) return;
                 ConfirmWithKeyboard(); Next(4); return;
             case 4:
                 if (cinema.SpiritFrozen) return;
-                KeyUp();
-                Check("Space confirms the card through the Input System", cinema.IsPlaying && player.CinematicLocked && Time.timeScale > 0, "The return shot keeps input locked until the camera is back.");
+                Check("Esc confirms without opening pause or firing", cinema.IsPlaying && player.CinematicLocked && Time.timeScale > 0 &&
+                    player.gameFlow.State == RescueGameFlow.GameState.Playing && player.pistol.ShotsFired == shotsBeforeConfirmation,
+                    "The actual Escape input enters the return shot while gameplay and the pause menu remain locked.");
+                RestoreKeyboard();
                 Next(5); return;
             case 5:
                 if (cinema.IsPlaying) return;
                 Check("on-foot camera and physics are restored", player.viewCamera.enabled && !player.CinematicLocked && Time.timeScale == 1 && Mathf.Approximately(Time.fixedDeltaTime, fixedStep) && Mathf.Abs(player.viewCamera.fieldOfView - entryFov) < .02f,
                     "Camera enabled, input released, original FOV, timescale and fixed step restored.");
+                Check("Esc leaves gameplay running after the camera returns", player.gameFlow.State == RescueGameFlow.GameState.Playing &&
+                    player.pistol.ShotsFired == shotsBeforeConfirmation, "No pause or weapon event leaks out of the confirmation.");
                 cinema.BeginSpirits(actor.transform);
                 Check("the first-contact card is shown once", !cinema.IsPlaying, "Repeated BeginSpirits is ignored.");
                 player.AcquirePistol();
@@ -224,22 +262,48 @@ public static class SpiritIntroductionChecks
                 cinema = NewCinema();
                 var body = player.drive.body;
                 previousKinematic = body.isKinematic;
-                truckVelocity = body.linearVelocity; truckAngularVelocity = body.angularVelocity;
                 Time.timeScale = .8f; SaveEntry(); cinema.BeginSpirits(actor.transform);
                 Check("driving reveal freezes the truck body", body.isKinematic && player.IsDriving && player.CinematicLocked, "No truck movement during the first-contact camera.");
                 Next(8); return;
             case 8:
                 if (!cinema.SpiritFrozen || !cinema.HasCapturedSpiritFrame) return;
+                shotsBeforeConfirmation = player.pistol.ShotsFired;
                 capture.Photo("04-frozen-spirit-driving"); Next(9); return;
             case 9:
-                if (capture.Busy || age < .3f) return;
-                cinema.EndShot();
-                Check("interruption restores the previous non-default time and truck", Time.timeScale == .8f && Mathf.Approximately(Time.fixedDeltaTime, fixedStep) && player.drive.body.isKinematic == previousKinematic &&
-                    Vector3.Distance(player.drive.body.linearVelocity, truckVelocity) < .001f && Vector3.Distance(player.drive.body.angularVelocity, truckAngularVelocity) < .001f && player.viewCamera.enabled && !player.CinematicLocked,
-                    "Original .8 timescale, fixed step, rigidbody state, velocity, camera and input restored.");
-                Object.Destroy(cinema.gameObject); Time.timeScale = 1;
+                if (capture.Busy || age < cinema.spiritSeconds + .25f) return;
+                ConfirmWithMouse(); Next(90); return;
+            case 90:
+                if (player.pistol.ShotsFired != shotsBeforeConfirmation) throw new InvalidOperationException("The held confirmation click fired during the return shot.");
+                if (cinema.IsPlaying) return;
+                Check("left click returns to the truck with its original physics and time", Time.timeScale == .8f && Mathf.Approximately(Time.fixedDeltaTime, fixedStep) && player.drive.body.isKinematic == previousKinematic &&
+                    player.viewCamera.enabled && !player.CinematicLocked && player.IsDriving,
+                    "Original .8 timescale, fixed step, rigidbody mode, driving camera and input restored through the real return transition.");
+                var resumedVelocity = player.drive.body.linearVelocity;
+                var resumedAngularVelocity = player.drive.body.angularVelocity;
+                var interrupted = NewCinema(); interrupted.BeginSpirits(actor.transform); interrupted.EndShot();
+                Check("interrupting a truck reveal preserves its existing momentum", Time.timeScale == .8f && player.drive.body.isKinematic == previousKinematic &&
+                    Vector3.Distance(player.drive.body.linearVelocity, resumedVelocity) < .001f && Vector3.Distance(player.drive.body.angularVelocity, resumedAngularVelocity) < .001f,
+                    "Cancel restores the exact pre-reveal velocity and angular velocity before the next physics tick.");
+                Object.Destroy(interrupted.gameObject); mission.cinematic = cinema;
                 player.SetDriving(false);
                 player.PlaceOnFoot(mission.story.defensePosition.position, 0);
+                Next(91); return;
+            case 91:
+                if (age < .3f) return;
+                ProcessDynamicInput(); testMouse.MakeCurrent();
+                Check("holding the confirmation click cannot fire or recapture on-foot input", testMouse.leftButton.isPressed && !player.firstPerson.InputCaptured &&
+                    player.pistol.ShotsFired == shotsBeforeConfirmation && player.gameFlow.State == RescueGameFlow.GameState.Playing,
+                    MouseConfirmationEvidence());
+                testMouseHeld = false;
+                InputSystem.QueueStateEvent(testMouse, new MouseState()); ProcessDynamicInput();
+                Next(92); return;
+            case 92:
+                if (age < .3f) return;
+                ProcessDynamicInput(); testMouse.MakeCurrent();
+                Check("releasing the confirmation click restores control without a shot", !testMouse.leftButton.isPressed && player.firstPerson.InputCaptured &&
+                    player.pistol.ShotsFired == shotsBeforeConfirmation && player.gameFlow.State == RescueGameFlow.GameState.Playing,
+                    MouseConfirmationEvidence());
+                RestoreMouse(); Object.Destroy(cinema.gameObject);
                 cinema = NewCinema(); cinema.BeginSpirits(actor.transform);
                 Next(10); return;
             case 10:
@@ -247,14 +311,34 @@ public static class SpiritIntroductionChecks
                 capture.Photo("05-frozen-spirit-armed"); Next(11); return;
             case 11:
                 if (capture.Busy || age < .3f) return;
+                cinema.EndShot();
+                Check("interruption restores the previous non-default time and camera", Time.timeScale == .8f && Mathf.Approximately(Time.fixedDeltaTime, fixedStep) &&
+                    player.viewCamera.enabled && !player.CinematicLocked,
+                    "Canceling a separate armed briefing also restores the inherited .8 timescale and controls.");
+                Object.Destroy(cinema.gameObject); Time.timeScale = 1;
+                cinema = NewCinema(); cinema.BeginSpirits(actor.transform);
+                Next(110); return;
+            case 110:
+                if (!cinema.SpiritFrozen || !cinema.HasCapturedSpiritFrame) return;
+                Next(111); return;
+            case 111:
+                if (age < .3f) return;
                 player.gameFlow.RestartMission(); Next(12); return;
             case 12:
                 var fresh = Object.FindFirstObjectByType<VolcanoMissionDirector>();
                 if (!fresh || fresh.GetInstanceID() == originalMission) return;
                 Check("restart clears the briefing and restores normal time", !fresh.cinematic.HasSpiritsPlayed && !fresh.cinematic.SpiritFrozen && !fresh.cinematic.HasCapturedSpiritFrame && Time.timeScale == 1 && Mathf.Approximately(Time.fixedDeltaTime, fixedStep),
                     "A fresh mission starts without a stale freeze texture or physics pause.");
-                Check("saved scene retains navigation and font bindings", Object.FindFirstObjectByType<ObjectiveNavigation>().directionArrow && Object.FindFirstObjectByType<RescueHUD>().questBodyText.font.name.Contains("SourceSans"),
-                    "The changes survive a real scene reload.");
+                Next(13); return;
+            case 13:
+                if (age < .3f) return;
+                var freshNav = Object.FindFirstObjectByType<ObjectiveNavigation>();
+                var freshHud = Object.FindFirstObjectByType<RescueHUD>();
+                string restoredFontGuid = QuestFontGuid(freshHud);
+                Check("saved scene retains navigation and font bindings", freshNav && freshNav.directionArrow &&
+                    !string.IsNullOrEmpty(authoredQuestFontGuid) && restoredFontGuid == authoredQuestFontGuid,
+                    "Font asset GUID before=" + authoredQuestFontGuid + "; after=" + restoredFontGuid +
+                    "; arrow=" + (freshNav && freshNav.directionArrow) + "; fresh HUD initialized before comparison.");
                 Finish(null); return;
         }
     }
@@ -275,35 +359,78 @@ public static class SpiritIntroductionChecks
     {
         var result = new GameObject("Disposable spirit camera lifecycle fixture").AddComponent<VolcanoCinematic>();
         result.player = player; result.spiritTimeScale = .5f; result.spiritViewingDistance = 9f;
+        mission.cinematic = result;
         return result;
     }
     static void SaveEntry() { entryPosition = player.viewCamera.transform.position; entryRotation = player.viewCamera.transform.rotation; entryFov = player.viewCamera.fieldOfView; }
+    static string QuestFontGuid(RescueHUD hud) => hud && hud.questBodyText && hud.questBodyText.font ?
+        AssetDatabase.AssetPathToGUID(AssetDatabase.GetAssetPath(hud.questBodyText.font)) : "";
     static void SetAuto(object owner, string property, object value) => owner.GetType().GetField("<" + property + ">k__BackingField", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(owner, value);
-    static void KeyDown(Key key) => InputSystem.QueueStateEvent(Keyboard.current, new KeyboardState(key));
-    static void KeyUp() => InputSystem.QueueStateEvent(Keyboard.current, new KeyboardState());
     static void ConfirmWithKeyboard()
     {
-        var previous = Keyboard.current;
-        var testKeyboard = InputSystem.AddDevice<Keyboard>("SpiritIntroductionKeyboard");
-        try
-        {
-            InputSystem.QueueStateEvent(testKeyboard, new KeyboardState(Key.Space));
-            var update = typeof(InputSystem).GetMethod("Update", BindingFlags.Static | BindingFlags.NonPublic,
-                null, new[] { typeof(InputUpdateType) }, null);
-            if (update == null) throw new MissingMethodException("Dynamic input update");
-            update.Invoke(null, new object[] { InputUpdateType.Dynamic });
-            testKeyboard.MakeCurrent();
-            Check("Space is delivered to the player input buffer", testKeyboard.spaceKey.isPressed && testKeyboard.spaceKey.wasPressedThisFrame,
-                "Synthetic keyboard processed through Input System Dynamic, avoiding the separate Editor state buffer.");
-            cinema.TickShot(.001f);
-            Check("the shot consumes the actual Space press", !cinema.SpiritFrozen && cinema.IsPlaying,
-                "The real shot tick enters the return transition after reading Keyboard.current.");
-        }
-        finally
-        {
-            InputSystem.RemoveDevice(testKeyboard);
-            if (previous != null && previous.added) previous.MakeCurrent();
-        }
+        previousKeyboard = Keyboard.current;
+        testKeyboard = InputSystem.AddDevice<Keyboard>("SpiritIntroductionKeyboard");
+        InputSystem.QueueStateEvent(testKeyboard, new KeyboardState(Key.Escape)); ProcessDynamicInput();
+        testKeyboard.MakeCurrent();
+        Check("Esc is delivered to the player input buffer", testKeyboard.escapeKey.isPressed && testKeyboard.escapeKey.wasPressedThisFrame,
+            "Synthetic keyboard processed through Input System Dynamic, avoiding the separate Editor state buffer.");
+        cinema.TickShot(.001f);
+        Check("the shot consumes the actual Esc press", !cinema.SpiritFrozen && cinema.IsPlaying,
+            "The production shot tick enters the return transition after reading Keyboard.current.");
+    }
+    static void ConfirmWithMouse()
+    {
+        previousMouse = Mouse.current;
+        testMouse = InputSystem.AddDevice<Mouse>("SpiritIntroductionMouse");
+        testMouseHeld = true;
+        InputSystem.onBeforeUpdate += MaintainTestMouseState;
+        InputSystem.onAfterUpdate += KeepTestMouseCurrent;
+        InputSystem.QueueStateEvent(testMouse, new MouseState().WithButton(MouseButton.Left)); ProcessDynamicInput();
+        testMouse.MakeCurrent();
+        Check("left click is delivered to the player input buffer", testMouse.leftButton.isPressed && testMouse.leftButton.wasPressedThisFrame,
+            "Real Input System mouse state is held until the test explicitly releases it.");
+        cinema.TickShot(.001f);
+        Check("the shot consumes the actual left click", !cinema.SpiritFrozen && cinema.IsPlaying && player.CinematicLocked,
+            "Left click starts the return transition while the player remains locked.");
+    }
+    static void MaintainTestMouseState()
+    {
+        if (testMouse == null || !testMouse.added) return;
+        var state = new MouseState();
+        if (testMouseHeld) state = state.WithButton(MouseButton.Left);
+        InputSystem.QueueStateEvent(testMouse, state);
+    }
+    static void KeepTestMouseCurrent()
+    {
+        if (testMouse != null && testMouse.added) testMouse.MakeCurrent();
+    }
+    static string MouseConfirmationEvidence() => "Synthetic held=" + testMouse.leftButton.isPressed +
+        "; currentIsFixture=" + (Mouse.current == testMouse) + "; captured=" + player.firstPerson.InputCaptured +
+        "; shots=" + player.pistol.ShotsFired + "/" + shotsBeforeConfirmation + "; flow=" + player.gameFlow.State +
+        "; cinematicLocked=" + player.CinematicLocked + "; cursor=" + Cursor.lockState;
+    static void ProcessDynamicInput()
+    {
+        var update = typeof(InputSystem).GetMethod("Update", BindingFlags.Static | BindingFlags.NonPublic,
+            null, new[] { typeof(InputUpdateType) }, null);
+        if (update == null) throw new MissingMethodException("Dynamic input update");
+        update.Invoke(null, new object[] { InputUpdateType.Dynamic });
+    }
+    static void RestoreKeyboard()
+    {
+        if (testKeyboard != null && testKeyboard.added) InputSystem.RemoveDevice(testKeyboard);
+        testKeyboard = null;
+        if (previousKeyboard != null && previousKeyboard.added) previousKeyboard.MakeCurrent();
+        previousKeyboard = null;
+    }
+    static void RestoreMouse()
+    {
+        InputSystem.onBeforeUpdate -= MaintainTestMouseState;
+        InputSystem.onAfterUpdate -= KeepTestMouseCurrent;
+        if (testMouse != null && testMouse.added) InputSystem.RemoveDevice(testMouse);
+        testMouse = null;
+        testMouseHeld = false;
+        if (previousMouse != null && previousMouse.added) previousMouse.MakeCurrent();
+        previousMouse = null;
     }
     static void Next(int value) { phase = value; phaseAt = Time.unscaledTime; deadline = EditorApplication.timeSinceStartup + 65; File.WriteAllText(SpiritIntroductionSetup.Folder + "/progress.txt", "phase=" + phase); }
     static void Check(string name, bool passed, string evidence)
@@ -318,7 +445,8 @@ public static class SpiritIntroductionChecks
         if (phase < 0) return;
         phase = -1; Application.logMessageReceived -= Log;
         if (cinema) cinema.EndShot();
-        if (Keyboard.current != null) InputSystem.ResetDevice(Keyboard.current);
+        RestoreKeyboard(); RestoreMouse();
+        if (hadMusicSetting) PlayerPrefs.SetFloat("Ashfall.MusicVolume", previousMusicSetting); else PlayerPrefs.DeleteKey("Ashfall.MusicVolume");
         InputSystem.settings.backgroundBehavior = oldInputBackground;
         Application.runInBackground = oldBackground;
         if (game) game.maximized = oldMaximized;

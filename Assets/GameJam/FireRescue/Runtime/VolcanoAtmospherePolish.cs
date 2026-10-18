@@ -39,6 +39,7 @@ namespace GameJam.FireRescue
         ChromaticAberration chromatic;
         ColorAdjustments grade;
         DepthOfField depth;
+        float cinematicAperture, cinematicFocalLength;
         WhiteBalance whiteBalance;
         SplitToning splitToning;
         Light windowFill, ashScatterFill;
@@ -64,7 +65,11 @@ namespace GameJam.FireRescue
                 splitToning.highlights.Override(new Color(.525f, .505f, .48f));
                 splitToning.balance.Override(-8);
             }
-            if (cinematicVolume) { runtimeCinematic = cinematicVolume.profile; runtimeCinematic.TryGet(out depth); cinematicVolume.weight = 0; }
+            if (cinematicVolume)
+            {
+                runtimeCinematic = cinematicVolume.profile; runtimeCinematic.TryGet(out depth); cinematicVolume.weight = 0;
+                if (depth) { cinematicAperture = depth.aperture.value; cinematicFocalLength = depth.focalLength.value; }
+            }
             if (player) vitals = player.GetComponent<CreatureCombatPlayer>();
             if (fallingAsh) fallingAsh.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
             if (descendingFogEnabled)
@@ -128,8 +133,24 @@ namespace GameJam.FireRescue
             if (whiteBalance) whiteBalance.temperature.value = Mathf.Lerp(2, -5, AshBlend);
             if (cinematicVolume)
             {
-                cinematicVolume.weight = inShot && cinema.Kind != VolcanoCinematic.ShotKind.Intro ? Mathf.MoveTowards(cinematicVolume.weight, 1, Time.unscaledDeltaTime * 5) : 0;
-                if (depth && inShot && cinema.ShotCamera) depth.focusDistance.value = Mathf.Max(5, Vector3.Distance(cinema.ShotCamera.transform.position, cinema.FocusPosition));
+                var story = mission ? mission.story : null;
+                float windowFocus = story && !inShot ? story.WindowFocusBlend : 0f;
+                cinematicVolume.weight = windowFocus > 0 ? windowFocus :
+                    inShot && cinema.Kind != VolcanoCinematic.ShotKind.Intro ? Mathf.MoveTowards(cinematicVolume.weight, 1, Time.unscaledDeltaTime * 5) : 0;
+                if (depth)
+                {
+                    depth.aperture.value = windowFocus > 0 ? story.windowAperture : cinematicAperture;
+                    depth.focalLength.value = windowFocus > 0 ? story.windowFocalLength : cinematicFocalLength;
+                    if (windowFocus > 0 && player.viewCamera && story.volcanoLookTarget)
+                    {
+                        // Depth of field focuses on a plane perpendicular to the view.
+                        // Follow the actual lens during the lean so the crater stays sharp.
+                        var view = player.viewCamera.transform;
+                        depth.focusDistance.value = Mathf.Max(5, Vector3.Dot(story.volcanoLookTarget.position - view.position, view.forward));
+                    }
+                    else if (inShot && cinema.ShotCamera)
+                        depth.focusDistance.value = Mathf.Max(5, Vector3.Distance(cinema.ShotCamera.transform.position, cinema.FocusPosition));
+                }
             }
             if (fallingAsh)
             {

@@ -40,6 +40,9 @@ namespace GameJam.FireRescue
         private bool sequencedMode;
         private bool pausedForTimeScale;
 
+        public bool IsExplosionAudible => source && source.isPlaying && !pausedForTimeScale && source.volume > .001f &&
+            (state == PlaybackState.Explosion || state == PlaybackState.PostExplosion || state == PlaybackState.FadingExplosion);
+
         private void Awake()
         {
             if (source == null) source = GetComponent<AudioSource>();

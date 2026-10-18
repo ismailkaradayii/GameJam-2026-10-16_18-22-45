@@ -86,12 +86,11 @@ namespace Ashfall.UI
 
         public static string NaturalCase(string value)
         {
-            if (string.IsNullOrEmpty(value) || value.Length == 1 || value == "ASHFALL" || value == "WASD" || value == "W A S D" ||
+            if (!string.IsNullOrEmpty(value)) value = value.Replace("ASHFALL", "VOLKANOVSKI");
+            if (string.IsNullOrEmpty(value) || value.Length == 1 || value.StartsWith("VOLKANOVSKI") || value == "WASD" || value == "W A S D" ||
                 value == "SHIFT" || value == "SPACE" || value == "ESC" || value == "RMB" || value == "LMB" || value == "LMB / RMB" || value == "PC") return value;
             foreach (char letter in value) if (char.IsLower(letter)) return value;
-            if (value.StartsWith("ASHFALL")) return value.Replace("GÖREV", "Görev").Replace("BEKLEME NOKTASI", "Bekleme noktası").Replace("RAPORU", "raporu");
-            const string english = "|NEW GAME|SETTINGS|HOW TO PLAY|EXIT|AUDIO|GRAPHICS|MASTER VOLUME|MUSIC VOLUME|SOUND EFFECTS|RESOLUTION|DISPLAY MODE|QUALITY|V-SYNC|FRAME RATE LIMIT|RESTORE DEFAULTS|BACK|CONFIRM|CANCEL|KEEP|REVERT|OK|";
-            var culture = english.Contains("|" + value + "|") ? CultureInfo.InvariantCulture : CultureInfo.GetCultureInfo("tr-TR");
+            var culture = CultureInfo.InvariantCulture;
             string result = value.ToLower(culture);
             return char.ToUpper(result[0], culture) + result.Substring(1);
         }
