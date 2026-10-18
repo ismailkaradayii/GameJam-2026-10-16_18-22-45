@@ -16,7 +16,6 @@ public static class GroupRescueSetup
 {
     public const string Folder = "Logs/GroupRescue";
     public const string Delivery = "C:/Users/omanc/Documents/ChatGPT/game jam/Artifacts/GroupRescue";
-    const string AudioFolder = "Assets/GameJam/FireRescue/Audio/RescueDialogue/";
     const string AssetsFolder = "Assets/GameJam/FireRescue/GroupRescue";
     static double nextPoll;
     static GroupRescueSetup() => EditorApplication.update += Poll;
@@ -48,7 +47,7 @@ public static class GroupRescueSetup
         Directory.CreateDirectory(Folder); Directory.CreateDirectory(Delivery + "/Before");
         string snapshot = Delivery + "/Before/Scene-in-editor.unity";
         if (!File.Exists(snapshot)) EditorSceneManager.SaveScene(mission.gameObject.scene, snapshot, true);
-        Undo.SetCurrentGroupName("Silent group rescue and next group marker");
+        Undo.SetCurrentGroupName("Voiced group rescue and next group marker");
         Undo.RecordObject(mission, "Configure staged evacuation");
         mission.groupRescue = true; mission.alarmTriggersPanic = true;
         mission.callAllAlarmedVillagers = false; mission.villageWideCall = false;
@@ -77,7 +76,7 @@ public static class GroupRescueSetup
             mission.assemblySlots[r.formationIndex].rotation = Quaternion.LookRotation(Vector3.left);
             Dirty(r);
         }
-        ConfigureDialogueWithoutVoice(mission);
+        ConfigureDialogue(mission);
         var ui = mission.player.contextualInteractions;
         if (!ui) throw new InvalidOperationException("Existing interaction UI is missing.");
         Undo.RecordObject(ui, "Connect assembly interaction");
@@ -112,20 +111,18 @@ public static class GroupRescueSetup
         AssetDatabase.SaveAssets(); EditorSceneManager.MarkSceneDirty(mission.gameObject.scene); EditorSceneManager.SaveScene(mission.gameObject.scene);
         UpdateMenuHelp();
         if (mission.gameObject.scene.isDirty) EditorSceneManager.SaveScene(mission.gameObject.scene);
-        RemoveSpeechAssets();
         Audit();
     }
 
-    static void ConfigureDialogueWithoutVoice(EvacuationMission mission)
+    static void ConfigureDialogue(EvacuationMission mission)
     {
         var dialogue = mission.GetComponent<RescueDialogue>();
         if (!dialogue) dialogue = Undo.AddComponent<RescueDialogue>(mission.gameObject);
-        Undo.RecordObject(dialogue, "Restore written rescue dialogue");
+        Undo.RecordObject(dialogue, "Configure recorded rescue dialogue");
         dialogue.mission = mission;
         if (dialogue.lines == null || dialogue.lines.Length == 0) dialogue.lines = RescueDialogue.CreateDefaultLines();
+        dialogue.LoadVoiceClips();
         mission.dialogue = dialogue; Dirty(dialogue);
-        var emitter = mission.transform.Find("Rescue dialogue voice");
-        if (emitter) Undo.DestroyObjectImmediate(emitter.gameObject);
         var crowdClip = AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Art/sesdosya/crowdpanic.mp3");
         if (!crowdClip) throw new InvalidOperationException("Original crowd panic ambience is missing.");
         var crowd = mission.transform.Find("Crowd Panic Ambience");
@@ -149,16 +146,6 @@ public static class GroupRescueSetup
         }
     }
 
-    static void RemoveSpeechAssets()
-    {
-        string assetsRoot = Path.GetFullPath(Application.dataPath) + Path.DirectorySeparatorChar;
-        string audioPath = AudioFolder.TrimEnd('/');
-        string resolved = Path.GetFullPath(Path.Combine(Directory.GetParent(Application.dataPath).FullName, audioPath));
-        if (!resolved.StartsWith(assetsRoot, StringComparison.OrdinalIgnoreCase) ||
-            !resolved.EndsWith(Path.Combine("GameJam", "FireRescue", "Audio", "RescueDialogue"), StringComparison.OrdinalIgnoreCase))
-            throw new InvalidOperationException("Speech cleanup is outside the exact rescue audio folder.");
-        if (AssetDatabase.IsValidFolder(audioPath) && !AssetDatabase.DeleteAsset(audioPath)) throw new IOException("Cannot remove rescue speech assets.");
-    }
 
     static void BuildGroupMarker(EvacuationMission mission, Transform parent)
     {
@@ -286,7 +273,7 @@ public static class GroupRescueSetup
             Route(log, "group->assembly", r.panicGroupAnchor.position, m.AssemblySlot(r).position);
             Route(log, "assembly->shelter", m.AssemblySlot(r).position, m.shelterApproach.position);
         }
-        log.AppendLine("dialogueTextLines=" + (m.dialogue ? m.dialogue.lines.Length : 0) + " speechAssets=" + AssetDatabase.IsValidFolder(AudioFolder.TrimEnd('/')) +
+        log.AppendLine("dialogueTextLines=" + (m.dialogue ? m.dialogue.lines.Length : 0) + " speechAssets=" + AssetDatabase.IsValidFolder("Assets/Resources/ASHFALL/Audio/Rescue") +
             " crowdPanic=" + (new SerializedObject(m).FindProperty("crowdPanicLoop").objectReferenceValue != null) + " nextGroupMarker=" + (Object.FindFirstObjectByType<RescueGroupMarker>() != null));
         File.WriteAllText(Folder + "/audit.txt", log.ToString());
     }

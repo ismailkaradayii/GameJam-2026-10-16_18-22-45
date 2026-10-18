@@ -11,8 +11,10 @@ namespace GameJam.FireRescue
     public sealed class RescueGameFlow : MonoBehaviour
     {
         public enum GameState { Playing, Paused, Won, Lost, ReturningToShelter }
-        public enum LossReason { None, PlayerDefeated, AllVillagersLost, VillageBurned }
+        public enum LossReason { None, PlayerDefeated, AllVillagersLost, VillageBurned, RequiredHouseLost }
         public BurnableBuilding[] targetBuildings = Array.Empty<BurnableBuilding>();
+        [Tooltip("Optional short mission: only these houses can burn, and each must be extinguished to win.")]
+        public BurnableBuilding[] defenseFireBuildings = Array.Empty<BurnableBuilding>();
         public FireRescuePlayer player;
         public ShelterReturnCinematic victoryCinematic;
         public string mainMenuSceneName = "MainMenu";
@@ -23,6 +25,9 @@ namespace GameJam.FireRescue
         public LossReason DefeatReason { get; private set; }
         public int RescuedCount => rescued.Count;
         public int TargetCount => targets.Count;
+        public int RequiredFireCount => fireTargets.Count;
+        public bool HasFixedFireObjective => fireTargets.Count > 0;
+        public bool FireObjectiveComplete => !HasFixedFireObjective || rescued.IsSupersetOf(fireTargets);
         public bool BlocksGameplay => State != GameState.Playing || returningToMenu;
         public bool IsConfigured => targets.Count > 0;
         public bool ReturningToMenu => returningToMenu;
@@ -35,6 +40,8 @@ namespace GameJam.FireRescue
         public event Action<GameState> StateChanged;
         readonly HashSet<BurnableBuilding> targets = new HashSet<BurnableBuilding>();
         readonly HashSet<BurnableBuilding> rescued = new HashSet<BurnableBuilding>();
+        readonly HashSet<BurnableBuilding> fireTargets = new HashSet<BurnableBuilding>();
+        LavaCreatureEncounter encounter;
         VolcanoSurvivalObjective survival;
         EvacuationMission evacuation;
         bool completionPending, returningToMenu, ownsPause;
@@ -52,6 +59,15 @@ namespace GameJam.FireRescue
             completionPending = returningToMenu = ownsPause = false;
             if (player) player.gameFlow = this;
             foreach (var house in targetBuildings) if (house) targets.Add(house);
+            fireTargets.Clear();
+            foreach (var house in defenseFireBuildings) if (house && targets.Contains(house)) fireTargets.Add(house);
+            if (HasFixedFireObjective)
+                foreach (var house in FindObjectsByType<BurnableBuilding>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+                    if (house.gameObject.scene == gameObject.scene)
+                    {
+                        house.IsDefenseFireTarget = fireTargets.Contains(house);
+                        house.MissionFireAllowed = house.IsDefenseFireTarget;
+                    }
             if (!IsConfigured) Debug.LogError("Rescue objective needs authored town houses.", this);
         }
         void OnEnable()
@@ -73,7 +89,7 @@ namespace GameJam.FireRescue
         {
             if (!IsConfigured || !house || !house.IsRescued || !targets.Contains(house) || !rescued.Add(house)) return;
             ProgressChanged?.Invoke(RescuedCount, TargetCount);
-            // The finite defense objective owns victory; extinguishing five houses cannot skip enemies.
+            // The finite defense objective owns victory; extinguishing houses cannot skip enemies.
             if (!FindFirstObjectByType<VolcanoMissionDirector>() && RescuedCount == TargetCount) completionPending = true;
         }
         void Update()
@@ -87,6 +103,7 @@ namespace GameJam.FireRescue
             if (returningToMenu) return;
             if (State == GameState.Playing)
             {
+                TickDefenseFires();
                 var loss = VillageLossReason();
                 if (loss != LossReason.None) { FinishMission(false, loss); return; }
             }
@@ -100,6 +117,18 @@ namespace GameJam.FireRescue
             if (!Application.isFocused || Keyboard.current == null || !Keyboard.current.escapeKey.wasPressedThisFrame) return;
             if (State == GameState.Playing) Pause();
             else if (State == GameState.Paused) Resume();
+        }
+        public void TickDefenseFires()
+        {
+            if (!HasFixedFireObjective || BlocksGameplay || Time.timeScale <= 0f) return;
+            if (!encounter) encounter = FindFirstObjectByType<LavaCreatureEncounter>();
+            if (!encounter || !encounter.AllWavesReleased) return;
+            foreach (var actor in encounter.LivingCreatures)
+                if (actor && !actor.IsDefeated && actor.TryGetComponent<LavaCreatureCombat>(out var combat) && combat.attackBuildings) return;
+            // Let the house attackers ignite their targets. If they were all intercepted,
+            // guarantee the three fire objectives without waiting for an impossible impact.
+            // Ignite respects wet protection and never replenishes an existing fire.
+            foreach (var house in fireTargets) if (house) house.Ignite();
         }
         public void Pause()
         {
@@ -126,6 +155,8 @@ namespace GameJam.FireRescue
         }
         LossReason VillageLossReason()
         {
+            foreach (var house in fireTargets)
+                if (house && house.IsBurnedOut) return LossReason.RequiredHouseLost;
             // A sheltered survivor keeps the evacuation viable; an empty roster is not a defeat.
             if (evacuation && evacuation.TotalCount > 0 && evacuation.DeadCount == evacuation.TotalCount)
                 return LossReason.AllVillagersLost;

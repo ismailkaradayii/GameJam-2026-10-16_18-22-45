@@ -33,14 +33,18 @@ namespace GameJam.FireRescue
         [Header("Finite eruption waves")]
         public bool enableWaves = true;
         public bool enableFinalObjective = true;
-        public int[] waveSizes = { 3, 4, 5, 6, 7 };
+        public int[] waveSizes = { 10 };
         [Min(1f)] public float secondsBetweenWaves = 32f;
         [Min(.1f)] public float secondsBetweenSpawns = 1.8f;
         [Min(1)] public int maximumAlive = 10;
         [Header("Village tactics")]
         [Tooltip("Leave the lava after emerging and use independent outdoor routes.")]
         public bool disperseIntoVillage = true;
-        [Range(0f, 1f)] public float buildingAttackShare = .6f;
+        [Range(0f, 1f)] public float buildingAttackShare = .5f;
+        [Header("Final-wave stragglers")]
+        [Min(1f)] public float strandedSpiritSeconds = 6f;
+        [Min(30f)] public float strandedSpiritDistance = 120f;
+        public int StragglerRecoveries { get; private set; }
         public bool Initialized { get; private set; }
         public int SpawnedCount { get; private set; }
         public int DefeatedCount { get; private set; }
@@ -57,7 +61,13 @@ namespace GameJam.FireRescue
         public float WaveAge => flowingFor - waveBeganAt;
         public IReadOnlyList<LavaCreatureActor> LivingCreatures => living;
         readonly List<LavaCreatureActor> living = new List<LavaCreatureActor>();
+        readonly Dictionary<LavaCreatureActor, float> strandedFor = new Dictionary<LavaCreatureActor, float>();
+        // Encounter timing remembers arrival at the village inlet, independently of
+        // whether the player subsequently dams the visible lava.
+        readonly Dictionary<ProgressiveLavaFlow, float> arrivalDistances = new Dictionary<ProgressiveLavaFlow, float>();
+        readonly Collider[] emergenceContacts = new Collider[32];
         LavaCreatureActor[] templates;
+        bool[] attackOrder;
         GameObject templateRoot;
         int spawnedInWave, nextSpawnIndex;
         float flowingFor, nextWaveAt, spawnCooldown, waveBeganAt;
@@ -88,12 +98,13 @@ namespace GameJam.FireRescue
         /// <summary>Deterministic update; disable the manager when calling this explicitly in checks.</summary>
         public void TickEncounter(float deltaTime)
         {
-            if (deltaTime <= 0f || float.IsNaN(deltaTime) || float.IsInfinity(deltaTime)) return;
+            if (Time.timeScale <= 0f || deltaTime <= 0f || float.IsNaN(deltaTime) || float.IsInfinity(deltaTime)) return;
             InitializeEncounter();
             RemoveDefeated();
             if (IsStopped) return;
             if (!sequence || !sequence.Initialized || sequence.Stage != VolcanoEruptionSequence.EruptionStage.Flowing) return;
-            if (enableWaves) { TickWaves(deltaTime); return; }
+            TickArrivalClocks(deltaTime);
+            if (enableWaves) { TickWaves(deltaTime); RecoverStragglers(deltaTime); return; }
             foreach (Spawn spawn in spawns)
             {
                 if (spawn == null || spawn.spawned || !LavaHasArrived(spawn)) continue;
@@ -105,13 +116,38 @@ namespace GameJam.FireRescue
 
         public void StopEncounter() => IsStopped = true;
 
+        void TickArrivalClocks(float dt)
+        {
+            if (!disperseIntoVillage) return;
+            for (int i = 0; i < spawns.Length; i++)
+            {
+                var feed = spawns[i]?.feed;
+                if (!feed || !feed.IsInitialized || !feed.canBeStoppedByWater) continue;
+                bool duplicate = false;
+                for (int n = 0; n < i; n++) if (spawns[n]?.feed == feed) { duplicate = true; break; }
+                if (duplicate) continue;
+                bool started = arrivalDistances.TryGetValue(feed, out float distance);
+                if (!started && feed.VisibleDistance <= 0f)
+                {
+                    var route = Array.Find(sequence.routes, r => r != null && r.flow == feed);
+                    if (route?.feed == null || sequence.FlowElapsed < feed.startDelay ||
+                        route.feed.VisibleDistance <= 0f || route.feed.VisibleDistance + .005f < route.feed.Length * route.feedProgress) continue;
+                }
+                // Preserve the authored travel-time offsets, even after an early dam.
+                arrivalDistances[feed] = Mathf.Min(feed.Length, Mathf.Max(distance, feed.VisibleDistance) + Mathf.Max(0f, feed.speed) * dt);
+            }
+        }
+
         bool LavaHasArrived(Spawn spawn)
         {
             if (spawn?.creature == null || !spawn.feed || transform.IsChildOf(spawn.creature.transform) ||
-                !spawn.feed.IsInitialized || spawn.feed.Length <= .001f || spawn.feed.VisibleDistance <= 0f) return false;
+                !spawn.feed.IsInitialized || spawn.feed.Length <= .001f) return false;
             float arrival = Mathf.Min(spawn.feed.Length, spawn.feed.Length * Mathf.Clamp01(spawn.feedProgress) +
                 (spawn.descendFromLava ? EmergenceLavaMargin : 0f));
-            return spawn.feed.VisibleDistance + .005f >= arrival;
+            float reached = spawn.feed.VisibleDistance;
+            if (disperseIntoVillage && spawn.feed.canBeStoppedByWater && arrivalDistances.TryGetValue(spawn.feed, out float timedArrival))
+                reached = Mathf.Max(reached, timedArrival);
+            return reached > 0f && reached + .005f >= arrival;
         }
 
         void TickWaves(float dt)
@@ -125,7 +161,8 @@ namespace GameJam.FireRescue
             {
                 int candidate = (nextSpawnIndex + n) % spawns.Length;
                 var spawn = spawns[candidate];
-                if (LavaHasArrived(spawn) && spawn.arrivedFor >= Mathf.Max(0f, spawn.delayAfterArrival))
+                if (LavaHasArrived(spawn) && spawn.arrivedFor >= Mathf.Max(0f, spawn.delayAfterArrival) &&
+                    (!disperseIntoVillage || !spawn.descendFromLava || TryVillageEmergence(spawn, out _, 1)))
                 { index = candidate; break; }
             }
             if (index < 0) return;
@@ -142,7 +179,11 @@ namespace GameJam.FireRescue
             LavaCreatureActor actor = selected.spawned
                 ? Instantiate(templates[index], transform) : selected.creature;
             actor.name = "Lava Spirit Â· Wave " + WaveNumber + " Â· " + (spawnedInWave + 1);
-            Release(selected, actor);
+            if (!Release(selected, actor))
+            {
+                if (actor != selected.creature) Destroy(actor.gameObject);
+                return;
+            }
             spawnedInWave++; nextSpawnIndex = (index + 1) % spawns.Length;
             // Never accumulate a burst while the living limit or lava gate is holding a wave.
             spawnCooldown = Mathf.Max(.1f, secondsBetweenSpawns);
@@ -162,8 +203,10 @@ namespace GameJam.FireRescue
                 }
         }
 
-        void Release(Spawn spawn, LavaCreatureActor actor)
+        bool Release(Spawn spawn, LavaCreatureActor actor)
         {
+            Vector3 villagePoint = default;
+            if (spawn.descendFromLava && disperseIntoVillage && !TryVillageEmergence(spawn, out villagePoint, 1)) return false;
             spawn.spawned = true; SpawnedCount++; living.Add(actor);
             if (spiritVoiceClip)
             {
@@ -173,11 +216,13 @@ namespace GameJam.FireRescue
             }
             var siege = actor.GetComponent<LavaCreatureCombat>();
             if (!siege) siege = actor.gameObject.AddComponent<LavaCreatureCombat>();
-            // A repeating low-discrepancy pattern guarantees both roles even in a three-spirit wave.
-            siege.attackBuildings = Mathf.Repeat((SpawnedCount - 1) * .618034f, 1f) < buildingAttackShare;
+            // Shuffle a fixed roster, rather than rolling each spawn independently:
+            // the ten-spirit mission always gets exactly five of each role.
+            if (attackOrder == null) attackOrder = CreateAttackOrder(enableWaves ? PlannedCount : spawns.Length, buildingAttackShare);
+            siege.attackBuildings = attackOrder[SpawnedCount - 1];
             if (spawn.descendFromLava)
             {
-                var path = disperseIntoVillage ? VillageEmergence(spawn) : DescentPath(spawn);
+                var path = disperseIntoVillage ? new[] { villagePoint } : DescentPath(spawn);
                 // Spread each procession across the lava channel instead of using one footprint.
                 float lane = disperseIntoVillage ? 0 : ((SpawnedCount - 1) / Mathf.Max(1, spawns.Length) % 3 - 1) * 1.35f;
                 var originalPath = (Vector3[])path.Clone();
@@ -197,36 +242,136 @@ namespace GameJam.FireRescue
                 if (path.Length > 0) actor.transform.position = path[0];
             }
             actor.gameObject.SetActive(true);
+            return true;
         }
 
-        Vector3[] VillageEmergence(Spawn spawn)
+        static bool[] CreateAttackOrder(int count, float buildingShare)
+        {
+            var order = new bool[count];
+            int buildings = Mathf.RoundToInt(count * Mathf.Clamp01(buildingShare));
+            for (int i = 0; i < buildings; i++) order[i] = true;
+            for (int i = count - 1; i > 0; i--)
+            {
+                int other = UnityEngine.Random.Range(0, i + 1);
+                bool role = order[i]; order[i] = order[other]; order[other] = role;
+            }
+            return order;
+        }
+
+        void RecoverStragglers(float dt)
+        {
+            if (!disperseIntoVillage || !AllWavesReleased || AliveCount == 0 || AliveCount > 2)
+            { strandedFor.Clear(); return; }
+            if (Time.timeScale <= 0f || VolcanoCinematic.IsPlayingAny) return;
+            foreach (var actor in living)
+            {
+                if (!actor || actor.IsDefeated) continue;
+                var combat = actor.GetComponent<LavaCreatureCombat>();
+                if (!combat || !combat.isActiveAndEnabled || combat.IsIntroductionJump) continue;
+                if (InCombatRange(actor.transform.position, combat.target)) { strandedFor.Remove(actor); continue; }
+                strandedFor.TryGetValue(actor, out float seconds);
+                seconds += dt; strandedFor[actor] = seconds;
+                if (seconds < Mathf.Max(1f, strandedSpiritSeconds)) continue;
+                // Reuse this living enemy: recovery must not add a spawn, heal it,
+                // count a defeat or let victory skip the final fight.
+                bool recovered = false;
+                for (int attempt = 0; attempt < spawns.Length * 4; attempt++)
+                {
+                    var spawn = spawns[(nextSpawnIndex + attempt) % spawns.Length];
+                    if (!LavaHasArrived(spawn) || !spawn.descendFromLava) continue;
+                    if (!TryVillageEmergence(spawn, out Vector3 point, StragglerRecoveries + attempt + 1, combat.target)) continue;
+                    if (!InCombatRange(point, combat.target) || SpiritOutdoorNavigation.Contains(point, 1.5f) ||
+                        combat.target && Vector3.Distance(point, combat.target.PursuitPosition) < 18f) continue;
+                    bool water = false;
+                    foreach (var source in WaterSourceVolume.ActiveSources)
+                        if (source && source.ContainsSurface(point) && point.y < source.SurfaceY) { water = true; break; }
+                    if (water || !combat.ReemergeFromLava(point, spawn.emergenceDepth)) continue;
+                    StragglerRecoveries++; strandedFor.Remove(actor); recovered = true; break;
+                }
+                // Retry briefly if the lava has not yet exposed a safe return point.
+                if (!recovered) strandedFor[actor] = Mathf.Max(0f, strandedSpiritSeconds - 1f);
+            }
+        }
+
+        bool InCombatRange(Vector3 point, CreatureCombatPlayer target)
+        {
+            float range = Mathf.Max(30f, strandedSpiritDistance);
+            if (target && (target.PursuitPosition - point).sqrMagnitude <= range * range) return true;
+            foreach (var house in BurnableBuilding.ActiveBuildings)
+                if (house && house.ignitionBounds && house.gameObject.scene == gameObject.scene &&
+                    (house.ignitionBounds.ClosestPoint(point) - point).sqrMagnitude <= range * range) return true;
+            return false;
+        }
+
+        bool TryVillageEmergence(Spawn spawn, out Vector3 point, int variation = 0, CreatureCombatPlayer avoidTarget = null)
         {
             var jump = spawn.creature.GetComponent<LavaCreatureAutoJump>();
             var terrain = jump ? jump.groundTerrain : null;
             float clearance = jump ? jump.groundClearance : .1f;
             float first = spawn.feed.Length * Mathf.Clamp01(spawn.feedProgress);
-            float last = Mathf.Max(first, Mathf.Min(spawn.feed.VisibleDistance - EmergenceLavaMargin, spawn.feed.Length * .94f));
-            Vector3 origin = spawn.feed.PositionAtDistance(first);
-            // Sample along the live lava front and alternate banks. Reject house interiors and water.
-            for (int attempt = 0; attempt < 20; attempt++)
+            float last = Mathf.Min(spawn.feed.VisibleDistance - .2f, spawn.feed.Length * .94f);
+            if (last >= first && SampleEmergence(spawn.feed, first, last, terrain, clearance, variation, avoidTarget, false, out point)) return true;
+            if (last > 0f && SampleEmergence(spawn.feed, 0f, last, terrain, clearance, variation, avoidTarget, true, out point)) return true;
+            // A stopped village inlet must not strand the finite wave. Look just
+            // above its junction in the still-hot source, never back at the crater.
+            var downstream = spawn.feed;
+            for (int depth = 0; sequence && depth < sequence.routes.Length; depth++)
             {
-                float distance = Mathf.Lerp(first, last, Mathf.Repeat(SpawnedCount * .381966f + attempt * .173f, 1));
-                Vector3 center = spawn.feed.PositionAtDistance(distance);
-                Vector3 forward = spawn.feed.PositionAtDistance(Mathf.Min(spawn.feed.Length, distance + 2)) -
-                    spawn.feed.PositionAtDistance(Mathf.Max(0, distance - 2));
-                Vector3 side = Vector3.Cross(Vector3.up, forward).normalized * ((SpawnedCount + attempt) % 2 == 0 ? 1 : -1);
-                Vector3 point = center + side * (1.4f + attempt % 4 * 1.1f);
+                var route = Array.Find(sequence.routes, r => r != null && r.flow == downstream);
+                if (route?.feed == null || route.feed == downstream || !route.feed.IsInitialized) break;
+                var upstream = route.feed;
+                float end = Mathf.Min(upstream.VisibleDistance - .2f, upstream.Length * Mathf.Clamp01(route.feedProgress));
+                if (end > 0f && SampleEmergence(upstream, Mathf.Max(0, end - 24f), end, terrain, clearance, variation, avoidTarget, true, out point)) return true;
+                downstream = upstream;
+            }
+            point = default;
+            return false;
+        }
+
+        bool SampleEmergence(ProgressiveLavaFlow feed, float first, float last, Terrain terrain, float clearance,
+            int variation, CreatureCombatPlayer avoidTarget, bool requireVillage, out Vector3 point)
+        {
+            var heat = feed.ignitionSource ? feed.ignitionSource : feed.GetComponent<LavaIgnitionSource>();
+            for (int attempt = 0; attempt < 32; attempt++)
+            {
+                // Start at the downstream end for the narrow safe bank at the village inlet.
+                float t = requireVillage ? 1f - (attempt / 4) / 8f : Mathf.Repeat((SpawnedCount + variation) * .381966f + attempt * .173f, 1f);
+                float distance = Mathf.Lerp(first, last, t);
+                float cross = .2f + ((attempt + variation) % 4) * .2f;
+                point = feed.PositionAtDistance(distance, cross);
+                if (heat && (!heat.IsHotSurfaceActive || !heat.heatCollider.Raycast(new Ray(point + Vector3.up, Vector3.down), out var hit, 2f) || !heat.IsHotAt(hit.point))) continue;
+                if (feed.GetSupply01(distance / Mathf.Max(.001f, feed.Length)) <= 0f) continue;
                 if (terrain) point.y = terrain.SampleHeight(point) + terrain.transform.position.y + clearance;
                 if (SpiritOutdoorNavigation.Contains(point, 1.5f)) continue;
+                if (!HasEmergenceClearance(point)) continue;
+                if (requireVillage && !InCombatRange(point, avoidTarget)) continue;
+                if (avoidTarget && Vector3.Distance(point, avoidTarget.PursuitPosition) < 18f) continue;
                 bool water = false;
                 foreach (var source in WaterSourceVolume.ActiveSources)
                     if (source && source.ContainsSurface(point) && point.y < source.SurfaceY) { water = true; break; }
                 if (water) continue;
-                origin = point; break;
+                return true;
             }
-            origin = SpiritOutdoorNavigation.Outside(origin, origin, 1.6f);
-            if (terrain) origin.y = terrain.SampleHeight(origin) + terrain.transform.position.y + clearance;
-            return new[] { origin };
+            point = default;
+            return false;
+        }
+
+        bool HasEmergenceClearance(Vector3 point)
+        {
+            // House footprints alone do not cover fences, rocks and roadside props.
+            // Reject a birth already embedded in one of those solid obstacles.
+            int count = Physics.OverlapCapsuleNonAlloc(point + Vector3.up * .65f,
+                point + Vector3.up * 1.5f, .5f, emergenceContacts, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore);
+            if (count >= emergenceContacts.Length) return false;
+            for (int i = 0; i < count; i++)
+            {
+                var obstacle = emergenceContacts[i];
+                if (!obstacle || obstacle is TerrainCollider || obstacle.GetComponentInParent<LavaCreatureActor>() ||
+                    obstacle.GetComponentInParent<ProgressiveLavaFlow>() || obstacle.GetComponentInParent<LavaIgnitionSource>() ||
+                    obstacle.GetComponentInParent<LavaCoolingSurface>()) continue;
+                return false;
+            }
+            return true;
         }
 
         void RemoveDefeated()

@@ -166,7 +166,9 @@ public static class ObsidianReloadChecks
         Check("Actual village has water-blockable branches", branches.Length > 0);
         var encounter = Object.FindFirstObjectByType<LavaCreatureEncounter>();
         var sequence = Object.FindFirstObjectByType<VolcanoEruptionSequence>();
-        Check("Blocking village lava cannot stall finite spirit waves", encounter && encounter.spawns.All(s => s.feed == null || !s.feed.canBeStoppedByWater));
+        Check("Village spirits retain a connected upstream emergence source", encounter && encounter.disperseIntoVillage &&
+            encounter.spawns.Where(s => s != null && s.feed && s.feed.canBeStoppedByWater)
+                .All(s => sequence.routes.Any(r => r != null && r.flow == s.feed && r.feed)));
         for (int b = 0; b < branches.Length; b++)
         {
             var branch = branches[b]; var cooling = branch.GetComponent<LavaCoolingSurface>();
@@ -205,7 +207,14 @@ public static class ObsidianReloadChecks
                     var crust = branch.GetComponentsInChildren<MeshFilter>().First(f => f.name == "Water-cooled obsidian");
                     var material = crust.GetComponent<Renderer>().sharedMaterial;
                     Check("Cold obsidian has pack albedo, normal map, UVs and zero emission", material.GetTexture("_BaseMap") && material.GetTexture("_BumpMap") && material.GetColor("_EmissionColor").maxColorComponent == 0 && crust.sharedMesh.uv.Length == crust.sharedMesh.vertexCount && crust.sharedMesh.tangents.Length == crust.sharedMesh.vertexCount && crust.sharedMesh.vertexCount > 0);
-                    Check("Uncooled neighbouring surface stays hazardous", cooling.IsHotAt(impact + Vector3.right * (cooling.patchRadius * 2)));
+                    var upstream = feed ? feed : branch;
+                    float hotDistance = feed ? feed.VisibleDistance * .25f : Mathf.Max(0, branch.CoolingBarrierDistance - 2f);
+                    Vector3 hotPoint = upstream.PositionAtDistance(hotDistance);
+                    var hotSource = upstream.ignitionSource;
+                    bool upstreamContact = hotSource && hotSource.heatCollider &&
+                        hotSource.heatCollider.Raycast(new Ray(hotPoint + Vector3.up * 2, Vector3.down), out var hotHit, 4) &&
+                        hotSource.IsHotAt(hotHit.point);
+                    Check("The real upstream lava remains hazardous while the blocked branch solidifies", upstreamContact);
                 }
                 if (preview) Capture("cooled-obsidian", point);
                 branch.ResetFlow(); branch.SetDistance(branch.Length * .3f);

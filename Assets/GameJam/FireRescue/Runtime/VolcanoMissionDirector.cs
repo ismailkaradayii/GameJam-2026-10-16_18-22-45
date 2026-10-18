@@ -185,6 +185,8 @@ namespace GameJam.FireRescue
             {
                 if (EruptionTriggered)
                 {
+                    if (gameFlow && gameFlow.HasFixedFireObjective && player.HasPistol)
+                        return "Stop all " + (encounter ? encounter.PlannedCount : 10) + " fire spirits and extinguish " + gameFlow.RequiredFireCount + " burning houses. 1: pistol  ·  Use the truck water cannon on the fires.";
                     if (!player.HasPistol) return "Follow the blue marker to the bedroom pistol. Press " + InputLabel(InteractionInput.Interact, "E") + " to take it and stop the spirits before they reach the houses.";
                     if (tank.Tank01 < .05f) return "Shoot the fire spirits. Follow the blue arrows to refill the truck at the lake, then fight the house fires.";
                     return player.IsDriving ? InputLabel(InteractionInput.ExitVehicle, "E") + " exits the truck. Equip slot 1 and stop the spirits before they reach the houses. Use the water cannon on house fires." :

@@ -183,8 +183,9 @@ public static class VolcanoStoryChecks
                 sawFollowing |= mission.evacuation.residents.Any(r => r.State == EvacuationResident.ResidentState.Following);
                 if (!mission.evacuation.IsComplete) return;
                 Check("existing agents follow the route and enter shelter", sawFollowing && mission.evacuation.RescuedCount == 7 && mission.evacuation.residents.All(r => r.IsSafe && mission.evacuation.IsInsideShelter(r.transform.position)), Snapshot());
-                if (mission.Phase != VolcanoMissionDirector.MissionPhase.Truck || !story.HasSpoken(VolcanoStorySequence.Thought.Truck)) return;
-                Check("shelter completion points to the existing truck", navigation.CurrentTarget == player.driverDoor);
+                if (mission.Phase != VolcanoMissionDirector.MissionPhase.Truck) return;
+                Check("shelter completion points to the existing truck without repeating its objective as dialogue",
+                    navigation.CurrentTarget == player.driverDoor && !story.HasSpoken(VolcanoStorySequence.Thought.Truck));
                 if (!fixture.PhotoReady("03-shelter-truck.png")) return;
                 Object.DestroyImmediate(leader); leader = null;
                 player.enabled = true; player.firstPerson.enabled = true; player.playerBody.enabled = true;

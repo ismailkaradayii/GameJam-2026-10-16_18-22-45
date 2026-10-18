@@ -27,6 +27,9 @@ namespace GameJam.FireRescue
             [NonSerialized] internal Vector3 originalScale;
             [NonSerialized] internal bool visible, colliderEnabled, heatEnabled;
             [NonSerialized] internal float filling;
+            [NonSerialized] internal float cooling;
+            [NonSerialized] internal MaterialPropertyBlock properties, originalProperties;
+            [NonSerialized] internal Color emissiveColor, emissionColor, mainColor;
         }
         [Serializable] public sealed class AmbientEffect
         {
@@ -42,6 +45,7 @@ namespace GameJam.FireRescue
             public ProgressiveLavaFlow feed;
             [Range(0f,1f)] public float feedProgress;
             [NonSerialized] internal bool wasEnabled;
+            [NonSerialized] internal float originalIntensity;
         }
 
         public Route[] routes = Array.Empty<Route>();
@@ -97,10 +101,26 @@ namespace GameJam.FireRescue
                 pool.visible = pool.source.surfaceRenderer && pool.source.surfaceRenderer.enabled;
                 pool.colliderEnabled = pool.source.heatCollider && pool.source.heatCollider.enabled;
                 pool.heatEnabled = pool.source.heatEnabled;
+                if (pool.feed && pool.feed.canBeStoppedByWater && pool.source.surfaceRenderer)
+                {
+                    pool.properties = new MaterialPropertyBlock();
+                    pool.originalProperties = new MaterialPropertyBlock();
+                    pool.source.surfaceRenderer.GetPropertyBlock(pool.originalProperties);
+                    Material material = pool.source.surfaceRenderer.sharedMaterial;
+                    pool.emissiveColor = material && material.HasProperty("_EmissiveColor") ? material.GetColor("_EmissiveColor") : Color.black;
+                    pool.emissionColor = material && material.HasProperty("_EmissionColor") ? material.GetColor("_EmissionColor") : Color.black;
+                    pool.mainColor = material && material.HasProperty("_MainColor") ? material.GetColor("_MainColor") : Color.white;
+                }
                 SetPoolActive(pool, false);
             }
             foreach (AmbientEffect fx in ambientEffects) if (fx?.particles) Stop(fx.particles);
-            foreach (LavaLight glow in lavaLights) if (glow?.light) {glow.wasEnabled=glow.light.enabled;glow.light.enabled=false;}
+            foreach (LavaLight glow in lavaLights) if (glow?.light)
+            {
+                glow.wasEnabled = glow.light.enabled;
+                glow.originalIntensity = glow.light.intensity;
+                glow.light.enabled = false;
+                glow.light.intensity = 0f;
+            }
             foreach (ParticleSystem fx in suppressedLegacyEffects) Stop(fx);
             if (effects) effects.ResetEffects();
             Initialized = true;
@@ -131,7 +151,7 @@ namespace GameJam.FireRescue
 
         public void TickSequence(float deltaTime)
         {
-            if (deltaTime <= 0f || float.IsNaN(deltaTime) || float.IsInfinity(deltaTime)) return;
+            if (Time.timeScale <= 0f || deltaTime <= 0f || float.IsNaN(deltaTime) || float.IsInfinity(deltaTime)) return;
             InitializeSequence();
             // Bounded substeps preserve branch timing across a long frame and make checks deterministic.
             float remaining = deltaTime;
@@ -182,7 +202,10 @@ namespace GameJam.FireRescue
                 // The crater's authored glow lights the eruption while downhill lava stays gated.
                 foreach (LavaLight glow in lavaLights)
                     if (glow?.light && effects && (glow.light.transform.position - effects.transform.position).sqrMagnitude < 40000f)
+                    {
                         glow.light.enabled = glow.wasEnabled;
+                        glow.light.intensity = glow.originalIntensity;
+                    }
                 if (StageElapsed >= Mathf.Max(0f, lavaReleaseDelay))
                 {
                     Stage = EruptionStage.Flowing;
@@ -194,30 +217,58 @@ namespace GameJam.FireRescue
             FlowElapsed += step;
             foreach (Route route in routes)
             {
-                if (route?.flow == null || FlowElapsed < route.flow.startDelay || !Fed(route.feed, route.feedProgress)) continue;
-                route.flow.Advance(step);
+                if (route?.flow == null) continue;
+                float supply = FlowElapsed >= route.flow.startDelay ? Supply(route.feed, route.feedProgress) : 0f;
+                // Disconnected branches retain their geometry and continue cooling.
+                route.flow.Advance(step, supply);
             }
             foreach (Pool pool in pools)
                 TickPool(pool, step, pool != null && pool.beginsWithEruption ? FlowElapsed + lavaReleaseDelay : FlowElapsed);
             foreach (AmbientEffect fx in ambientEffects)
             {
-                if (fx == null || fx.started || !fx.particles || FlowElapsed < fx.startDelay || !Fed(fx.feed, fx.feedProgress)) continue;
-                fx.started = true;
-                fx.particles.Play(true);
+                if (fx == null || !fx.particles) continue;
+                bool fed = FlowElapsed >= fx.startDelay && Supply(fx.feed, fx.feedProgress) > .001f;
+                if (fed == fx.started) continue;
+                fx.started = fed;
+                if (fed) fx.particles.Play(true);
+                else fx.particles.Stop(true, ParticleSystemStopBehavior.StopEmitting);
             }
-            foreach (LavaLight glow in lavaLights) if (glow?.light) glow.light.enabled=glow.wasEnabled&&Fed(glow.feed,glow.feedProgress);
+            foreach (LavaLight glow in lavaLights)
+            {
+                if (!glow?.light) continue;
+                float supply = Supply(glow.feed, glow.feedProgress);
+                // Existing hot residue dims over the same cooling time after a cut.
+                float target = glow.wasEnabled ? glow.originalIntensity * supply : 0f;
+                float seconds = target < glow.light.intensity ? 6f : .6f;
+                glow.light.intensity = Mathf.MoveTowards(glow.light.intensity, target, glow.originalIntensity * step / seconds);
+                glow.light.enabled = glow.wasEnabled && glow.light.intensity > .001f &&
+                    (supply > .001f || glow.feed && glow.feed.VisibleDistance > 0f &&
+                    glow.feed.VisibleDistance + .005f >= glow.feed.Length * Mathf.Clamp01(glow.feedProgress));
+            }
         }
 
-        static bool Fed(ProgressiveLavaFlow feed, float progress) =>
-            !feed || (feed.VisibleDistance > 0f && feed.VisibleDistance + .005f >= feed.Length * Mathf.Clamp01(progress));
+        static float Supply(ProgressiveLavaFlow feed, float progress) => !feed ? 1f : feed.GetSupply01(progress);
 
         static void TickPool(Pool pool, float step, float elapsed)
         {
-            if (pool?.source == null || elapsed < pool.startDelay || !Fed(pool.feed, pool.feedProgress)) return;
-            pool.filling += step;
+            if (pool?.source == null || elapsed < pool.startDelay) return;
+            float supply = Supply(pool.feed, pool.feedProgress);
+            pool.filling += step * supply;
+            if (pool.filling <= 0f) return;
+            if (supply <= .001f) pool.cooling = Mathf.Min(1f, pool.cooling + step / 6f);
             float scale = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(pool.filling / Mathf.Max(.1f, pool.fillSeconds)));
             pool.source.transform.localScale = Vector3.Scale(pool.originalScale, new Vector3(Mathf.Max(.002f, scale), 1f, Mathf.Max(.002f, scale)));
             SetPoolActive(pool, scale > .001f);
+            pool.source.heatEnabled = scale > .001f && pool.cooling < 1f;
+            if (pool.properties != null && pool.source.surfaceRenderer)
+            {
+                float heat = 1f - pool.cooling;
+                pool.source.surfaceRenderer.GetPropertyBlock(pool.properties);
+                pool.properties.SetColor("_EmissiveColor", pool.emissiveColor * heat * heat);
+                pool.properties.SetColor("_EmissionColor", pool.emissionColor * heat * heat);
+                pool.properties.SetColor("_MainColor", Color.Lerp(new Color(.09f, .1f, .11f), pool.mainColor, heat));
+                pool.source.surfaceRenderer.SetPropertyBlock(pool.properties);
+            }
         }
 
         static void SetPoolActive(Pool pool, bool active)
@@ -244,8 +295,14 @@ namespace GameJam.FireRescue
                 if (pool.source.surfaceRenderer) pool.source.surfaceRenderer.enabled = pool.visible;
                 if (pool.source.heatCollider) pool.source.heatCollider.enabled = pool.colliderEnabled;
                 pool.source.heatEnabled = pool.heatEnabled;
+                if (pool.originalProperties != null && pool.source.surfaceRenderer)
+                    pool.source.surfaceRenderer.SetPropertyBlock(pool.originalProperties);
             }
-            foreach(LavaLight glow in lavaLights)if(glow?.light)glow.light.enabled=glow.wasEnabled;
+            foreach (LavaLight glow in lavaLights) if (glow?.light)
+            {
+                glow.light.enabled = glow.wasEnabled;
+                glow.light.intensity = glow.originalIntensity;
+            }
         }
 
         void OnGUI()

@@ -215,8 +215,6 @@ namespace GameJam.FireRescue
         {
             if (mission.WarningCompleted && !Player.InteractionBusy && (!mission.evacuation || !mission.evacuation.groupRescue))
                 Speak(Thought.Shelter, "I must lead the townspeople to the shelter.", 4.8f);
-            if (mission.evacuation && mission.evacuation.IsComplete)
-                Speak(Thought.Truck, "Everyone is safe. I should take the fire truck and check its water.", 5.5f);
             if (mission.PreparationComplete)
             {
                 if (defensePosition && EvacuationResident.FlatDistance(Player.IsDriving && Player.drive ?

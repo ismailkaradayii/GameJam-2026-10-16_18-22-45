@@ -226,11 +226,12 @@ public static class FinalLoopChecks
                 runner = mission.encounter.LivingCreatures.FirstOrDefault();
                 Next(12, 180); return;
             case 12:
-                // Let the first spirit reach a house naturally; intercept later spirits through the same bullet damage API.
+                // The short mission starts its three fixed fires independently of spirit impact.
+                // Legacy missions still let the first spirit reach a house naturally.
                 foreach (var actor in mission.encounter.LivingCreatures.ToArray())
                 {
                     if (!actor || actor.IsDefeated) continue;
-                    if (actor == runner) continue;
+                    if (actor == runner && !flow.HasFixedFireObjective) continue;
                     actor.ApplyBulletDamage(34, actor.transform.position, Vector3.forward);
                     actor.ApplyBulletDamage(34, actor.transform.position, Vector3.forward);
                     actor.ApplyBulletDamage(34, actor.transform.position, Vector3.forward);
@@ -244,8 +245,9 @@ public static class FinalLoopChecks
                 }
                 if (flow.State != RescueGameFlow.GameState.Won) return;
                 if (!Object.FindFirstObjectByType<RescueHUD>().VictoryVisible) return;
-                Require("unshot_spirit_reaches_house", runner && runner.ReachedBuilding && !runner.Dissipated, "First spirit reached its building through real hop movement.");
-                Require("finite_waves_and_clear_fires_win", mission.encounter.IsCleared && flow.targetBuildings.Any(h => !h.IsBurnedOut) && flow.targetBuildings.All(h => !h.IsBurning), "Planned=" + mission.encounter.PlannedCount + "; spawned=" + mission.encounter.SpawnedCount);
+                if (!flow.HasFixedFireObjective)
+                    Require("unshot_spirit_reaches_house", runner && runner.ReachedBuilding && !runner.Dissipated, "First spirit reached its building through real hop movement.");
+                Require("finite_waves_and_clear_fires_win", mission.encounter.IsCleared && flow.FireObjectiveComplete && flow.targetBuildings.Any(h => !h.IsBurnedOut) && flow.targetBuildings.All(h => !h.IsBurning), "Planned=" + mission.encounter.PlannedCount + "; spawned=" + mission.encounter.SpawnedCount + "; fires extinguished=" + flow.RescuedCount);
                 Require("result_stats_visible", Object.FindFirstObjectByType<RescueHUD>().VictoryVisible, "Result modal.");
                 Capture("06-success"); Next(13, 10); return;
             case 13:
@@ -307,7 +309,9 @@ public static class FinalLoopChecks
                 Finish(null); return;
             case 51:
                 if (flow.State != RescueGameFlow.GameState.Lost) return;
-                Require("all_houses_destroyed_lose", flow.targetBuildings.All(h => h.IsBurnedOut), "Loss does not wait for enemy waves.");
+                Require("required_houses_destroyed_lose", flow.HasFixedFireObjective ?
+                    flow.defenseFireBuildings.Any(h => h.IsBurnedOut) && flow.DefeatReason == RescueGameFlow.LossReason.RequiredHouseLost :
+                    flow.targetBuildings.All(h => h.IsBurnedOut), "Loss does not wait for enemy waves.");
                 Capture("07-failed"); Next(52, 10); return;
             case 52:
                 if (EditorApplication.timeSinceStartup < timeout - 9) return;

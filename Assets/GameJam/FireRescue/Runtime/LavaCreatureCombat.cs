@@ -108,6 +108,28 @@ namespace GameJam.FireRescue
             descentPath = null; descentDistances = null;
         }
 
+        /// <summary>Bring an isolated surviving spirit back through a safe lava bank without replacing its health or actor.</summary>
+        public bool ReemergeFromLava(Vector3 point, float depth)
+        {
+            if (!isActiveAndEnabled || !float.IsFinite(point.x) || !float.IsFinite(point.y) || !float.IsFinite(point.z)) return false;
+            Initialize();
+            if (!initialized || !actor || actor.IsDefeated || IsIntroductionJump) return false;
+            HideAttackTell(); attacking = struck = downhillLeap = playerPounceLive = false;
+            BuildingTarget = null; RoofContactCollider = null;
+            navigation.Invalidate(); detourSide = 0;
+            descentPath = null; descentDistances = null; descentIndex = 0; descentDistance = 0;
+            villageEmergence = true; emergenceSplash = false; emergenceDepth = Mathf.Max(.5f, depth);
+            lifetime = progressClock = 0; RouteRecoveries++;
+            cooldown = Mathf.Max(cooldown, 1f); retaliationUntil = Time.time + 1.5f; alerted = true;
+            jump.TakeCombatControl();
+            grounded = GroundAt(point); jump.CombatGrounded(grounded);
+            progressPosition = landing = grounded; start = grounded - Vector3.up * emergenceDepth;
+            transform.position = start;
+            if (animator) animator.speed = animatorSpeed;
+            Change(Motion.Emerging, .9f);
+            return true;
+        }
+
         // The encounter supplies mesh samples before activating this actor, so the first rendered
         // frame is already under the lava and movement stays on the authored mountain channel.
         public void ConfigureLavaDescent(Vector3[] path, float depth)
@@ -404,13 +426,13 @@ namespace GameJam.FireRescue
 
         bool FindBuilding()
         {
-            if (BuildingTarget && BuildingTarget.isActiveAndEnabled && !BuildingTarget.IsBurnedOut &&
-                !BuildingTarget.IsBurning && !BuildingTarget.IgnitionBlocked) return true;
+            if (CanTargetBuilding(BuildingTarget)) return true;
             BuildingTarget = null; navigation.Invalidate(); float best = float.PositiveInfinity;
             foreach (var house in BurnableBuilding.ActiveBuildings)
             {
-                if (!house || !house.isActiveAndEnabled || house.IsBurnedOut || house.IsBurning || house.IgnitionBlocked || !house.ignitionBounds) continue;
+                if (!CanTargetBuilding(house)) continue;
                 float score = FlatDistance(transform.position, house.ignitionBounds.ClosestPoint(transform.position));
+                if (house.IsBurning) score += 48f;
                 foreach (var other in crowd) if (other && other != this && other.PursuingBuilding && other.BuildingTarget == house) score += 24;
                 if (score < best) { best = score; BuildingTarget = house; }
             }
@@ -429,8 +451,10 @@ namespace GameJam.FireRescue
             attacking = false; HideAttackTell(); Change(Motion.Igniting, roofWindupSeconds);
             return true;
         }
-        bool CanAttackBuilding() => BuildingTarget && BuildingTarget.isActiveAndEnabled &&
-            BuildingTarget.ignitionBounds && !BuildingTarget.IsBurnedOut && !BuildingTarget.IsBurning && !BuildingTarget.IgnitionBlocked;
+        static bool CanTargetBuilding(BurnableBuilding house) => house && house.isActiveAndEnabled &&
+            house.ignitionBounds && !house.IsBurnedOut && !house.IsRescued && house.MissionFireAllowed &&
+            (house.IsBurning ? house.IsDefenseFireTarget : !house.IgnitionBlocked);
+        bool CanAttackBuilding() => CanTargetBuilding(BuildingTarget);
 
         void CancelRoofWindup()
         {

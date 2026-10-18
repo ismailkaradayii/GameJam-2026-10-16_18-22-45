@@ -50,8 +50,12 @@ namespace GameJam.FireRescue
         public float Heat => heat;
         public bool IsBurning => heat > 0f;
         public bool IsRescued { get; private set; }
+        public float FoundationCooling01 { get; private set; }
+        internal LavaCoolingSurface[] FoundationSurfaces { get; set; }
         public event Action<BurnableBuilding> Rescued;
-        public bool IgnitionBlocked => IsRescued || wetSecondsRemaining > 0f || cooldownSecondsRemaining > 0f;
+        public bool MissionFireAllowed { get; internal set; } = true;
+        public bool IsDefenseFireTarget { get; internal set; }
+        public bool IgnitionBlocked => !MissionFireAllowed || IsRescued || wetSecondsRemaining > 0f || cooldownSecondsRemaining > 0f;
         public static IReadOnlyList<BurnableBuilding> ActiveBuildings => Buildings;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
@@ -65,6 +69,8 @@ namespace GameJam.FireRescue
         {
             heat = 0f;
             IsRescued = false;
+            FoundationCooling01 = 0f;
+            FoundationSurfaces = null;
             wetSecondsRemaining = 0f;
             cooldownSecondsRemaining = 0f;
             if (fitFireToBuilding) presentation = BuildingFirePresentation.Create(this);
@@ -141,6 +147,8 @@ namespace GameJam.FireRescue
                 IsRescued = true;
                 cooldownSecondsRemaining = Mathf.Max(cooldownSecondsRemaining, extinguishedCooldownSeconds);
             }
+            FoundationCooling01 = IsRescued ? 1f : Mathf.Clamp01(FoundationCooling01 + litres / Mathf.Max(1f, litresToExtinguish));
+            LavaCoolingSurface.CoolBuildingFoundation(this, FoundationCooling01);
             UpdateVisuals();
             if (rescuedNow) Rescued?.Invoke(this);
             if (wasBurning) FireStateChanged?.Invoke();

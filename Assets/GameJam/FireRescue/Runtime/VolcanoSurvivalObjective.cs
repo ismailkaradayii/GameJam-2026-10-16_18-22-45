@@ -63,8 +63,9 @@ namespace GameJam.FireRescue
                 if (house.IsBurning) firesOut = false;
             }
             if (total > 0 && standing == 0) { Finish(MissionState.Lost, RescueGameFlow.LossReason.VillageBurned); return; }
-            if (encounter.IsCleared && firesOut && standing > 0) { Finish(MissionState.Won); return; }
-            State = encounter.IsCleared && firesOut ? MissionState.ReturnToTruck : MissionState.Fighting;
+            bool fireObjectiveComplete = !rescueFlow || rescueFlow.FireObjectiveComplete;
+            if (encounter.IsCleared && firesOut && standing > 0 && fireObjectiveComplete) { Finish(MissionState.Won); return; }
+            State = encounter.IsCleared && firesOut && fireObjectiveComplete ? MissionState.ReturnToTruck : MissionState.Fighting;
             // Returning early is safe, but cannot skip the remaining enemies or the rescue.
             if ((!rescueFlow || !rescueFlow.IsConfigured) && State == MissionState.ReturnToTruck && (!sequence.evacuation || sequence.evacuation.IsComplete) &&
                 player && player.IsDriving && player.drive) Finish(MissionState.Won);

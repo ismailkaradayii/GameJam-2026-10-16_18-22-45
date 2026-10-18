@@ -55,6 +55,7 @@ public sealed class GroupRescueProbe : MonoBehaviour
     readonly Dictionary<EvacuationResident, Vector3> previous = new Dictionary<EvacuationResident, Vector3>();
     readonly Dictionary<EvacuationResident, Vector3> waiting = new Dictionary<EvacuationResident, Vector3>();
     readonly HashSet<EvacuationResident> displaced = new HashSet<EvacuationResident>();
+    readonly List<string> voicedCues = new List<string>();
     EvacuationMission mission;
     VolcanoMissionDirector director;
     FireRescuePlayer player;
@@ -65,6 +66,7 @@ public sealed class GroupRescueProbe : MonoBehaviour
     EditorWindow game;
     bool oldBackground, finished, reloadLocked;
     int phase, groupIndex, calledBefore, stagedBefore, spokenAtCompletion;
+    int observedVoiceLines, pausedVoiceSample = -1;
     float phaseAt, began, nextSave;
     string pausedSubtitle;
     double deadline;
@@ -100,7 +102,9 @@ public sealed class GroupRescueProbe : MonoBehaviour
             foreach (var r in mission.residents) previous[r] = r.transform.position;
             CheckThat("seven existing villagers form groups of two, two and three", mission.residents.Length == 7 &&
                 mission.residents.GroupBy(r => r.rescueGroup).OrderBy(g => g.Key).Select(g => g.Count()).SequenceEqual(new[] { 2, 2, 3 }));
-            CheckThat("only three identical recruitment cues and one departure cue are configured", NoSpeech() && CanonicalDialogue());
+            CheckThat("three recruitment cues share comehere and departure uses shelter", CanonicalDialogue() && VoiceBindings());
+            CheckThat("both downloaded recordings decode to non-silent audio", HasDecodedAudio(mission.dialogue.recruitVoice) && HasDecodedAudio(mission.dialogue.shelterVoice),
+                "comehere=" + mission.dialogue.recruitVoice.length + "s shelter=" + mission.dialogue.shelterVoice.length + "s");
             CheckThat("one exclamation marker is configured", marker && marker.symbol && marker.symbol.text == "!" && Object.FindObjectsByType<RescueGroupMarker>(FindObjectsSortMode.None).Length == 1);
             CheckThat("Q and global alarm recruitment are disabled", mission.callKey == Key.None && !mission.villageWideCall && !mission.callAllAlarmedVillagers && !mission.Shout());
             CheckThat("inactive mission rejects recruitment", !mission.TryRecruitGroup(mission.residents[0]));
@@ -121,6 +125,7 @@ public sealed class GroupRescueProbe : MonoBehaviour
             if (EditorApplication.timeSinceStartup > deadline) throw new TimeoutException(Snapshot());
             if (Time.unscaledTime >= nextSave) { Save(); nextSave = Time.unscaledTime + 2; }
             Observe();
+            ObserveVoice();
             float age = Time.unscaledTime - phaseAt;
             switch (phase)
             {
@@ -143,7 +148,7 @@ public sealed class GroupRescueProbe : MonoBehaviour
                     if (age < .25f) return;
                     InputSystem.QueueStateEvent(testKeyboard, new KeyboardState());
                     CheckThat("real Q key input recruits nobody", mission.CalledCount == 0 && mission.ActiveGroup == -1);
-                    CheckThat("alarm stays silent and keeps clear English objectives", NoSpeech() && mission.dialogue.PlayedLines == 0 && string.IsNullOrEmpty(mission.CurrentMessage) &&
+                    CheckThat("alarm keeps rescue voice silent until a group is recruited", VoiceIsIdle() && mission.dialogue.PlayedLines == 0 && string.IsNullOrEmpty(mission.CurrentMessage) &&
                         PendingLines().Length == 0 && mission.GroupObjective == "Gather the townspeople" && mission.GroupDetail.Contains("group marked (!)") && mission.GroupDetail.Contains("yellow assembly point"));
                     MoveToGroup(); Next(2); break;
                 case 2:
@@ -158,30 +163,37 @@ public sealed class GroupRescueProbe : MonoBehaviour
                         foreach (var obsolete in new[] { "dispatch", "panic_0", "reply_0", "wait_0", "ready", "safe" }) mission.Speak(obsolete, candidate.transform, true);
                         CheckThat("old dispatch and villager exchanges cannot enter the dialogue queue", mission.dialogue.PlayedLines == 0 &&
                             string.IsNullOrEmpty(mission.CurrentMessage) && PendingLines().Length == 0 && CanonicalDialogue());
-                        // Exercise subtitle pausing with a real player cue without recruiting the NPCs yet.
-                        mission.Speak("recruit_0", null, true);
+                        // Pause the actual first recruitment, without manufacturing an extra call.
+                        Recruit(candidate);
                         Next(21); return;
                     }
                     Recruit(candidate); break;
                 case 21:
                     if (age < .25f) return;
                     pausedSubtitle = mission.CurrentMessage;
-                    CheckThat("the pause fixture shows only the short English player cue", pausedSubtitle == "Come here, follow me." && mission.dialogue.CurrentId == "recruit_0" && PendingLines().Length == 0);
+                    CheckThat("the first recruitment plays comehere with its subtitle", pausedSubtitle == "Come here, follow me." && mission.dialogue.CurrentId == "recruit_0" &&
+                        PendingLines().Length == 0 && Voice() && Voice().isPlaying && Voice().clip == mission.dialogue.recruitVoice);
                     Time.timeScale = 0f;
                     CheckThat("pause rejects group recruitment", !mission.TryRecruitGroup(GroupLeader()));
                     Next(20); break;
                 case 20:
-                    if (age < .3f) return;
-                    CheckThat("pause preserves written dialogue without recorded speech", NoSpeech() && !string.IsNullOrEmpty(pausedSubtitle) && mission.CurrentMessage == pausedSubtitle);
+                    if (age < .15f) return;
+                    if (pausedVoiceSample < 0) { pausedVoiceSample = Voice().timeSamples; return; }
+                    if (age < .45f) return;
+                    CheckThat("pause freezes both the voice sample and its subtitle", Voice() && !Voice().isPlaying && Voice().timeSamples == pausedVoiceSample &&
+                        !string.IsNullOrEmpty(pausedSubtitle) && mission.CurrentMessage == pausedSubtitle);
                     Time.timeScale = 1f;
-                    var first = mission.residents.Where(r => r.rescueGroup == 0 && mission.CanRecruitGroup(r))
-                        .OrderBy(r => EvacuationResident.FlatDistance(r.transform.position, player.transform.position)).FirstOrDefault();
-                    if (!first) { Next(2); return; }
-                    Recruit(first); break;
+                    Next(22); break;
+                case 22:
+                    if (age < .15f) return;
+                    CheckThat("resume continues the same recording without replaying the cue", Voice() && Voice().isPlaying && Voice().timeSamples > pausedVoiceSample &&
+                        mission.dialogue.CurrentId == "recruit_0" && mission.dialogue.PlayedLines == 1 && voicedCues.Count == 1);
+                    Next(31); break;
                 case 31:
                     if (age < .15f) return;
                     CheckThat("group " + (groupIndex + 1) + " hears exactly the short recruitment cue without a villager reply", mission.dialogue.CurrentId == "recruit_" + groupIndex &&
-                        mission.CurrentMessage == "Come here, follow me." && PendingLines().Length == 0 && CanonicalDialogue() && NoSpeech());
+                        mission.CurrentMessage == "Come here, follow me." && PendingLines().Length == 0 && CanonicalDialogue() &&
+                        Voice() && Voice().isPlaying && Voice().clip == mission.dialogue.recruitVoice);
                     leader.SetDestination(mission.assemblyPoint.position + new Vector3(0, 0, -6));
                     Next(3); break;
                 case 3:
@@ -236,9 +248,11 @@ public sealed class GroupRescueProbe : MonoBehaviour
                     Next(8); break;
                 case 8:
                     if (age < .7f) return;
-                    CheckThat("completion adds no extra safe speech or NPC replies", NoSpeech() && mission.dialogue.CurrentId != "safe" &&
+                    CheckThat("completion adds no extra safe speech or NPC replies", VoiceIsIdle() && mission.dialogue.CurrentId != "safe" &&
                         mission.dialogue.PlayedLines == spokenAtCompletion && PendingLines().Length == 0 && CanonicalDialogue() &&
                         mission.GroupObjective == "Everyone is sheltered" && mission.GroupDetail == "Everyone is safe.");
+                    CheckThat("the real evacuation plays exactly three comehere calls and one shelter departure", mission.dialogue.PlayedLines == 4 &&
+                        voicedCues.SequenceEqual(new[] { "recruit_0", "recruit_1", "recruit_2", "depart" }), string.Join(", ", voicedCues));
                     var ending = Object.FindFirstObjectByType<ShelterReturnCinematic>();
                     if (ending)
                     {
@@ -246,12 +260,19 @@ public sealed class GroupRescueProbe : MonoBehaviour
                             ending.thoughts[0].text.StartsWith("It's over...", StringComparison.Ordinal) && ending.arrivalThought.text.StartsWith("There they are...", StringComparison.Ordinal) &&
                             IsEnglish(ending.arrivalThought.text) && (!ending.arrivalThought.voice || ending.arrivalThought.Duration >= ending.arrivalThought.voice.length));
                         CheckThat("existing closing sequence can begin after group evacuation", ending.Begin(player.gameFlow));
-                        var firstThought = ending.thoughts[0];
-                        var closingVoice = ending.GetComponents<AudioSource>().FirstOrDefault(s => s.clip == firstThought.voice);
-                        CheckThat("closing preserves its written line and plays an assigned voice in 2D", ending.CurrentLine == firstThought.text &&
-                            (!firstThought.voice || closingVoice && closingVoice.isPlaying && closingVoice.spatialBlend == 0));
-                        ending.Cancel();
+                        // Closing narration starts after its authored relocation fade.
+                        Next(23); return;
                     }
+                    report.rescued = mission.RescuedCount; report.elapsedSeconds = Time.time - began;
+                    Finish(null); break;
+                case 23:
+                    var closing = Object.FindFirstObjectByType<ShelterReturnCinematic>();
+                    if (closing.IsRelocating || closing.ThoughtIndex < 0) return;
+                    var firstThought = closing.thoughts[0];
+                    var closingVoice = closing.GetComponents<AudioSource>().FirstOrDefault(s => s.clip == firstThought.voice);
+                    CheckThat("closing preserves its written line and plays an assigned voice in 2D", closing.CurrentLine == firstThought.text &&
+                        (!firstThought.voice || closingVoice && closingVoice.isPlaying && closingVoice.spatialBlend == 0));
+                    closing.Cancel();
                     report.rescued = mission.RescuedCount; report.elapsedSeconds = Time.time - began;
                     Finish(null); break;
             }
@@ -265,6 +286,7 @@ public sealed class GroupRescueProbe : MonoBehaviour
         UseContext(ContextualInteractionKind.Resident, resident.transform, resident);
         int size = groupIndex == 2 ? 3 : 2;
         CheckThat("E recruits only group " + (groupIndex + 1) + " of " + size, mission.ActiveGroup == groupIndex && mission.CalledCount - calledBefore == size);
+        CheckThat("repeating recruitment cannot replay group " + (groupIndex + 1) + " voice", !mission.TryRecruitGroup(resident));
         var other = mission.residents.FirstOrDefault(r => !r.IsCalled && !r.IsDead);
         if (other) CheckThat("group " + (groupIndex + 1) + " must be deposited before recruiting another", !mission.TryRecruitGroup(other));
         CheckThat("waiting people remain at assembly during collection " + (groupIndex + 1), waiting.All(p => Vector3.Distance(p.Key.transform.position, p.Value) < .3f));
@@ -278,8 +300,30 @@ public sealed class GroupRescueProbe : MonoBehaviour
         mission.dialogue.lines.All(l => !l.villager && l.text == (l.id == "depart" ? "Follow me. I'll take you to the shelter." : "Come here, follow me."));
     RescueDialogue.Line[] PendingLines() => ((Queue<RescueDialogue.Line>)typeof(RescueDialogue).GetField("pending", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(mission.dialogue)).ToArray();
     static bool IsEnglish(string value) => !string.IsNullOrEmpty(value) && value.IndexOfAny("çğıöşüÇĞİÖŞÜ".ToCharArray()) < 0;
-    bool NoSpeech() => Object.FindObjectsByType<AudioSource>(FindObjectsInactive.Include, FindObjectsSortMode.None).All(s => s.name != "Rescue dialogue voice" &&
-        (!s.clip || !AssetDatabase.GetAssetPath(s.clip).StartsWith("Assets/GameJam/FireRescue/Audio/RescueDialogue/", StringComparison.Ordinal)));
+    AudioSource Voice()
+    {
+        var emitter = mission.dialogue.transform.Find("Rescue dialogue voice");
+        return emitter ? emitter.GetComponent<AudioSource>() : null;
+    }
+    bool VoiceIsIdle() => !Voice() || !Voice().isPlaying;
+    bool VoiceBindings() => mission.dialogue.recruitVoice && mission.dialogue.shelterVoice &&
+        mission.dialogue.recruitVoice == Resources.Load<AudioClip>("ASHFALL/Audio/Rescue/comehere") &&
+        mission.dialogue.shelterVoice == Resources.Load<AudioClip>("ASHFALL/Audio/Rescue/shelter");
+    static bool HasDecodedAudio(AudioClip clip)
+    {
+        if (!clip || clip.length < .5f || clip.samples < 8192 || clip.loadState != AudioDataLoadState.Loaded) return false;
+        var samples = new float[4096];
+        return clip.GetData(samples, clip.samples / 2) && samples.Any(s => Mathf.Abs(s) > .0001f);
+    }
+    void ObserveVoice()
+    {
+        var dialogue = mission.dialogue; var voice = Voice();
+        if (dialogue.PlayedLines <= observedVoiceLines || !voice || !voice.isPlaying) return;
+        var expected = dialogue.CurrentId == "depart" ? dialogue.shelterVoice : dialogue.recruitVoice;
+        CheckThat("cue " + dialogue.CurrentId + " plays its assigned recording once in 2D", voice.clip == expected &&
+            voice.spatialBlend == 0 && !voice.loop && voice.pitch == 1, AssetDatabase.GetAssetPath(voice.clip));
+        voicedCues.Add(dialogue.CurrentId); observedVoiceLines = dialogue.PlayedLines;
+    }
     void UseContext(ContextualInteractionKind kind, Transform anchor, EvacuationResident resident)
     {
         player.enabled = true;

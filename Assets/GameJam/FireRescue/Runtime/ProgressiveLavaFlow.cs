@@ -23,6 +23,10 @@ namespace GameJam.FireRescue
         [Tooltip("A fully cooled cross-section cuts off this village branch's supply, even after the front has passed it.")]
         public bool canBeStoppedByWater;
         public bool StoppedByCooling { get; private set; }
+        public float FlowRate01 { get; private set; } = 1f;
+        public float CoolingBarrierDistance { get; private set; } = float.PositiveInfinity;
+        public float DownstreamCooling01 { get; private set; }
+        public float FlowPhase { get; private set; }
         [Header("Flow ambience")]
         [SerializeField] private AudioSource flowAudioSource;
         [SerializeField] private AudioClip bubblingClip;
@@ -35,6 +39,7 @@ namespace GameJam.FireRescue
         public float Progress => !IsInitialized ? 0f : Length > Epsilon ? DistanceTravelled / Length : 1f;
         public bool HasArrived => IsInitialized && (Length <= Epsilon || DistanceTravelled >= Length);
         public float VisibleDistance { get; private set; }
+        public Bounds FullWorldBounds { get; private set; }
         public Vector3 FrontPosition => PositionAtDistance(VisibleDistance);
 
         private const float Epsilon = 0.00001f;
@@ -61,6 +66,17 @@ namespace GameJam.FireRescue
         private int rowCount;
         private float untilMeshUpdate;
         private LavaCoolingSurface cooling;
+        private float incomingSupply = 1f, untilCoolingScan, residualFrom = float.PositiveInfinity;
+        private float rateStart = 1f, rateTarget = 1f, rateElapsed = FlowResponseSeconds;
+        private sealed class CoolingReach { public float from, to, progress; }
+        private readonly List<CoolingReach> coolingReaches = new List<CoolingReach>();
+        private bool coolingDirty = true;
+        private float[] sectionCapacity, prefixCapacity;
+        private const float CoolingScanSpacing = .5f, CoolingWidthSpacing = .25f;
+        private const float FlowResponseSeconds = .6f, ResidualCoolingSeconds = 6f;
+        private Material[] originalMaterials, controlledMaterials;
+        private MaterialPropertyBlock flowProperties, originalProperties;
+        private static readonly int FlowPhaseId = Shader.PropertyToID("_FlowPhase");
         private bool audioFlowActive;
         private bool audioPaused;
         private Vector3[] fullVertices;
@@ -207,6 +223,7 @@ namespace GameJam.FireRescue
                 indexFormat = referenceMesh != null ? referenceMesh.indexFormat : UnityEngine.Rendering.IndexFormat.UInt16
             };
             revealedMesh.MarkDynamic();
+            InitializeControlledMaterials();
             IsInitialized = true;
             ResetFlow();
         }
@@ -216,6 +233,16 @@ namespace GameJam.FireRescue
             if (!cooling) cooling = GetComponent<LavaCoolingSurface>();
             if (cooling) cooling.ResetCooling();
             StoppedByCooling = false;
+            CoolingBarrierDistance = residualFrom = float.PositiveInfinity;
+            DownstreamCooling01 = FlowPhase = untilCoolingScan = 0f;
+            coolingReaches.Clear();
+            FlowRate01 = incomingSupply = 1f;
+            rateStart = rateTarget = 1f;
+            rateElapsed = FlowResponseSeconds;
+            coolingDirty = true;
+            if (sectionCapacity != null)
+                for (int i = 0; i < sectionCapacity.Length; i++) sectionCapacity[i] = prefixCapacity[i] = 1f;
+            ApplyFlowPhase();
             SetAudioFlowActive(false, true);
             if (!IsInitialized)
             {
@@ -228,55 +255,169 @@ namespace GameJam.FireRescue
             ApplyDistance(0f);
         }
 
-        /// <summary>Run only when a patch finishes cooling, not on every simulation step.</summary>
+        /// <summary>Water/foundation edits invalidate the cached hydraulic cross-sections.</summary>
+        public void NotifyCoolingChanged() => coolingDirty = true;
+
+        /// <summary>Completing obsidian forces an immediate supply cut, independent of the mesh cadence.</summary>
         public void RefreshCoolingBarrier()
         {
-            if (StoppedByCooling || !canBeStoppedByWater || !IsInitialized || VisibleDistance <= Epsilon) return;
+            if (!canBeStoppedByWater || !IsInitialized || Length <= Epsilon) return;
             if (!cooling) cooling = GetComponent<LavaCoolingSurface>();
-            if (!cooling || cooling.CooledPatchCount == 0) return;
-            float step = Mathf.Clamp(cooling.patchRadius * .2f, .5f, 2f);
-            int samples = Mathf.CeilToInt(VisibleDistance / step);
-            for (int i = 0; i <= samples; i++)
+            coolingDirty = false;
+            untilCoolingScan = .12f;
+            if (!cooling || !cooling.HasDirectCooling) return;
+            float prefix = 1f;
+            for (int i = 0; i < sectionCapacity.Length; i++)
             {
-                float distance = Mathf.Min(i * step, VisibleDistance);
-                if (cooling.IsHotAt(PositionAtDistance(distance))) continue;
-                float arc = capturedReverse ? Length - distance : distance;
-                FindRow(arc, out int row, out float fraction);
+                float distance = Mathf.Min(i * CoolingScanSpacing, Length);
                 bool blocked = true;
-                for (int column = 0; column < columnCount; column++)
+                float totalHot = 0f, totalWidth = 0f;
+                // Sample each real mesh segment, not only its authored columns: a narrow
+                // uncooled opening between sparse BK columns must keep the route connected.
+                for (int column = 0; column < columnCount - 1; column++)
                 {
-                    Vector3 local = Vector3.Lerp(fullVertices[row * columnCount + column],
-                        fullVertices[(row + 1) * columnCount + column], fraction);
-                    if (cooling.IsHotAt(source.transform.TransformPoint(local))) { blocked = false; break; }
+                    Vector3 left = PositionAtDistance(distance, column / (columnCount - 1f));
+                    Vector3 right = PositionAtDistance(distance, (column + 1f) / (columnCount - 1f));
+                    float width = Vector3.Distance(left, right);
+                    int samples = Mathf.Max(1, Mathf.CeilToInt(width / CoolingWidthSpacing));
+                    float segmentHot = 0f;
+                    for (int sample = 0; sample <= samples; sample++)
+                    {
+                        float hot = 1f - cooling.DirectCoolingAt(Vector3.Lerp(left, right, sample / (float)samples));
+                        if (hot > 0f) blocked = false;
+                        segmentHot += hot * (sample == 0 || sample == samples ? .5f : 1f);
+                    }
+                    totalHot += segmentHot / samples * width;
+                    totalWidth += width;
                 }
-                if (!blocked) continue;
-                StoppedByCooling = true;
-                DistanceTravelled = VisibleDistance;
-                return;
+                sectionCapacity[i] = totalWidth > Epsilon ? Mathf.Clamp01(totalHot / totalWidth) : 1f;
+                prefixCapacity[i] = prefix = Mathf.Min(prefix, sectionCapacity[i]);
+                if (blocked) CoolingBarrierDistance = Mathf.Min(CoolingBarrierDistance, distance);
             }
+            StoppedByCooling = DistanceTravelled + Epsilon >= CoolingBarrierDistance;
+            if (StoppedByCooling) DistanceTravelled = Mathf.Max(VisibleDistance, Mathf.Min(DistanceTravelled, CoolingBarrierDistance));
+            BeginResidualCooling(StoppedByCooling ? CoolingBarrierDistance : float.PositiveInfinity);
         }
 
         /// <summary>Advances simulation time; the sequencer owns delays and calling cadence.</summary>
-        public void Advance(float deltaTime)
+        public void Advance(float deltaTime) => Advance(deltaTime, 1f);
+
+        /// <summary>Zero live supply still ticks cooling on the already visible, stationary lava.</summary>
+        public void Advance(float deltaTime, float supply01)
         {
             if (!IsInitialized)
                 Initialize();
-            if (!IsFinite(deltaTime) || deltaTime <= 0f)
+            if (!IsFinite(deltaTime) || deltaTime <= 0f || Time.timeScale <= 0f)
                 return;
-            if (!IsFinite(speed) || speed <= 0f || HasArrived || StoppedByCooling)
-            {
-                SetAudioFlowActive(false);
-                return;
-            }
+            incomingSupply = IsFinite(supply01) ? Mathf.Clamp01(supply01) : 0f;
+            untilCoolingScan -= deltaTime;
+            if (coolingDirty && untilCoolingScan <= 0f) RefreshCoolingBarrier();
+            float validSpeed = IsFinite(speed) ? Mathf.Max(0f, speed) : 0f;
+            float desiredRate = incomingSupply * CapacityAt(DistanceTravelled);
+            if (StoppedByCooling || incomingSupply <= Epsilon) desiredRate = 0f;
+            float phaseStep = AdvanceFlowRate(desiredRate, deltaTime);
             float previousDistance = DistanceTravelled;
-            DistanceTravelled = Mathf.Min(Length, DistanceTravelled + speed * deltaTime);
-            SetAudioFlowActive(DistanceTravelled > previousDistance + Epsilon && !HasArrived);
+            if (!StoppedByCooling && incomingSupply > Epsilon && !HasArrived)
+                DistanceTravelled = Mathf.Min(Mathf.Min(Length, CoolingBarrierDistance),
+                    DistanceTravelled + validSpeed * phaseStep);
+            StoppedByCooling = DistanceTravelled + Epsilon >= CoolingBarrierDistance;
+            // Integrating phase, instead of multiplying wall time by the new speed,
+            // keeps the BK textures continuous throughout slowing, stopping and pausing.
+            if (VisibleDistance > Epsilon || DistanceTravelled > Epsilon)
+                FlowPhase += phaseStep;
+            ApplyFlowPhase();
+            SetAudioFlowActive(VisibleDistance > Epsilon && FlowRate01 > .01f);
             untilMeshUpdate -= deltaTime;
-            if (untilMeshUpdate <= 0f || VisibleDistance <= 0f || HasArrived)
+            if (DistanceTravelled > previousDistance + Epsilon &&
+                (untilMeshUpdate <= 0f || VisibleDistance <= 0f || HasArrived || StoppedByCooling))
             {
                 ApplyDistance(DistanceTravelled);
                 untilMeshUpdate = IsFinite(meshUpdateInterval) ? Mathf.Max(0.02f, meshUpdateInterval) : 0.1f;
             }
+            if (canBeStoppedByWater && VisibleDistance > Epsilon)
+            {
+                BeginResidualCooling(incomingSupply <= Epsilon ? 0f : StoppedByCooling ? CoolingBarrierDistance : float.PositiveInfinity);
+                foreach (CoolingReach reach in coolingReaches)
+                {
+                    reach.progress = Mathf.Min(1f, reach.progress + deltaTime / ResidualCoolingSeconds);
+                    if (reach.progress >= 1f - .00001f) reach.progress = 1f;
+                    if (cooling) cooling.SetDownstreamCooling(reach.from, reach.to, reach.progress);
+                }
+                if (coolingReaches.Count > 0) DownstreamCooling01 = coolingReaches[coolingReaches.Count - 1].progress;
+            }
+        }
+
+        float AdvanceFlowRate(float target, float deltaTime)
+        {
+            if (Mathf.Abs(target - rateTarget) > Epsilon)
+            {
+                // Every new hydraulic target gets the same 0.6-second transition,
+                // including small partial-cooling changes. Retarget from the current
+                // rate so repeated water input never jumps the texture phase.
+                rateStart = FlowRate01;
+                rateTarget = target;
+                rateElapsed = 0f;
+            }
+            float transitionTime = Mathf.Min(deltaTime, Mathf.Max(0f, FlowResponseSeconds - rateElapsed));
+            float initialRate = FlowRate01;
+            rateElapsed = Mathf.Min(FlowResponseSeconds, rateElapsed + deltaTime);
+            FlowRate01 = Mathf.Lerp(rateStart, rateTarget, rateElapsed / FlowResponseSeconds);
+            // Exact integral of the linear ramp plus any constant-rate remainder.
+            // A large simulation step and small substeps therefore share one phase.
+            return (initialRate + FlowRate01) * .5f * transitionTime + rateTarget * (deltaTime - transitionTime);
+        }
+
+        void BeginResidualCooling(float from)
+        {
+            if (from >= residualFrom || from >= VisibleDistance) return;
+            // Each newly isolated reach has its own six-second clock. Building a second,
+            // earlier barrier must neither reheat nor delay an already cooling reach.
+            coolingReaches.Add(new CoolingReach { from = from, to = Mathf.Min(residualFrom, VisibleDistance) });
+            residualFrom = from;
+            DownstreamCooling01 = 0f;
+        }
+
+        float CapacityAt(float distance)
+        {
+            if (!canBeStoppedByWater || prefixCapacity == null || prefixCapacity.Length == 0) return 1f;
+            int index = Mathf.Clamp(Mathf.FloorToInt(distance / CoolingScanSpacing), 0, prefixCapacity.Length - 1);
+            return prefixCapacity[index];
+        }
+
+        /// <summary>Current feed at a connection, distinct from the historical revealed distance.</summary>
+        public float GetSupply01(float progress)
+        {
+            if (!IsInitialized || !isActiveAndEnabled || !IsFinite(progress)) return 0f;
+            float distance = Length * Mathf.Clamp01(progress);
+            if (VisibleDistance <= Epsilon || VisibleDistance + .005f < distance || distance + Epsilon >= CoolingBarrierDistance) return 0f;
+            return incomingSupply * CapacityAt(distance);
+        }
+
+        void InitializeControlledMaterials()
+        {
+            if (!canBeStoppedByWater || !surfaceRenderer) return;
+            Shader shader = Resources.Load<Shader>("LavaCombat/VillageLava");
+            if (!shader) return;
+            originalMaterials = surfaceRenderer.sharedMaterials;
+            controlledMaterials = new Material[originalMaterials.Length];
+            for (int i = 0; i < originalMaterials.Length; i++)
+            {
+                if (!originalMaterials[i]) continue;
+                controlledMaterials[i] = new Material(originalMaterials[i])
+                { shader = shader, name = originalMaterials[i].name + " (controlled village flow)", hideFlags = HideFlags.DontSave };
+            }
+            surfaceRenderer.sharedMaterials = controlledMaterials;
+            flowProperties = new MaterialPropertyBlock();
+            originalProperties = new MaterialPropertyBlock();
+            surfaceRenderer.GetPropertyBlock(originalProperties);
+        }
+
+        void ApplyFlowPhase()
+        {
+            if (flowProperties == null || !surfaceRenderer) return;
+            surfaceRenderer.GetPropertyBlock(flowProperties);
+            flowProperties.SetFloat(FlowPhaseId, FlowPhase);
+            surfaceRenderer.SetPropertyBlock(flowProperties);
         }
 
         private void SetAudioFlowActive(bool active, bool immediate = false)
@@ -300,7 +441,7 @@ namespace GameJam.FireRescue
                 return;
             }
             if (audioPaused) { flowAudioSource.UnPause(); audioPaused = false; }
-            float target = audioFlowActive ? bubblingVolume * Mathf.Clamp01(PlayerPrefs.GetFloat("Ashfall.SfxVolume", 1f)) : 0f;
+            float target = audioFlowActive ? bubblingVolume * FlowRate01 * Mathf.Clamp01(PlayerPrefs.GetFloat("Ashfall.SfxVolume", 1f)) : 0f;
             if (audioFlowActive && !flowAudioSource.isPlaying) flowAudioSource.Play();
             flowAudioSource.volume = Mathf.MoveTowards(flowAudioSource.volume, target, Mathf.Max(.01f, bubblingFadeSpeed) * Time.deltaTime);
             if (!audioFlowActive && flowAudioSource.volume <= .001f && flowAudioSource.isPlaying) flowAudioSource.Stop();
@@ -315,6 +456,7 @@ namespace GameJam.FireRescue
                 return;
             DistanceTravelled = Mathf.Clamp(metres, 0f, Length);
             ApplyDistance(DistanceTravelled);
+            if (canBeStoppedByWater) RefreshCoolingBarrier();
             untilMeshUpdate = IsFinite(meshUpdateInterval) ? Mathf.Max(0.02f, meshUpdateInterval) : 0.1f;
         }
 
@@ -401,6 +543,13 @@ namespace GameJam.FireRescue
 
         private void CacheDistances()
         {
+            FullWorldBounds = new Bounds(source.transform.position, Vector3.zero);
+            if (fullVertices.Length > 0)
+            {
+                Bounds bounds = new Bounds(source.transform.TransformPoint(fullVertices[0]), Vector3.zero);
+                for (int i = 1; i < fullVertices.Length; i++) bounds.Encapsulate(source.transform.TransformPoint(fullVertices[i]));
+                FullWorldBounds = bounds;
+            }
             rowCentres = new Vector3[rowCount];
             rowDistances = new float[rowCount];
             Length = 0f;
@@ -415,6 +564,8 @@ namespace GameJam.FireRescue
                         source.transform.TransformPoint(rowCentres[row]));
                 rowDistances[row] = Length;
             }
+            sectionCapacity = new float[Mathf.CeilToInt(Length / CoolingScanSpacing) + 1];
+            prefixCapacity = new float[sectionCapacity.Length];
         }
 
         private void ApplyDistance(float distance)
@@ -547,6 +698,38 @@ namespace GameJam.FireRescue
             return source.transform.TransformPoint(Vector3.Lerp(rowCentres[row], rowCentres[row + 1], fraction));
         }
 
+        /// <summary>Point on the real bank-to-bank mesh cross-section; 0 and 1 are its edges.</summary>
+        public Vector3 PositionAtDistance(float distance, float cross01)
+        {
+            if (source == null || rowCount < 2 || columnCount < 2) return PositionAtDistance(distance);
+            float arc = capturedReverse ? Length - distance : distance;
+            FindRow(Mathf.Clamp(arc, 0f, Length), out int row, out float fraction);
+            float across = Mathf.Clamp01(cross01) * (columnCount - 1);
+            int column = Mathf.Min(Mathf.FloorToInt(across), columnCount - 2);
+            Vector3 a = Vector3.Lerp(fullVertices[row * columnCount + column], fullVertices[(row + 1) * columnCount + column], fraction);
+            Vector3 b = Vector3.Lerp(fullVertices[row * columnCount + column + 1], fullVertices[(row + 1) * columnCount + column + 1], fraction);
+            return source.transform.TransformPoint(Vector3.Lerp(a, b, across - column));
+        }
+
+        /// <summary>Nearest world-space route arc, measured in the direction of travel.</summary>
+        public float DistanceAtPoint(Vector3 point)
+        {
+            if (!IsInitialized || rowCount < 2 || !source) return 0f;
+            float best = float.PositiveInfinity, arc = 0f;
+            for (int row = 0; row < rowCount - 1; row++)
+            {
+                Vector3 a = source.transform.TransformPoint(rowCentres[row]);
+                Vector3 b = source.transform.TransformPoint(rowCentres[row + 1]);
+                Vector3 segment = b - a;
+                float fraction = segment.sqrMagnitude > Epsilon ? Mathf.Clamp01(Vector3.Dot(point - a, segment) / segment.sqrMagnitude) : 0f;
+                float distance = (point - Vector3.Lerp(a, b, fraction)).sqrMagnitude;
+                if (distance >= best) continue;
+                best = distance;
+                arc = Mathf.Lerp(rowDistances[row], rowDistances[row + 1], fraction);
+            }
+            return capturedReverse ? Length - arc : arc;
+        }
+
         private void OnEnable()
         {
             if (IsInitialized && ignitionSource != null)
@@ -569,7 +752,14 @@ namespace GameJam.FireRescue
                 if (surface != null && (surface.sharedMesh == revealedMesh || surface.sharedMesh == null))
                     surface.sharedMesh = originalSurfaceMesh;
                 if (surfaceRenderer != null)
+                {
                     surfaceRenderer.enabled = originalRendererEnabled;
+                    if (originalMaterials != null)
+                    {
+                        surfaceRenderer.sharedMaterials = originalMaterials;
+                        surfaceRenderer.SetPropertyBlock(originalProperties);
+                    }
+                }
                 if (surfaceCollider != null)
                 {
                     surfaceCollider.sharedMesh = null;
@@ -594,6 +784,8 @@ namespace GameJam.FireRescue
             }
             DestroyOwnedObject(revealedMesh);
             DestroyOwnedObject(referenceMesh);
+            if (controlledMaterials != null)
+                foreach (Material material in controlledMaterials) DestroyOwnedObject(material);
         }
 
         private static void DestroyOwnedObject(UnityEngine.Object owned)

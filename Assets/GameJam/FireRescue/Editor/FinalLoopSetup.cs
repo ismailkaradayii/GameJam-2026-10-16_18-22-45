@@ -66,8 +66,13 @@ public static class FinalLoopSetup
         mission.cinematic.spiritSeconds = 2.6f; mission.cinematic.spiritViewingDistance = 14; mission.spiritRevealDelay = 1;
         mission.cinematic.startOffset = new Vector3(340, 320, -610); mission.cinematic.endOffset = new Vector3(240, 250, -470);
         foreach (var house in houses) { house.startBurning = false; house.secondsToCollapse = 85; Dirty(house); }
-        encounter.waveSizes = new[] { 4, 4, 5 }; encounter.secondsBetweenWaves = 20; encounter.secondsBetweenSpawns = 2.2f; encounter.maximumAlive = 9;
+        encounter.waveSizes = new[] { 10 }; encounter.secondsBetweenWaves = 20; encounter.secondsBetweenSpawns = 2.2f; encounter.maximumAlive = 10;
+        encounter.buildingAttackShare = .5f;
+        mission.gameFlow.defenseFireBuildings = mission.gameFlow.targetBuildings.Where(h => h).Take(3).ToArray();
+        Dirty(mission.gameFlow);
         var approach = sequence.routes.Select(r => r.flow).First(f => f && f.name == "Town Approach");
+        approach.canBeStoppedByWater = true;
+        approach.groundClearance = .24f;
         for (int i = 0; i < encounter.spawns.Length; i++)
         {
             var spawn = encounter.spawns[i]; spawn.feed = approach; spawn.feedProgress = .18f + i * .06f;

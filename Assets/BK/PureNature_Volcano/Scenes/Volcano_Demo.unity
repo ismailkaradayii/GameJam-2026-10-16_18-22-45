@@ -289175,12 +289175,14 @@ MonoBehaviour:
   spiritVoiceClip: {fileID: 8300000, guid: 862b9237cf2b6954fb8ca44f6ea03696, type: 3}
   enableWaves: 1
   enableFinalObjective: 1
-  waveSizes: 040000000400000005000000
+  waveSizes: 0a000000
   secondsBetweenWaves: 20
   secondsBetweenSpawns: 2.2
-  maximumAlive: 9
+  maximumAlive: 10
   disperseIntoVillage: 1
-  buildingAttackShare: 0.6
+  buildingAttackShare: 0.5
+  strandedSpiritSeconds: 6
+  strandedSpiritDistance: 120
 --- !u!4 &1377955235
 Transform:
   m_ObjectHideFlags: 0
@@ -333689,6 +333691,10 @@ MonoBehaviour:
   - {fileID: 1624066693}
   - {fileID: 336818878}
   - {fileID: 1303661296}
+  defenseFireBuildings:
+  - {fileID: 1333194111}
+  - {fileID: 50237103}
+  - {fileID: 1624066693}
   player: {fileID: 95214805}
   victoryCinematic: {fileID: 1642916041}
   mainMenuSceneName: MainMenu
@@ -336473,9 +336479,9 @@ MonoBehaviour:
   speed: 14
   reverse: 0
   conformToTerrain: {fileID: 1270676919}
-  groundClearance: 0.65
+  groundClearance: 0.24
   meshUpdateInterval: 0.1
-  canBeStoppedByWater: 0
+  canBeStoppedByWater: 1
   flowAudioSource: {fileID: 943796178}
   bubblingClip: {fileID: 8300000, guid: df0568c064146624c85801a4777d67cf, type: 3}
   bubblingVolume: 0.5
@@ -440988,6 +440994,9 @@ MonoBehaviour:
   evacuation: {fileID: 2044167754}
   shelterViewpoint: {fileID: 1855298174}
   shelterFocus: {fileID: 244357386}
+  returnStart: {fileID: 0}
+  maximumRouteLength: 100
+  relocationFadeSeconds: 0.45
   walkingSpeed: 2.6
   blendInSeconds: 3
   eyeHeight: 2.15
@@ -441531,8 +441540,12 @@ PrefabInstance:
       value: Lake Shore Fence
       objectReference: {fileID: 0}
     m_RemovedComponents: []
-    m_RemovedGameObjects: []
-    m_AddedGameObjects: []
+    m_RemovedGameObjects:
+    - {fileID: 563336852007519342, guid: 7385c5d73c627f442bb329a5ec0e0556, type: 3}
+    m_AddedGameObjects:
+    - targetCorrespondingSourceObject: {fileID: 2111967913109357735, guid: 7385c5d73c627f442bb329a5ec0e0556, type: 3}
+      insertIndex: 1
+      addedObject: {fileID: 180264492}
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 7385c5d73c627f442bb329a5ec0e0556, type: 3}
 --- !u!1 &57509723
@@ -443311,6 +443324,9 @@ MonoBehaviour:
   - id: depart
     text: Follow me. I'll take you to the shelter.
     villager: 0
+  recruitVoice: {fileID: 0}
+  shelterVoice: {fileID: 0}
+  voiceVolume: 0.9
 --- !u!1 &2061545028
 GameObject:
   m_ObjectHideFlags: 0
@@ -443425,6 +443441,126 @@ MonoBehaviour:
   duckAttackSeconds: 0.08
   duckReleaseSeconds: 1.2
   shotHoldSeconds: 0.45
+--- !u!65 &180264493
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 180264491}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 0
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 2.6393502, y: 1.3998481, z: 0.36}
+  m_Center: {x: 0, y: 0.608221, z: 0}
+--- !u!23 &180264494
+MeshRenderer:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 180264491}
+  m_Enabled: 1
+  m_CastShadows: 1
+  m_ReceiveShadows: 1
+  m_DynamicOccludee: 1
+  m_StaticShadowCaster: 0
+  m_MotionVectors: 1
+  m_LightProbeUsage: 1
+  m_ReflectionProbeUsage: 1
+  m_RayTracingMode: 2
+  m_RayTraceProcedural: 0
+  m_RayTracingAccelStructBuildFlagsOverride: 0
+  m_RayTracingAccelStructBuildFlags: 1
+  m_SmallMeshCulling: 1
+  m_RenderingLayerMask: 1
+  m_RendererPriority: 0
+  m_Materials:
+  - {fileID: 2100000, guid: 987cc0d547f71c44ab296eb83bed778c, type: 2}
+  - {fileID: 2100000, guid: 4caaa453d394e5d44a43ede5d3d3fc3e, type: 2}
+  - {fileID: 2100000, guid: 0dfc5d0995945494a9254913ea60dcc2, type: 2}
+  - {fileID: 2100000, guid: 57c56ec5f4fa7a741b061d2063e1c131, type: 2}
+  - {fileID: 2100000, guid: a74d455851de28848a869f311fb8300d, type: 2}
+  - {fileID: 2100000, guid: c7d4316c1482a634195d381b135a67ee, type: 2}
+  - {fileID: 2100000, guid: d17ebe13995722e4b9ea3d8233e2d7d6, type: 2}
+  - {fileID: 2100000, guid: 95b6d6d4d44ee484896f533be000e7e9, type: 2}
+  m_StaticBatchInfo:
+    firstSubMesh: 0
+    subMeshCount: 0
+  m_StaticBatchRoot: {fileID: 0}
+  m_ProbeAnchor: {fileID: 0}
+  m_LightProbeVolumeOverride: {fileID: 0}
+  m_ScaleInLightmap: 1
+  m_ReceiveGI: 1
+  m_PreserveUVs: 0
+  m_IgnoreNormalsForChartDetection: 0
+  m_ImportantGI: 0
+  m_StitchLightmapSeams: 1
+  m_SelectedEditorRenderState: 3
+  m_MinimumChartSize: 4
+  m_AutoUVMaxDistance: 0.5
+  m_AutoUVMaxAngle: 89
+  m_LightmapParameters: {fileID: 0}
+  m_SortingLayerID: 0
+  m_SortingLayer: 0
+  m_SortingOrder: 0
+  m_AdditionalVertexStreams: {fileID: 0}
+--- !u!1 &180264491
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 180264492}
+  - component: {fileID: 180264495}
+  - component: {fileID: 180264494}
+  - component: {fileID: 180264493}
+  m_Layer: 0
+  m_Name: Shore fence 002 (1)
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 22
+  m_IsActive: 1
+--- !u!33 &180264495
+MeshFilter:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 180264491}
+  m_Mesh: {fileID: 4300000, guid: 008e22d806d0a7a418a1a2a816b79f1a, type: 2}
+--- !u!4 &266210856 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 2111967913109357735, guid: 7385c5d73c627f442bb329a5ec0e0556, type: 3}
+  m_PrefabInstance: {fileID: 64909013}
+  m_PrefabAsset: {fileID: 0}
+--- !u!4 &180264492
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 180264491}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: 0.81986415, z: -0, w: 0.5725581}
+  m_LocalPosition: {x: 52.15, y: 11.053492, z: -4.36}
+  m_LocalScale: {x: 2.026343, y: 4.58, z: 2.5}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 266210856}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0

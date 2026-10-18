@@ -43,15 +43,48 @@ public static class SpiritMobilityChecks
             sequence.enabled = false; sequence.missionDirector = null; sequence.evacuation = null; sequence.cinematic = null;
             sequence.InitializeSequence(); sequence.BeginEruption(true);
             for (int i = 0; i < 500 && sequence.Stage != VolcanoEruptionSequence.EruptionStage.Flowing; i++) sequence.TickSequence(.05f);
-            foreach (var spawn in encounter.spawns)
-                if (spawn != null && spawn.feed) { spawn.feed.Initialize(); spawn.feed.SetDistance(spawn.feed.Length); }
+            foreach (var route in sequence.routes)
+                if (route?.flow) { route.flow.Initialize(); route.flow.SetDistance(route.flow.Length); }
+            sequence.TickSequence(.1f);
             encounter.enabled = false;
             for (int i = 0; i < 100 && encounter.SpawnedCount < 3; i++) encounter.TickEncounter(.1f);
             var living = encounter.LivingCreatures.ToArray();
             Add("Saved encounter releases at least three spirits", living.Length >= 3, "living=" + living.Length);
             var starts = living.Select(a => a.transform.position).ToArray();
+            var waveStarts = new Dictionary<LavaCreatureActor, Vector3>();
+            foreach (var actor in living) waveStarts[actor] = actor.transform.position;
+            encounter.maximumAlive = Mathf.Max(encounter.maximumAlive, encounter.PlannedCount);
+            for (int step = 0; step < 2000 && !encounter.AllWavesReleased; step++)
+            {
+                encounter.TickEncounter(.1f);
+                foreach (var actor in encounter.LivingCreatures)
+                    if (actor && !waveStarts.ContainsKey(actor)) waveStarts.Add(actor, actor.transform.position);
+            }
+            Add("The complete saved wave roster, including the last spirit, is released", encounter.AllWavesReleased && waveStarts.Count == encounter.PlannedCount,
+                "released=" + waveStarts.Count + "/" + encounter.PlannedCount);
+            var village = BurnableBuilding.ActiveBuildings.Where(h => h && h.ignitionBounds && h.gameObject.scene == mission.gameObject.scene).ToArray();
+            foreach (var birth in waveStarts)
+            {
+                var nearestVillageHouse = village.OrderBy(h => Flat(birth.Value, h.ignitionBounds.ClosestPoint(birth.Value))).First();
+                float distance = Flat(birth.Value, nearestVillageHouse.ignitionBounds.ClosestPoint(birth.Value));
+                float elevation = Mathf.Abs(birth.Value.y - nearestVillageHouse.ignitionBounds.bounds.min.y);
+                Add(birth.Key.name + " emerges near the village rather than waiting at the crater", distance <= 100f && elevation <= 15f,
+                    "spawn=" + birth.Value + ", villageDistance=" + distance.ToString("F2") + ", elevation=" + elevation.ToString("F2"));
+            }
             for (int step = 0; step < 120; step++)
-                foreach (var actor in living) if (actor && !actor.IsDefeated) actor.GetComponent<LavaCreatureCombat>().TickCombat(.05f);
+            {
+                foreach (var actor in waveStarts.Keys) if (actor && !actor.IsDefeated) actor.GetComponent<LavaCreatureCombat>().TickCombat(.05f);
+                Physics.SyncTransforms();
+            }
+            foreach (var birth in waveStarts)
+            {
+                var actor = birth.Key; var combat = actor.GetComponent<LavaCreatureCombat>();
+                float travelled = Flat(birth.Value, actor.transform.position);
+                var visible = actor.GetComponent<LavaSpiritVisual>().VisualRoot;
+                Add(actor.name + " leaves its birth point within six seconds", travelled > 6f || actor.IsDefeated,
+                    "travel=" + travelled.ToString("F2") + ", state=" + combat.State + ", hops=" + combat.Leaps + ", pos=" + actor.transform.position +
+                    ", visual=" + visible.position + ", building=" + (combat.BuildingTarget ? combat.BuildingTarget.name : "none"));
+            }
             for (int i = 0; i < living.Length; i++)
             {
                 var actor = living[i]; var combat = actor.GetComponent<LavaCreatureCombat>();
@@ -59,6 +92,7 @@ public static class SpiritMobilityChecks
                 Add("Village spirit " + (i + 1) + " leaves its spawn and advances", travelled > 6 || actor.ReachedBuilding || actor.SelfDetonated,
                     "travel=" + travelled.ToString("F2") + ", leaps=" + combat.Leaps + ", state=" + combat.State);
             }
+            CheckStrandedFinalSpirit(mission, encounter, waveStarts.Keys.ToArray());
             for (int s = 0; s < SceneManager.sceneCount; s++)
                 foreach (var root in SceneManager.GetSceneAt(s).GetRootGameObjects()) root.SetActive(false);
             SceneManager.SetActiveScene(SceneManager.CreateScene("Temporary forward movement checks"));
@@ -106,6 +140,51 @@ public static class SpiritMobilityChecks
         report.status = report.errors.Count == 0 && report.checks.All(c => c.passed) ? "SUCCESS" : "FAILED";
         File.WriteAllText(Folder + "/mobility.json", JsonUtility.ToJson(report, true));
         Application.logMessageReceived -= Log; EditorApplication.ExitPlaymode();
+    }
+    static void CheckStrandedFinalSpirit(VolcanoMissionDirector mission, LavaCreatureEncounter encounter, LavaCreatureActor[] roster)
+    {
+        var survivor = roster.Last(a => a && !a.IsDefeated);
+        foreach (var actor in roster) if (actor && actor != survivor && !actor.IsDefeated) actor.ApplyDamage(actor.Health + 1f);
+        survivor.ApplyDamage(5f);
+        var combat = survivor.GetComponent<LavaCreatureCombat>();
+        // Inject the reported late-game state: the sole remaining spirit is grounded
+        // at the crater, with its existing health and the complete finite roster.
+        survivor.transform.position = mission.story.volcanoLookTarget.position;
+        typeof(LavaCreatureCombat).GetField("initialized", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic).SetValue(combat, false);
+        combat.TickCombat(.01f); encounter.TickEncounter(.01f);
+        float health = survivor.Health;
+        int spawned = encounter.SpawnedCount, planned = encounter.PlannedCount;
+        var village = BurnableBuilding.ActiveBuildings.Where(h => h && h.ignitionBounds && h.gameObject.scene == mission.gameObject.scene).ToArray();
+        bool NearVillage() => village.Any(h => Flat(survivor.transform.position, h.ignitionBounds.ClosestPoint(survivor.transform.position)) < 100f &&
+            Mathf.Abs(survivor.transform.position.y - h.ignitionBounds.bounds.min.y) < 15f);
+        Add("The final-spirit regression starts with one live enemy stranded at the crater", encounter.AllWavesReleased && encounter.AliveCount == 1 && !NearVillage());
+        Vector3 stranded = survivor.transform.position;
+        int recoveries = encounter.StragglerRecoveries;
+        float oldScale = Time.timeScale; Time.timeScale = 0;
+        for (int step = 0; step < 160; step++) encounter.TickEncounter(.05f);
+        Time.timeScale = oldScale;
+        Add("Paused gameplay does not advance straggler recovery", encounter.StragglerRecoveries == recoveries &&
+            Vector3.Distance(survivor.transform.position, stranded) < .01f);
+        Vector3 playerPosition = mission.player.transform.position;
+        float playerYaw = mission.player.transform.eulerAngles.y;
+        mission.player.PlaceOnFoot(stranded + Vector3.right * 24f, 0);
+        for (int step = 0; step < 160; step++) encounter.TickEncounter(.05f);
+        Add("A last spirit already near the player keeps its live fight and is not relocated", encounter.StragglerRecoveries == recoveries &&
+            Vector3.Distance(survivor.transform.position, stranded) < .01f && !survivor.IsDefeated);
+        mission.player.PlaceOnFoot(playerPosition, playerYaw);
+        float waited = 0;
+        for (int step = 0; step < 160 && !NearVillage() && !survivor.IsDefeated; step++)
+        {
+            encounter.TickEncounter(.05f); waited += .05f;
+            if (NearVillage()) break;
+            combat.TickCombat(.05f); Physics.SyncTransforms();
+        }
+        Add("The last crater spirit returns to the playable village within eight seconds", NearVillage() && !survivor.IsDefeated && encounter.StragglerRecoveries == recoveries + 1,
+            "wait=" + waited.ToString("F2") + ", from=" + stranded + ", to=" + survivor.transform.position);
+        Add("Straggler recovery preserves the enemy, its health and the finite wave totals", encounter.AliveCount == 1 && encounter.LivingCreatures[0] == survivor &&
+            Mathf.Approximately(survivor.Health, health) && encounter.SpawnedCount == spawned && encounter.PlannedCount == planned && !encounter.IsCleared);
+        survivor.ApplyDamage(survivor.Health + 1f); encounter.TickEncounter(.1f);
+        Add("The encounter clears only after the recovered last spirit is actually defeated", encounter.IsCleared && encounter.AliveCount == 0);
     }
     static LavaCreatureActor Creature(Vector3 position, CreatureCombatPlayer target)
     {

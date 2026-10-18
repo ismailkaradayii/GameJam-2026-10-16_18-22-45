@@ -48,9 +48,7 @@ namespace GameJam.FireRescue
         public Text progressText { get => questHintText; set => questHintText = value; }
         public Text resultTitle { get => victoryTitleText; set => victoryTitleText = value; }
         public Text resultDetail { get => victoryStatsText; set => victoryStatsText = value; }
-        VolcanoMissionDirector.MissionPhase previousPhase;
-        float objectiveChangedAt;
-        bool objectiveSeen;
+        ObjectiveCardFeedback objectiveFeedback;
 
         [Header("Live HUD")]
         public Text objectiveText, waterText, pumpText, speedText, eruptionText, targetText, promptText, toastText, lowWaterText, healthText;
@@ -250,13 +248,6 @@ namespace GameJam.FireRescue
             int standing = 0, burning = 0;
             foreach (var house in flow.targetBuildings) if (house) { if (!house.IsBurnedOut) standing++; if (house.IsBurning) burning++; }
             if (objectiveText) objectiveText.text = (cleanPresentation ? "Houses   " : "Houses standing   ") + standing + " / " + Mathf.Max(1, flow.TargetCount);
-            if (missionDirector && (!objectiveSeen || previousPhase != missionDirector.Phase))
-            {
-                if (objectiveSeen && !missionDirector.EruptionTriggered && missionDirector.Phase != VolcanoMissionDirector.MissionPhase.Weapon)
-                { if (toastText) toastText.text = "Objective complete"; toastUntil = Time.unscaledTime + 2.2f; }
-                previousPhase = missionDirector.Phase; objectiveSeen = true; objectiveChangedAt = Time.unscaledTime;
-            }
-            if (objectiveGroup) objectiveGroup.alpha = Mathf.Lerp(.3f, 1f, Mathf.Clamp01((Time.unscaledTime - objectiveChangedAt) / .35f));
             bool showWater = playing && (player.IsDriving || hose.IsDeployed);
             if (waterGroup) waterGroup.SetActive(showWater);
             else
@@ -324,6 +315,17 @@ namespace GameJam.FireRescue
                 RefreshCleanLayout();
                 if (cleanSpeed) cleanSpeed.gameObject.SetActive(playing && player.IsDriving);
                 if (objectiveText) objectiveText.transform.parent.gameObject.SetActive(playing && (!missionDirector || !missionDirector.EruptionTriggered));
+            }
+            if (questTitleText)
+            {
+                if (!objectiveFeedback)
+                {
+                    var panel = questTitleText.transform.parent as RectTransform;
+                    objectiveFeedback = panel.gameObject.AddComponent<ObjectiveCardFeedback>();
+                    objectiveFeedback.Configure(panel, objectiveGroup, questTitleText, panel.Find("QuestKicker")?.GetComponent<Text>());
+                }
+                objectiveFeedback.TickFeedback(questTitleText.text,
+                    playing && !VolcanoCinematic.IsPlayingAny && !openingShot && Time.timeScale > 0f, Time.unscaledDeltaTime);
             }
             bool survivalFinished = survivalObjective && survivalObjective.IsFinished;
             bool showOutcome = !flow.IsVictoryCinematic && (flow.HasResult || survivalFinished) && (!flow.HasResult || flow.ResultReady);
@@ -421,11 +423,12 @@ namespace GameJam.FireRescue
         void UpdateOutcome(bool survivalFinished)
         {
             if (flow.State == RescueGameFlow.GameState.Lost &&
-                (flow.DefeatReason == RescueGameFlow.LossReason.AllVillagersLost || flow.DefeatReason == RescueGameFlow.LossReason.VillageBurned))
+                (flow.DefeatReason == RescueGameFlow.LossReason.AllVillagersLost || flow.DefeatReason == RescueGameFlow.LossReason.VillageBurned || flow.DefeatReason == RescueGameFlow.LossReason.RequiredHouseLost))
             {
                 bool villageBurned = flow.DefeatReason == RescueGameFlow.LossReason.VillageBurned;
-                OutcomeTitleGlow.SetResult(victoryTitleText, villageBurned ? "VILLAGE DESTROYED" : "ALL VILLAGERS LOST", false);
-                if (victoryDetailText) victoryDetailText.text = villageBurned ? "All houses burned down. The village was lost." : "All villagers were lost in the fire.";
+                bool houseLost = flow.DefeatReason == RescueGameFlow.LossReason.RequiredHouseLost;
+                OutcomeTitleGlow.SetResult(victoryTitleText, houseLost ? "HOUSE LOST" : villageBurned ? "VILLAGE DESTROYED" : "ALL VILLAGERS LOST", false);
+                if (victoryDetailText) victoryDetailText.text = houseLost ? "One of the three houses collapsed. Extinguish all three fires to save the village." : villageBurned ? "All houses burned down. The village was lost." : "All villagers were lost in the fire.";
                 int standing = 0;
                 foreach (var house in flow.targetBuildings) if (house && !house.IsBurnedOut) standing++;
                 if (victoryStatsText) victoryStatsText.text = "Villagers saved   " + (evacuation ? evacuation.RescuedCount + " / " + evacuation.TotalCount : "0") +
@@ -478,11 +481,11 @@ namespace GameJam.FireRescue
                 questBodyText.text = mission.ObjectiveDetail;
                 if (evacuation && (mission.EruptionTriggered || evacuation.DeadCount > 0))
                     questBodyText.text += "\nSheltered: " + evacuation.RescuedCount + "/" + evacuation.TotalCount + "  ·  Lost: " + evacuation.DeadCount + "  ·  Outside: " + evacuation.RemainingCount;
-                questHintText.text = mission.EruptionTriggered ? "Wave " + Mathf.Max(1, encounter ? encounter.WaveNumber : 0) + "/" + (encounter ? encounter.WaveCount : 0) +
-                    "  |  Spirits remaining: " + (encounter ? encounter.PlannedCount - encounter.SpawnedCount + encounter.AliveCount : 0) :
+                questHintText.text = mission.EruptionTriggered ? "Spirits cleared: " + (encounter ? encounter.SpawnedCount - encounter.AliveCount : 0) + "/" + (encounter ? encounter.PlannedCount : 0) +
+                    "\nFires extinguished: " + flow.RescuedCount + "/" + (flow.HasFixedFireObjective ? flow.RequiredFireCount : flow.TargetCount) :
                     mission.Phase == VolcanoMissionDirector.MissionPhase.Evacuate && evacuation ? evacuation.groupRescue ? evacuation.GroupStatus : "Villagers Evacuated: " + evacuation.RescuedCount + "/" + evacuation.TotalCount + "  |  Called: " + evacuation.CalledCount :
                     mission.Phase == VolcanoMissionDirector.MissionPhase.Refill ? "Water tank: " + Mathf.RoundToInt(hose.Tank01 * 100) + "%" : "";
-                questFill.fillAmount = mission.EruptionTriggered ? encounter && encounter.PlannedCount > 0 ? Mathf.Clamp01((float)(encounter.SpawnedCount - encounter.AliveCount) / encounter.PlannedCount) : 0 :
+                questFill.fillAmount = mission.EruptionTriggered ? encounter && encounter.PlannedCount > 0 ? Mathf.Clamp01((float)(encounter.SpawnedCount - encounter.AliveCount + flow.RescuedCount) / (encounter.PlannedCount + (flow.HasFixedFireObjective ? flow.RequiredFireCount : flow.TargetCount))) : 0 :
                     mission.Phase == VolcanoMissionDirector.MissionPhase.Evacuate && evacuation ? evacuation.groupRescue ? evacuation.GroupProgress : (float)evacuation.RescuedCount / Mathf.Max(1, evacuation.TotalCount) :
                     mission.Phase == VolcanoMissionDirector.MissionPhase.Refill ? hose.Tank01 : mission.PreparationComplete ? 1f : 0f;
                 return;

@@ -37,11 +37,15 @@ public static class VolcanoHazardChecks
             var contact = player.GetComponent<LavaPlayerContact>(); contact.RefreshCollisionPassThrough();
             var health = player.GetComponent<CreatureCombatPlayer>(); float before = health.Health;
             contact.TickContact(1);
+            check("extinguished_foundation_protects_player",!contact.InHotLava&&health.Health==before&&!source.IsHotAt(origin),"Standing on the house's water-cooled foundation causes no contact damage.");
+            Vector3 hotPoint = origin + Vector3.right * 10;
+            player.playerBody.enabled = false; player.transform.position = hotPoint - Vector3.up * .65f; player.playerBody.enabled = true; Physics.SyncTransforms();
+            before = health.Health; contact.TickContact(1);
             check("molten_lava_damages_player",contact.InHotLava&&Mathf.Abs(health.Health-(before-18))<.02f,"One second of immersion removes 18 health.");
-            check("lava_is_passable_but_still_raycastable",Physics.GetIgnoreCollision(player.playerBody,collider)&&collider.Raycast(new Ray(origin+Vector3.up*10,Vector3.down),out _,20),"Character passes through; water still hits the same visible surface.");
+            check("lava_is_passable_but_still_raycastable",Physics.GetIgnoreCollision(player.playerBody,collider)&&collider.Raycast(new Ray(hotPoint+Vector3.up*10,Vector3.down),out _,20),"Character passes through; water still hits the same visible surface.");
 
-            var rig = new GameObject("Actual water cannon fixture"); rig.transform.SetParent(root.transform); rig.transform.position = origin + new Vector3(0,12,-10);
-            rig.transform.rotation = Quaternion.LookRotation(origin-rig.transform.position);
+            var rig = new GameObject("Actual water cannon fixture"); rig.transform.SetParent(root.transform); rig.transform.position = hotPoint + new Vector3(0,12,-10);
+            rig.transform.rotation = Quaternion.LookRotation(hotPoint-rig.transform.position);
             var tank = rig.AddComponent<FireHoseSystem>(); tank.enabled = false; tank.SetTankLitres(1000);
             var cannon = rig.AddComponent<FireTruckWaterCannon>(); cannon.enabled = false; cannon.tank = tank; cannon.muzzle = rig.transform; cannon.ignoredCollisionRoot = rig.transform;
             // The player's collision test is finished; keep its body out of this water-only fixture.
@@ -52,11 +56,11 @@ public static class VolcanoHazardChecks
             cannon.SetSpraying(false);
             for (int i=0;i<100;i++) { cannon.TickSpray(.02f); hitCooling |= cannon.HitLava==cooling; }
             player.playerBody.enabled = bodyEnabled; Physics.SyncTransforms();
-            check("water_cannon_cools_lava_and_consumes_tank",hitCooling&&!cooling.IsHotAt(origin)&&Mathf.Abs(tank.TankLitres-860)<.02f,"Four seconds emit 140 litres; physical water finishes travelling after release.");
-            check("cooling_is_local",cooling.IsHotAt(origin+Vector3.right*20)&&!cooling.IsHotAt(origin),"Distant molten lava remains hot.");
+            check("water_cannon_cools_lava_and_consumes_tank",hitCooling&&!cooling.IsHotAt(hotPoint)&&Mathf.Abs(tank.TankLitres-860)<.02f,"Four seconds emit 140 litres; physical water finishes travelling after release.");
+            check("cooling_is_local",cooling.IsHotAt(origin-Vector3.right*20)&&!cooling.IsHotAt(hotPoint),"Distant molten lava on the same mesh remains hot.");
             before=health.Health; contact.TickContact(1);
             check("cooled_lava_stops_contact_damage",!contact.InHotLava&&health.Health==before,"Cooled patch no longer burns the player.");
-            source.ScanNow(); check("cooled_lava_stops_house_ignition",!house.IsBurning,"Dry house cannot reignite from the cooled contact patch.");
+            source.ScanNow(); check("cooled_lava_stops_house_ignition",!house.IsBurning&&cooling.CoolingAt(origin)>=1&&!source.IsHotAt(origin),"The rescued house keeps its cold foundation after the nearby cannon test.");
             var doomedObject = new GameObject("Unrescued house collapse fixture"); doomedObject.transform.SetParent(root.transform);
             var doomed = doomedObject.AddComponent<BurnableBuilding>(); doomed.secondsToCollapse = 90;
             doomed.Ignite(); doomed.TickFire(100);
