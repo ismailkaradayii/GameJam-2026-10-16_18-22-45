@@ -99,7 +99,7 @@ public static class TruckGroundFeelChecks
             player.SetCinematicLocked(false); player.SetDriving(true); player.enabled = false;
             effects = drive.GetComponents<Component>().FirstOrDefault(c => c && c.GetType().Name == "FireTruckGroundEffects");
             Check("Authored truck creates its wheel-ground effects", effects, "scaled production truck, no replacement wheel rig");
-            Check("Progressive driving is authored", drive.progressiveHandling && drive.smoothPedals, "progressiveHandling=" + drive.progressiveHandling);
+            Check("Original responsive driving is authored", !drive.progressiveHandling && drive.smoothPedals, "progressiveHandling=" + drive.progressiveHandling);
             BuildTerrain();
             Place(Origin);
             report.Add("Actual scene truck, WheelColliders and Rigidbody on temporary Unity Terrain using the scene's terrain layers. Inputs use SetInput; no velocity or rotation writes while measuring driving. Only fixture placement/reset and the airborne initial condition write a body pose/velocity. No saved scene or source terrain is changed.");
@@ -131,8 +131,8 @@ public static class TruckGroundFeelChecks
         drive.SetInput(1, 1, false);
         yield return new WaitForFixedUpdate();
         sampleMotion();
-        Check("Digital throttle ramps before reaching full power", drive.AppliedThrottle > 0 && drive.AppliedThrottle < .8f, "applied=" + drive.AppliedThrottle);
-        Check("First steering step is progressive", drive.AppliedSteering > 0 && drive.AppliedSteering < .7f, "applied=" + drive.AppliedSteering);
+        Check(drive.progressiveHandling ? "Digital throttle ramps before reaching full power" : "Original throttle responds promptly", drive.AppliedThrottle > 0 && drive.AppliedThrottle < .8f, "applied=" + drive.AppliedThrottle);
+        Check(drive.progressiveHandling ? "First steering step is progressive" : "Original steering responds promptly", drive.AppliedSteering > 0 && drive.AppliedSteering < .7f, "applied=" + drive.AppliedSteering);
         drive.SetInput(1, 0, false);
         Vector3 start = drive.body.position;
         int peakDust = 0, peakEmitters = 0;
@@ -154,27 +154,28 @@ public static class TruckGroundFeelChecks
         yield return new WaitForEndOfFrame(); Capture("02-rear-contact-patches", false);
         yield return new WaitForFixedUpdate();
         yield return new WaitForEndOfFrame(); Capture("03-low-rear-dust", false, true);
-        if (captureOnly) yield break;
+        if (captureOnly)
+        {
+            if (!drive.progressiveHandling) { sampleMotion(); CheckAcceleration(timeTo50, peakAcceleration); CheckSteeringRate(); }
+            yield break;
+        }
         Check("Track geometry sits on the ground", MaximumTrackHeightError() < .25f, "max distance above terrain=" + MaximumTrackHeightError().ToString("F3"));
 
         Stage("loaded truck acceleration to 50");
-        while (timeTo50 < 0 && Time.fixedTime - pedalAt < 8)
+        while (timeTo50 < 0 && Time.fixedTime - pedalAt < (drive.progressiveHandling ? 8 : 3))
         {
             sampleMotion();
             yield return new WaitForFixedUpdate();
         }
         sampleMotion();
-        Check("Loaded truck accelerates progressively to road speed", timeTo50 >= 1.2f && timeTo50 <= 8.2f,
-            "0-50km/h=" + timeTo50.ToString("F2") + "s peak acceleration=" + peakAcceleration.ToString("F2") + "m/s² final=" + drive.SpeedKph.ToString("F1") + "km/h");
-        Check("Acceleration remains within a controlled physical range", peakAcceleration > 1 && peakAcceleration < 20,
-            "measured fixed-step peak=" + peakAcceleration.ToString("F2") + "m/s²");
+        CheckAcceleration(timeTo50, peakAcceleration);
 
         Stage("braking"); float brakeAt = Time.fixedTime, brakeStartSpeed = drive.SpeedKph, brakeDistance = 0;
         Vector3 previousBrakePosition = drive.body.position;
         drive.SetInput(0, 0, true);
         yield return new WaitForFixedUpdate();
         brakeDistance += Vector3.Distance(previousBrakePosition, drive.body.position); previousBrakePosition = drive.body.position;
-        Check("Service brakes build pressure progressively", drive.AppliedBrake > 0 && drive.AppliedBrake < 1, "applied=" + drive.AppliedBrake);
+        Check(drive.progressiveHandling ? "Service brakes build pressure progressively" : "Original brakes respond promptly", drive.AppliedBrake > 0 && drive.AppliedBrake < 1, "applied=" + drive.AppliedBrake);
         began = Time.time;
         while (drive.SpeedKph > .6f && Time.time - began < 4)
         {
@@ -197,30 +198,33 @@ public static class TruckGroundFeelChecks
         Check("Pause freezes marks and existing dust", Total() == pausedMarks && Particles() == pausedParticles, Counts());
         Time.timeScale = 1;
 
-        Stage("reversing from a blocked forward pedal");
-        Place(Origin + Vector3.left * 100, true); drive.SetDriven(true);
-        yield return new WaitForSeconds(1.5f);
-        Bounds bumper = drive.GetComponent<BoxCollider>().bounds;
-        var wall = GameObject.CreatePrimitive(PrimitiveType.Cube); wall.name = "Temporary blocked-pedal wall"; wall.transform.SetParent(fixtures.transform);
-        wall.transform.localScale = new Vector3(bumper.size.x + 8, bumper.size.y + 10, 1.5f);
-        wall.transform.position = new Vector3(bumper.center.x, bumper.center.y, bumper.max.z + .85f);
-        Physics.SyncTransforms();
-        drive.SetInput(1, 0, false); yield return new WaitForSeconds(1);
-        Check("Wall holds the real truck while the forward pedal remains pressed", drive.AppliedThrottle > .9f && Mathf.Abs(Vector3.Dot(drive.body.linearVelocity, drive.transform.forward)) < .8f,
-            "pedal=" + drive.AppliedThrottle.ToString("F3") + " signedSpeed=" + Vector3.Dot(drive.body.linearVelocity, drive.transform.forward).ToString("F3") + "m/s");
-        drive.SetInput(-1, 0, false); yield return new WaitForFixedUpdate();
-        Check("Reverse request never powers the old forward pedal", drive.wheels.All(w => w.motorTorque <= .01f),
-            "old pedal=" + drive.AppliedThrottle.ToString("F3") + " torques=" + string.Join(",", drive.wheels.Select(w => w.motorTorque.ToString("F1"))));
-        bool forwardKick = false; float reversalAt = Time.time;
-        while (Time.time - reversalAt < 1.5f)
+        if (drive.progressiveHandling)
         {
-            if (drive.AppliedThrottle > .001f) forwardKick |= drive.wheels.Any(w => w.motorTorque > .01f);
-            yield return new WaitForFixedUpdate();
+            Stage("reversing from a blocked forward pedal");
+            Place(Origin + Vector3.left * 100, true); drive.SetDriven(true);
+            yield return new WaitForSeconds(1.5f);
+            Bounds bumper = drive.GetComponent<BoxCollider>().bounds;
+            var wall = GameObject.CreatePrimitive(PrimitiveType.Cube); wall.name = "Temporary blocked-pedal wall"; wall.transform.SetParent(fixtures.transform);
+            wall.transform.localScale = new Vector3(bumper.size.x + 8, bumper.size.y + 10, 1.5f);
+            wall.transform.position = new Vector3(bumper.center.x, bumper.center.y, bumper.max.z + .85f);
+            Physics.SyncTransforms();
+            drive.SetInput(1, 0, false); yield return new WaitForSeconds(1);
+            Check("Wall holds the real truck while the forward pedal remains pressed", drive.AppliedThrottle > .9f && Mathf.Abs(Vector3.Dot(drive.body.linearVelocity, drive.transform.forward)) < .8f,
+                "pedal=" + drive.AppliedThrottle.ToString("F3") + " signedSpeed=" + Vector3.Dot(drive.body.linearVelocity, drive.transform.forward).ToString("F3") + "m/s");
+            drive.SetInput(-1, 0, false); yield return new WaitForFixedUpdate();
+            Check("Reverse request never powers the old forward pedal", drive.wheels.All(w => w.motorTorque <= .01f),
+                "old pedal=" + drive.AppliedThrottle.ToString("F3") + " torques=" + string.Join(",", drive.wheels.Select(w => w.motorTorque.ToString("F1"))));
+            bool forwardKick = false; float reversalAt = Time.time;
+            while (Time.time - reversalAt < 1.5f)
+            {
+                if (drive.AppliedThrottle > .001f) forwardKick |= drive.wheels.Any(w => w.motorTorque > .01f);
+                yield return new WaitForFixedUpdate();
+            }
+            Check("Reverse drive begins after the old pedal releases", !forwardKick && drive.AppliedThrottle < -.1f && Vector3.Dot(drive.body.linearVelocity, drive.transform.forward) < -.5f,
+                "pedal=" + drive.AppliedThrottle.ToString("F3") + " signedSpeed=" + Vector3.Dot(drive.body.linearVelocity, drive.transform.forward).ToString("F3") + "m/s");
+            Object.DestroyImmediate(wall); drive.SetDriven(false); drive.SetDriven(true); Place(Origin, true);
+            yield return new WaitForSeconds(1.5f);
         }
-        Check("Reverse drive begins after the old pedal releases", !forwardKick && drive.AppliedThrottle < -.1f && Vector3.Dot(drive.body.linearVelocity, drive.transform.forward) < -.5f,
-            "pedal=" + drive.AppliedThrottle.ToString("F3") + " signedSpeed=" + Vector3.Dot(drive.body.linearVelocity, drive.transform.forward).ToString("F3") + "m/s");
-        Object.DestroyImmediate(wall); drive.SetDriven(false); drive.SetDriven(true); Place(Origin, true);
-        yield return new WaitForSeconds(1.5f);
 
         Stage("reverse"); start = drive.body.position; long reverseStart = Total();
         drive.SetInput(-1, 0, false); yield return new WaitForSeconds(2.5f);
@@ -239,8 +243,8 @@ public static class TruckGroundFeelChecks
             turned += Mathf.Abs(Mathf.DeltaAngle(yaw, next)); yaw = next;
             peakTilt = Mathf.Max(peakTilt, Vector3.Angle(drive.transform.up, Vector3.up));
         }
-        Check("Progressive steering turns the real truck without tipping", turned > 15 && peakTilt < 35, "turn=" + turned.ToString("F1") + " maximum tilt=" + peakTilt.ToString("F1"));
-        Check("Fast steering respects lateral acceleration", drive.FullSteeringYawRate(60) < drive.FullSteeringYawRate(30), "30km/h=" + drive.FullSteeringYawRate(30).ToString("F1") + "deg/s 60km/h=" + drive.FullSteeringYawRate(60).ToString("F1"));
+        Check(drive.progressiveHandling ? "Progressive steering turns the real truck without tipping" : "Original steering turns the real truck without tipping", turned > 15 && peakTilt < 35, "turn=" + turned.ToString("F1") + " maximum tilt=" + peakTilt.ToString("F1"));
+        CheckSteeringRate();
 
         Stage("teleport continuity"); Place(Origin + Vector3.right * 110, true);
         yield return new WaitForSeconds(1.5f);
@@ -291,6 +295,22 @@ public static class TruckGroundFeelChecks
         yield return new WaitForSeconds(2);
         Check("Old tracks fade out and release the visible slots", Active() == 0, Counts());
         Check("Original wheels and body collision remain enabled", drive.body.detectCollisions && drive.GetComponent<BoxCollider>().enabled && drive.wheels.All(w => w.enabled), "no collider bypass");
+    }
+
+    static void CheckAcceleration(float timeTo50, float peakAcceleration)
+    {
+        bool progressive = drive.progressiveHandling;
+        Check(progressive ? "Loaded truck accelerates progressively to road speed" : "Original fast acceleration reaches road speed", timeTo50 >= (progressive ? 1.2f : .35f) && timeTo50 <= (progressive ? 8.2f : 3f),
+            "0-50km/h=" + timeTo50.ToString("F2") + "s peak acceleration=" + peakAcceleration.ToString("F2") + "m/s² final=" + drive.SpeedKph.ToString("F1") + "km/h");
+        Check(progressive ? "Acceleration remains within a controlled physical range" : "Original acceleration remains within its responsive range", peakAcceleration > 1 && peakAcceleration < (progressive ? 20 : 65),
+            "measured fixed-step peak=" + peakAcceleration.ToString("F2") + "m/s²");
+    }
+
+    static void CheckSteeringRate()
+    {
+        float slow = drive.FullSteeringYawRate(30), fast = drive.FullSteeringYawRate(60);
+        Check(drive.progressiveHandling ? "Fast steering respects lateral acceleration" : "Original responsive steering rate is retained", drive.progressiveHandling ? fast < slow : fast >= slow,
+            "30km/h=" + slow.ToString("F1") + "deg/s 60km/h=" + fast.ToString("F1"));
     }
 
     static void BuildTerrain()

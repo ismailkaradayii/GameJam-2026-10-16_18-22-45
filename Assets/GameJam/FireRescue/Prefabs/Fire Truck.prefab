@@ -5543,20 +5543,20 @@ MonoBehaviour:
   - {x: 0, y: 0, z: 0}
   - {x: 0, y: 0, z: 0}
   wheelSpinFromTravel: 1
-  motorTorque: 6000
-  maxForwardSpeedKph: 104
-  maxReverseSpeedKph: 26
-  brakeTorque: 16000
+  motorTorque: 20800
+  maxForwardSpeedKph: 156
+  maxReverseSpeedKph: 58.5
+  brakeTorque: 46800
   parkingBrakeTorque: 40000
   coastBrakeTorque: 140
   allWheelDrive: 1
-  lowSpeedTorqueMultiplier: 1.5
+  lowSpeedTorqueMultiplier: 2
   torqueBoostFadeSpeedKph: 45.5
   smoothPedals: 1
-  throttleResponsePerSecond: 2.5
-  throttleReleasePerSecond: 5
+  throttleResponsePerSecond: 18
+  throttleReleasePerSecond: 20
   hillHoldAssist: 1
-  groundAccelerationAssist: 2
+  groundAccelerationAssist: 18.2
   accelerationAssistFadeSpeedKph: 104
   maxSteerAngle: 46
   highSpeedSteerAngle: 22
@@ -5573,13 +5573,13 @@ MonoBehaviour:
   arcadeLowSpeedYawRate: 143
   arcadeHighSpeedYawRate: 71.5
   arcadeSteeringResponse: 12
-  arcadeLateralGrip: 10
-  arcadeBrakeAcceleration: 4
-  arcadeCornerSpeedKph: 42
+  arcadeLateralGrip: 13
+  arcadeBrakeAcceleration: 31.2
+  arcadeCornerSpeedKph: 54.6
   arcadeUprightStrength: 45
   obstacleStepHeight: 2.4
   obstacleLiftAcceleration: 65
-  progressiveHandling: 1
+  progressiveHandling: 0
   steeringInputResponse: 2.8
   steeringReturnResponse: 4.5
   highSpeedSteeringResponse: 0.55

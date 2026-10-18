@@ -11,7 +11,7 @@ using UnityEngine;
 using UnityEngine.SceneManagement;
 using Object = UnityEngine.Object;
 
-/// <summary>Authors only truck handling and wheel-ground presentation, preserving other unsaved scene edits.</summary>
+/// <summary>Retains the approved quick driving and authors wheel-ground presentation, preserving other unsaved scene edits.</summary>
 public static class TruckGroundFeelSetup
 {
     const string PrefabPath = "Assets/GameJam/FireRescue/Prefabs/Fire Truck.prefab";
@@ -19,14 +19,12 @@ public static class TruckGroundFeelSetup
     const string Folder = "Library/TruckGroundFeelReview";
     static readonly Dictionary<string, float> Tune = new Dictionary<string, float>
     {
-        { "motorTorque", 6000 }, { "maxForwardSpeedKph", 104 }, { "maxReverseSpeedKph", 26 },
-        { "brakeTorque", 16000 }, { "lowSpeedTorqueMultiplier", 1.5f },
-        { "throttleResponsePerSecond", 2.5f }, { "throttleReleasePerSecond", 5 },
-        { "groundAccelerationAssist", 2 }, { "arcadeLateralGrip", 10 },
-        { "arcadeBrakeAcceleration", 4 }, { "arcadeCornerSpeedKph", 42 },
-        { "steeringInputResponse", 2.8f }, { "steeringReturnResponse", 4.5f },
-        { "highSpeedSteeringResponse", .55f }, { "maxLateralAcceleration", 8 },
-        { "yawAccelerationDegrees", 150 }, { "serviceBrakeResponse", 4 }
+        // Original approved values from before the tire/dust presentation update.
+        { "motorTorque", 20800 }, { "maxForwardSpeedKph", 156 }, { "maxReverseSpeedKph", 58.5f },
+        { "brakeTorque", 46800 }, { "lowSpeedTorqueMultiplier", 2 },
+        { "throttleResponsePerSecond", 18 }, { "throttleReleasePerSecond", 20 },
+        { "groundAccelerationAssist", 18.2f }, { "arcadeLateralGrip", 13 },
+        { "arcadeBrakeAcceleration", 31.2f }, { "arcadeCornerSpeedKph", 54.6f }
     };
     static readonly string[] Switches = { "progressiveHandling", "smoothPedals" };
 
@@ -90,7 +88,7 @@ public static class TruckGroundFeelSetup
         finally { PrefabUtility.UnloadPrefabContents(prefab); }
 
         var live = Object.FindFirstObjectByType<FireRescuePlayer>().drive;
-        Undo.RecordObject(live, "Progressive truck driving");
+        Undo.RecordObject(live, "Restore approved quick truck driving");
         // Revert only our tuning overrides so this scene inherits future tuning from the prefab.
         var serialized = new SerializedObject(live);
         foreach (string property in Tune.Keys.Concat(Switches))
@@ -102,14 +100,15 @@ public static class TruckGroundFeelSetup
         EditorSceneManager.MarkSceneDirty(scene);
         PersistOnlyTuneOverrides(scene.path);
         Survey();
-        File.WriteAllText("Logs/TruckGroundFeel/authoring.txt", $"COMPLETED {DateTime.UtcNow:O}\nProgressive handling, four contact traces and soil dust authored on the existing truck prefab.\nLoose terrain layers: {string.Join(", ", layers.Select(l => l.name))}\nOnly selected drive overrides removed from saved scene; other saved and unsaved edits preserved. Backups in {Folder}.\n");
+        File.WriteAllText("Logs/TruckGroundFeel/authoring.txt", $"COMPLETED {DateTime.UtcNow:O}\nOriginal quick handling restored. Four contact traces and soil dust retained on the existing truck prefab.\nLoose terrain layers: {string.Join(", ", layers.Select(l => l.name))}\nOnly selected drive overrides removed from saved scene; other saved and unsaved edits preserved. Backups in {Folder}.\n");
     }
 
     static void ApplyTune(FireTruckDrive drive)
     {
         var serialized = new SerializedObject(drive);
         foreach (var pair in Tune) serialized.FindProperty(pair.Key).floatValue = pair.Value;
-        foreach (string property in Switches) serialized.FindProperty(property).boolValue = true;
+        serialized.FindProperty("smoothPedals").boolValue = true;
+        serialized.FindProperty("progressiveHandling").boolValue = false;
         serialized.ApplyModifiedPropertiesWithoutUndo();
     }
 
