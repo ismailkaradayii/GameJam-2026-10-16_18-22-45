@@ -461,6 +461,9 @@ namespace GameJam.FireRescue
         public bool Interact()
         {
             if (GameplaySuspended || InteractionBusy || IsDriving || waitForMouseRelease) return false;
+            // Inside the assembly area, E hands off the escorted group without requiring
+            // the player to aim past the villagers at a particular point on the ground.
+            if (mission && mission.evacuation && mission.evacuation.TryAssemblyInteraction()) return true;
             if (contextualInteractions && contextualInteractions.isActiveAndEnabled)
             {
                 if (!contextualInteractions.TryGetPrimaryTarget(out var target)) return false;

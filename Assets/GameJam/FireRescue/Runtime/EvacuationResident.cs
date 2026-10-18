@@ -129,9 +129,13 @@ namespace GameJam.FireRescue
         {
             if (!called || IsDead || IsSafe || IsBurning || !slot) return;
             assemblySlot = slot;
+            // Residents still indoors finish their doorway route before heading to their place.
+            if (State == ResidentState.Panicking || State == ResidentState.LeavingHouse) return;
             State = ResidentState.MovingToAssembly;
             repathAt = 0; stuckFor = 0; hasPanicGoal = false;
             if (animator) animator.SetBool(Panic, false);
+            if (Agent && Agent.enabled && Agent.isOnNavMesh)
+                GoTo(assemblySlot.position, AssemblyApproachSpeed(), .35f);
         }
         public void ResumeFollowing()
         {
@@ -190,7 +194,7 @@ namespace GameJam.FireRescue
             {
                 GoTo(houseExit.position, runningSpeed, .3f);
                 if (Arrived(houseExit.position, .8f))
-                { State = IsCalled ? ResidentState.Following : ResidentState.Scattering; repathAt = 0; hasPanicGoal = false; }
+                { State = IsCalled ? (assemblySlot ? ResidentState.MovingToAssembly : ResidentState.Following) : ResidentState.Scattering; repathAt = 0; hasPanicGoal = false; }
             }
             else if (State == ResidentState.Scattering) ScatterOutside();
             else if (State == ResidentState.Following)
@@ -225,7 +229,7 @@ namespace GameJam.FireRescue
             }
             else if (State == ResidentState.MovingToAssembly && assemblySlot)
             {
-                GoTo(assemblySlot.position, walkingSpeed, .35f);
+                GoTo(assemblySlot.position, AssemblyApproachSpeed(), .35f);
                 if (Arrived(assemblySlot.position, 1.15f))
                 {
                     State = ResidentState.WaitingAtAssembly;
@@ -392,6 +396,7 @@ namespace GameJam.FireRescue
         {
             if (Agent.isOnNavMesh) Agent.isStopped = true;
         }
+        float AssemblyApproachSpeed() => assemblySlot && FlatDistance(transform.position, assemblySlot.position) > 5f ? runningSpeed : walkingSpeed;
         void GoTo(Vector3 point, float speed, float stoppingDistance)
         {
             if (!Agent.isOnNavMesh) { HasNavigationProblem = true; return; }

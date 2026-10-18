@@ -243,10 +243,12 @@ namespace GameJam.FireRescue
                     if (evacuation.groupRescue)
                     {
                         var r = target.resident;
-                        if (r.IsAtAssembly || r.IsMovingToAssembly)
+                        if (r.IsMovingToAssembly)
+                        { offer.title = "Heading to the assembly point"; offer.detail = evacuation.GroupStatus; return true; }
+                        if (r.IsAtAssembly)
                         { offer.title = "Waiting at the assembly point"; offer.detail = evacuation.GroupStatus; return true; }
                         if (r.IsCalled)
-                        { offer.title = "Following you"; offer.detail = evacuation.EscortStarted ? "Follow the green marker" : "Bring the group to the yellow ring"; return true; }
+                        { offer.title = "Following you"; offer.detail = evacuation.EscortStarted ? "Follow the green marker" : "Come within 3 m of the yellow boundary, then press " + evacuation.InteractLabel; return true; }
                         if (!evacuation.CanRecruitGroup(r)) return false;
                         offer.title = "Recruit the group";
                         offer.detail = "Lead this group to the assembly point";
@@ -277,7 +279,7 @@ namespace GameJam.FireRescue
                     offer.detail = shelterDetail; return true;
                 case ContextualInteractionKind.AssemblyPoint:
                     if (player.IsDriving || !evacuation || !evacuation.groupRescue || !evacuation.IsActive || evacuation.EscortStarted) return false;
-                    // The authored yellow world marker already carries this copy.
+                    // The freestanding assembly sign and objective hint carry this copy.
                     // Keep the E offer for the existing interaction coordinator.
                     if (evacuation.ActiveGroup < 0 && !evacuation.AllAtAssembly) return false;
                     if (evacuation.ActiveGroup >= 0 || evacuation.AllAtAssembly)

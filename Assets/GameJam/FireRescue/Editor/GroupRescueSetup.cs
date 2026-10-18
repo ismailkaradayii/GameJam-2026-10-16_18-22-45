@@ -161,36 +161,7 @@ public static class GroupRescueSetup
     }
 
     static void BuildGroupMarker(EvacuationMission mission, Transform parent)
-    {
-        var root = parent.Find("Next rescue group marker");
-        if (!root) { root = new GameObject("Next rescue group marker").transform; root.SetParent(parent, false); Undo.RegisterCreatedObjectUndo(root.gameObject, "Next rescue group marker"); }
-        var marker = root.GetComponent<RescueGroupMarker>();
-        if (!marker) marker = Undo.AddComponent<RescueGroupMarker>(root.gameObject);
-        marker.mission = mission;
-        root.position = mission.residents[0].panicGroupAnchor.position + Vector3.up * marker.height;
-        var symbol = root.GetComponentInChildren<TextMesh>(true);
-        if (!symbol) { var go = new GameObject("Exclamation"); go.transform.SetParent(root, false); symbol = go.AddComponent<TextMesh>(); }
-        symbol.transform.localPosition = Vector3.zero; symbol.transform.localRotation = Quaternion.identity;
-        symbol.text = "!"; symbol.anchor = TextAnchor.MiddleCenter; symbol.alignment = TextAlignment.Center;
-        symbol.fontSize = 64; symbol.characterSize = .32f; symbol.color = new Color(1f, .8f, .12f);
-        symbol.font = Ashfall.UI.AshfallTypography.Semibold;
-        symbol.GetComponent<MeshRenderer>().sharedMaterial = symbol.font.material;
-        marker.symbol = symbol;
-        string path = AssetsFolder + "/Group marker dark.mat";
-        var material = AssetDatabase.LoadAssetAtPath<Material>(path);
-        if (!material) { material = new Material(Shader.Find("Universal Render Pipeline/Unlit")); material.color = new Color(.025f, .035f, .04f); AssetDatabase.CreateAsset(material, path); }
-        var plate = root.Find("Marker background");
-        if (!plate)
-        {
-            var go = GameObject.CreatePrimitive(PrimitiveType.Quad); go.name = "Marker background"; go.transform.SetParent(root, false);
-            Object.DestroyImmediate(go.GetComponent<Collider>()); plate = go.transform;
-        }
-        plate.localPosition = new Vector3(0, 0, .05f); plate.localRotation = Quaternion.identity; plate.localScale = new Vector3(1.35f, 2.1f, 1);
-        marker.backdrop = plate.GetComponent<Renderer>(); marker.backdrop.sharedMaterial = material;
-        marker.backdrop.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-        symbol.gameObject.SetActive(false); marker.backdrop.enabled = false;
-        Dirty(marker); Dirty(symbol); Dirty(marker.backdrop);
-    }
+        => AssemblyPresentationSetup.BuildGroup(mission, parent);
 
     static void UpdateMenuHelp()
     {
@@ -220,53 +191,7 @@ public static class GroupRescueSetup
     }
 
     static void BuildAssemblyMarker(EvacuationMission mission, Transform parent)
-    {
-        if (!AssetDatabase.IsValidFolder(AssetsFolder)) AssetDatabase.CreateFolder("Assets/GameJam/FireRescue", "GroupRescue");
-        string path = AssetsFolder + "/Assembly amber.mat";
-        var mat = AssetDatabase.LoadAssetAtPath<Material>(path);
-        if (!mat) { mat = new Material(Shader.Find("Universal Render Pipeline/Unlit")); mat.name = "Assembly amber"; mat.color = new Color(1, .66f, .12f); AssetDatabase.CreateAsset(mat, path); }
-        var markerRoot = parent.Find("Assembly area visual");
-        if (!markerRoot) { markerRoot = new GameObject("Assembly area visual").transform; markerRoot.SetParent(parent, false); Undo.RegisterCreatedObjectUndo(markerRoot.gameObject, "Assembly area marker"); }
-        var marker = markerRoot.GetComponent<AssemblyPointMarker>();
-        if (!marker) marker = Undo.AddComponent<AssemblyPointMarker>(markerRoot.gameObject);
-        marker.mission = mission;
-        var line = markerRoot.GetComponent<LineRenderer>();
-        if (!line) line = Undo.AddComponent<LineRenderer>(markerRoot.gameObject);
-        line.useWorldSpace = true; line.loop = true; line.widthMultiplier = .2f; line.sharedMaterial = mat;
-        line.positionCount = 96; line.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-        for (int i = 0; i < 96; i++)
-        {
-            float a = i * Mathf.PI * 2f / 96;
-            Vector3 p = mission.assemblyPoint.position + new Vector3(Mathf.Cos(a), 0, Mathf.Sin(a)) * 8.4f;
-            p.y = Ground(p) + .2f; line.SetPosition(i, p);
-        }
-        marker.boundary = line;
-        var label = markerRoot.GetComponentInChildren<TextMesh>();
-        if (!label)
-        { var go = new GameObject("Assembly point sign"); go.transform.SetParent(markerRoot, false); label = go.AddComponent<TextMesh>(); }
-        label.transform.position = mission.assemblyPoint.position + Vector3.up * 8f;
-        label.anchor = TextAnchor.MiddleCenter; label.alignment = TextAlignment.Center;
-        label.fontSize = 64; label.characterSize = .3f;
-        label.font = Ashfall.UI.AshfallTypography.Semibold;
-        label.GetComponent<MeshRenderer>().sharedMaterial = label.font.material;
-        label.text = "TOPLANMA ALANI\n0 / 7"; label.color = new Color(1, .75f, .22f); marker.label = label;
-        marker.slotMarkers = new Renderer[mission.assemblySlots.Length];
-        for (int i = 0; i < marker.slotMarkers.Length; i++)
-        {
-            var t = markerRoot.Find("Waiting place marker " + i);
-            if (!t)
-            {
-                var go = GameObject.CreatePrimitive(PrimitiveType.Cylinder); go.name = "Waiting place marker " + i;
-                go.transform.SetParent(markerRoot, false); Object.DestroyImmediate(go.GetComponent<Collider>()); t = go.transform;
-            }
-            t.position = mission.assemblySlots[i].position + Vector3.up * .07f;
-            t.localScale = new Vector3(1.2f, .025f, 1.2f);
-            var renderer = t.GetComponent<Renderer>(); renderer.sharedMaterial = mat;
-            renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-            marker.slotMarkers[i] = renderer;
-        }
-        Dirty(marker); Dirty(line); Dirty(label);
-    }
+        => AssemblyPresentationSetup.BuildAssembly(mission, parent);
 
     [MenuItem("GameJam/Final Loop/Audit small group rescue")]
     public static void Audit()

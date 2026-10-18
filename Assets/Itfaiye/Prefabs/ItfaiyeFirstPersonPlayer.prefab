@@ -18078,13 +18078,13 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   view: {fileID: 8657545601854715811}
   presentationWeight: 1
-  leftRestPosition: {x: -0.28, y: -0.26, z: 0.43}
-  rightRestPosition: {x: 0.28, y: -0.26, z: 0.43}
+  leftRestPosition: {x: -0.28, y: -0.49, z: 0.41}
+  rightRestPosition: {x: 0.28, y: -0.49, z: 0.41}
   pistol: {fileID: 715022985661234336}
   buttonLeanInViewMetres: 0.4
-  unarmedWalkSwing: {x: 0.012, y: 0.025, z: 0.045}
-  unarmedMovementLowering: 0.035
-  unarmedSprintSwing: {x: 0.025, y: 0.06, z: 0.11}
+  unarmedWalkSwingDegrees: 16
+  unarmedMovementLowering: 0.01
+  unarmedSprintSwingDegrees: 26
   unarmedSprintBlendSeconds: 0.18
   pistolHipPosition: {x: 0.055, y: -0.155, z: 0.38}
   pistolHipEuler: {x: 0, y: 0, z: -2}

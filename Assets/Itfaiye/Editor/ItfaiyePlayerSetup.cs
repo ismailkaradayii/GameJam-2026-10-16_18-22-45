@@ -163,8 +163,8 @@ namespace Itfaiye.Editor
             hands.transform.localPosition = new Vector3(0f, -1.60f, -.10f);
             var pose = hands.GetComponent<ItfaiyeFirstPersonHands>();
             pose.presentationWeight = 1f;
-            pose.leftRestPosition = new Vector3(-.28f, -.26f, .43f);
-            pose.rightRestPosition = new Vector3(.28f, -.26f, .43f);
+            pose.leftRestPosition = new Vector3(-.28f, -.49f, .41f);
+            pose.rightRestPosition = new Vector3(.28f, -.49f, .41f);
             EditorUtility.SetDirty(hands.transform);
             EditorUtility.SetDirty(pose);
             EditorUtility.SetDirty(player);
