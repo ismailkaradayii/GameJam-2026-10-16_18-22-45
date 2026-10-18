@@ -1,0 +1,38 @@
+Lake shoreline fence and intake opening - 18 October 2026
+
+The visible lake is surrounded by 38 sections using the existing fence-v1 picket mesh,
+weathered timber/endgrain materials and the height of the supplied sample fence.
+Sections follow the dry bank; continuous solid boxes overlap at their joints and extend
+below the terrain. The barrier is higher than the truck's original obstacle-step assist.
+
+The east-bank filling point has a real opening, approximately 1.3m wide after collision
+overlap. No invisible collider or rail crosses it. Existing parking and submerged intake
+markers remain at their original positions. LakeHosePassage supplies two hose guides
+through this opening. FireHoseSystem retains its existing pump, tank, ground support,
+pickup/drop, cancel and retract logic; guided hose length now includes the routed path.
+Other water sources and ordinary uncarried/carried hose paths keep their existing behavior.
+
+The lake's previously adjusted visible plane is retained. Its intake volume now matches
+the actual plane's position, rotation, scale and surface height; its original bottom is
+preserved. Only the lake/fence/parking heightmap rectangle was combined with the original
+committed TerrainData (1574 changed height samples). The full working terrain and unrelated
+unsaved scene edits were preserved. The saved scene changes contain only the lake records
+and new fence prefab instance. Backups: Library/LakeFenceReview/.
+
+Verification uses the actual truck, colliders and pump in Play Mode. The final full run
+uses the exact prepared terrain that is staged, preserving unrelated local terrain work.
+- Independent 720-ray shore coverage: 717 blocked rays and 3 rays through the narrow opening.
+- Three parking orientations: zero hose/fence intersections, at least 60mm hose skin clearance
+  above bank/lakebed, actual water gain, full 2000L tank, automatic pump stop and retraction.
+- Five powered collision approaches to the gap and adjacent solid panels: actual fence
+  contact at 56.8-75.7km/h, no lake crossing or climb over the fence.
+- All 39 existing FireCombatChecks pass.
+Reports and images: Logs/LakeFence/, Logs/FireCombatChecks.json.
+
+Editor menus under GameJam > Final Loop:
+- Check lake fence: complete physical coverage, filling, collision and regression checks.
+- Check lake intake: focused deployed-hose check and close intake-opening image.
+- Capture lake fence: overview and opening images without gameplay changes.
+- Survey lake fence: read-only contour inspection using the visible water mesh and terrain.
+- Build lake shore fence: explicit authoring/rebuild with scene-copy preservation. Saves the
+  generated prefab and only the relevant lake records in Volcano_Demo.

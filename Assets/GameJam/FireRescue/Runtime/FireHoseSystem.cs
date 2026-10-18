@@ -45,6 +45,7 @@ namespace GameJam.FireRescue
         readonly Vector3[] intakeGroundOffsets = new Vector3[9];
         Vector3 lastDrawStart, lastDrawEnd, lastDrawForward;
         float lastDrawAt = -1;
+        LakeHosePassage lastDrawPassage;
 
         public bool IsCarried { get; private set; }
         public bool IsDeployed { get; private set; }
@@ -88,8 +89,13 @@ namespace GameJam.FireRescue
                 hoseLine.enabled = false;
         }
 
-        public bool CanReach(Vector3 point) => hoseSocket != null &&
-            (point - hoseSocket.position).sqrMagnitude <= maxHoseLength * maxHoseLength + 0.01f;
+        public bool CanReach(Vector3 point)
+        {
+            if(!hoseSocket)return false;
+            var passage=LakeHosePassage.Find(point);
+            return passage ? passage.Length(hoseSocket.position,point)<=maxHoseLength+.001f :
+                (point-hoseSocket.position).sqrMagnitude<=maxHoseLength*maxHoseLength+.01f;
+        }
 
         public bool TryPickup(Transform hand)
         {
@@ -300,16 +306,17 @@ namespace GameJam.FireRescue
 
             Vector3 start = hoseSocket.position;
             Vector3 end = nozzle.position;
+            var passage = !IsCarried ? LakeHosePassage.Find(end) : null;
+            float distance = passage ? passage.Length(start,end) : Vector3.Distance(start,end);
             // Long segments bridge through the steep bank even when their endpoints clear the terrain.
-            int count = Mathf.Clamp(Mathf.Max(hoseSegments, Mathf.CeilToInt(Vector3.Distance(start, end) / .25f)), 12, 256) + 1;
+            int count = Mathf.Clamp(Mathf.Max(hoseSegments, Mathf.CeilToInt(distance / .25f)), 12, 256) + 1;
             if (hosePoints != null && hosePoints.Length == count && Time.time - lastDrawAt < .2f &&
                 (start - lastDrawStart).sqrMagnitude < .000001f && (end - lastDrawEnd).sqrMagnitude < .000001f &&
-                (hoseSocket.forward - lastDrawForward).sqrMagnitude < .000001f) return;
+                (hoseSocket.forward - lastDrawForward).sqrMagnitude < .000001f && passage==lastDrawPassage) return;
             if (hosePoints == null || hosePoints.Length != count)
                 hosePoints = new Vector3[count];
             Vector3 delta = end - start;
-            float distance = delta.magnitude;
-            Vector3 direction = distance > 0.001f ? delta / distance : hoseSocket.forward;
+            Vector3 direction = delta.sqrMagnitude > .000001f ? delta.normalized : hoseSocket.forward;
             float slack = Mathf.Max(0f, maxHoseLength - distance);
             float lead = Mathf.Min(0.8f, Mathf.Min(distance * 0.2f, slack * 0.25f));
             Vector3 controlA = start + hoseSocket.forward * lead;
@@ -322,6 +329,7 @@ namespace GameJam.FireRescue
                 float u = 1f - t;
                 Vector3 point = u * u * u * start + 3f * u * u * t * controlA +
                     3f * u * t * t * controlB + t * t * t * end;
+                if(passage)point=SamplePassage(start,end,passage,t,distance,lead);
                 point.y -= Mathf.Sin(t * Mathf.PI) * sag;
                 if (i > 0 && i < count - 1)
                     point.y = Mathf.Max(point.y, HoseSupportHeight(point, direction));
@@ -346,7 +354,23 @@ namespace GameJam.FireRescue
             hoseLine.useWorldSpace = true;
             hoseLine.positionCount = count;
             hoseLine.SetPositions(hosePoints);
-            lastDrawStart = start; lastDrawEnd = end; lastDrawForward = hoseSocket.forward; lastDrawAt = Time.time;
+            lastDrawStart = start; lastDrawEnd = end; lastDrawForward = hoseSocket.forward; lastDrawAt = Time.time;lastDrawPassage=passage;
+        }
+
+        Vector3 SamplePassage(Vector3 start,Vector3 end,LakeHosePassage passage,float t,float length,float lead)
+        {
+            Vector3 near=passage.dryGuide.position,far=passage.wetGuide.position;
+            float first=Vector3.Distance(start,near),middle=Vector3.Distance(near,far),along=t*length;
+            Vector3 through=(far-near).normalized;
+            if(along<=first)
+                return HoseCurve(start,start+hoseSocket.forward*lead,near-through*Mathf.Min(.8f,first*.2f),near,first>.001f?along/first:1);
+            if(along<=first+middle)return Vector3.Lerp(near,far,(along-first)/Mathf.Max(.001f,middle));
+            float last=Vector3.Distance(far,end),fraction=(along-first-middle)/Mathf.Max(.001f,last);
+            return HoseCurve(far,far+through*Mathf.Min(.8f,last*.2f),end-(end-far).normalized*lead,end,fraction);
+        }
+        static Vector3 HoseCurve(Vector3 a,Vector3 b,Vector3 c,Vector3 d,float t)
+        {
+            float u=1-t;return u*u*u*a+3*u*u*t*b+3*u*t*t*c+t*t*t*d;
         }
 
         float HoseSupportHeight(Vector3 point, Vector3 direction)
